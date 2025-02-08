@@ -1,0 +1,50 @@
+
+  .feed {
+    flex: 1;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .feed-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    transition: box-shadow 0.2s;
+  }
+  
+  .feed-item:hover {
+    box-shadow: 0 0 5px rgba(0,0,0,0.15);
+  }
+  
+  .feed-item__header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  
+  .feed-item__author {
+    font-weight: 600;
+  }
+  
+  .feed-item__timestamp {
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .feed-item__content {
+    font-size: 1rem;
+    color: #333;
+  }
+  .feed-page {
+    display: flex;
+    flex-direction: column; /* Header at the top, main content below */
+    height: 100vh;
+  }
+  
+  .feed-layout {
+    display: flex;
+    flex: 1; /* Grow to fill remaining space after Header */
+    overflow: hidden; /* Prevent extra scrollbars */
+  }
+  

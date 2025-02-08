@@ -47,7 +47,7 @@ function Homepage() {
         <h3>Following: 0</h3>
          </section>
          <section>
-          <img id='pp' src="dpp.jpg" alt="" />
+          <a href="/profile"><img id='pp' src="dpp.jpg" alt="" />  </a>
           </section>
           {progCheck && 
           <section id='progress'>

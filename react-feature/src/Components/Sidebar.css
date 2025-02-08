@@ -1,0 +1,27 @@
+.sidebar {
+    flex: 0 0 250px;
+    border-left: 1px solid #ccc;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  
+  .sidebar__title {
+    margin-top: 0;
+  }
+  
+  .sidebar__list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .sidebar__list li {
+    margin: 0.5rem 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  
+  .sidebar__list li:hover {
+    color: #3f51b5;
+  }
+  
