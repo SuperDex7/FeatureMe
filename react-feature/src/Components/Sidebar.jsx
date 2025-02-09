@@ -4,7 +4,7 @@ import "./Sidebar.css";
 function Sidebar() {
   return (
     <aside className="sidebar">
-      <h2 className="sidebar__title">Sidebar</h2>
+      <h2 className="sidebar__title">SuperDex</h2>
       <ul className="sidebar__list">
         <li><a href="/">Home</a></li>
         <li><a href="/profile">Profile</a></li>

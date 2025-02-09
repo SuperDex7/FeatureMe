@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ProgressBar from '../HomepageF/ProgressBar';
+import Header from '../Components/Header';
 function Homepage() {
   
     const [loggedIn, setLoggedIn] = useState(false);
@@ -29,16 +30,7 @@ function Homepage() {
     }
     return (
     <div>
-      <nav id="nav" >
-        <ul id="head">
-            <h1 id="title">FeatureMe</h1>
-            <li className="click"><a href="/feed">Feed</a></li>
-          {loggedIn ?  "": <li onClick={login}><a onClick={preventD} href="/login">Login</a></li>}
-          { loggedIn ? <li><a href="/profile">Profile</a></li> : <li><a href="/signup">Signup</a></li>}
-          
-          <li></li>
-        </ul>
-      </nav>
+        <Header />
 
        <div id='profileS'>
         <section id='profileSi'>

@@ -1,26 +1,25 @@
 import React, { useState } from "react";
 
 
-function ProfileTabs() {
-  const [activeTab, setActiveTab] = useState("posts");
+function ProfileTabs({ activeTab, onTabChange }) {
 
   return (
     <div className="profile-tabs">
       <button
-        className={activeTab === "posts" ? "tab tab-active" : "tab"}
-        onClick={() => setActiveTab("posts")}
+        className={`tab ${activeTab === "posts" ? "tab-active" : ""}`}
+        onClick={() => onTabChange("posts")}
       >
         Posts
       </button>
       <button
-        className={activeTab === "about" ? "tab tab-active" : "tab"}
-        onClick={() => setActiveTab("about")}
+        className={`tab ${activeTab === "about" ? "tab-active" : ""}`}
+        onClick={() => onTabChange("about")}
       >
         About
       </button>
       <button
-        className={activeTab === "friends" ? "tab tab-active" : "tab"}
-        onClick={() => setActiveTab("friends")}
+        className={`tab ${activeTab === "friends" ? "tab-active" : ""}`}
+        onClick={() => onTabChange("friends")}
       >
         Friends
       </button>

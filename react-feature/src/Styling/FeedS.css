@@ -1,26 +1,31 @@
 
   .feed {
+    margin-top: 60px;
     flex: 1;
     padding: 1rem;
     box-sizing: border-box;
   }
   .feed-item {
-    background-color: #fff;
+    background-color: #fcfcfc;
     border: 1px solid #ddd;
     border-radius: 5px;
     margin-bottom: 1rem;
     padding: 1rem;
     transition: box-shadow 0.2s;
+    transition: background-color 0.2s;
   }
   
   .feed-item:hover {
     box-shadow: 0 0 5px rgba(0,0,0,0.15);
+    background-color: #888787;
+    
   }
   
   .feed-item__header {
     display: flex;
     justify-content: space-between;
     margin-bottom: 0.5rem;
+    color: black;
   }
   
   .feed-item__author {
@@ -29,7 +34,7 @@
   
   .feed-item__timestamp {
     font-size: 0.9rem;
-    color: #666;
+    color: #353535;
   }
   
   .feed-item__content {

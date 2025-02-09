@@ -7,20 +7,20 @@ function Feedf() {
   const feedData = [
     {
       id: 1,
-      author: "John Doe",
-      content: "Just tried out this new feed layout. Loving it!",
+      author: "Juice WRLD",
+      content: "This song was for my dead dog,",
       timestamp: "2 hours ago",
     },
     {
       id: 2,
-      author: "Jane Smith",
-      content: "React makes building UIs so simple.",
+      author: "XXXTentacion",
+      content: "100$ to hop on this.",
       timestamp: "3 hours ago",
     },
     {
       id: 3,
-      author: "Alice Johnson",
-      content: "CSS styling is fun but can get tricky sometimes.",
+      author: "oksurf",
+      content: "This my song hmu for feats",
       timestamp: "4 hours ago",
     },
   ];

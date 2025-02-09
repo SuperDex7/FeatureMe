@@ -1,8 +1,9 @@
 .sidebar {
     flex: 0 0 250px;
-    border-left: 1px solid #ccc;
-    padding: 1rem;
+    border-left: 5px solid #ccc;
+    padding: 69px 1rem;
     box-sizing: border-box;
+    background-color: rgba(0, 0, 0, 0.37);
   }
   
   .sidebar__title {
@@ -24,4 +25,6 @@
   .sidebar__list li:hover {
     color: #3f51b5;
   }
+  
+  
   
