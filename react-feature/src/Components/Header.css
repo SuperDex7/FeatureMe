@@ -25,6 +25,33 @@
   .click{
     flex-grow: 3;
   }
+  #noti{
+    background-color:rgba(0, 0, 0, 0);
+    border-color: rgba(240, 248, 255, 0);
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    font-weight: 450;
+    cursor: pointer;
+    font-size: 15px;
+
+  }
+  #notiTab{
+
+    background-color: rgba(27, 27, 27, 0.935);
+    position:relative;
+    width: 18.3%;
+    left: 81.2%;
+    top: -10px;
+    height: 300px;
+  }
+  #notiTitle{
+    padding-left: 10px;
+  }
+  #notifications{
+display: flex;
+flex-direction: column;
+gap: 7px;
+list-style:disc;
+  }
   
   
   

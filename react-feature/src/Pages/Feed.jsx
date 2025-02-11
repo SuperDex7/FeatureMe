@@ -8,16 +8,11 @@ import "../Styling/FeedS.css";
 function Feed() {
   return (
     <div className="feed-page">
-      {/* Header */}
       <Header />
-      
-      {/* Main Content */}
       <div className="feed-layout">
-        {/* Feed Container */}
+        <Sidebar />
         <Feedf />
         
-        {/* Sidebar (Optional) */}
-        <Sidebar />
       </div>
     </div>
   );
