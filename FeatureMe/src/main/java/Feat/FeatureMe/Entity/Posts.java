@@ -11,7 +11,10 @@ public record Posts(
     String music,
     String features,
     String genre,
-    LocalDate time
+    String comments,
+    LocalDate time,
+    int likes
+
 ) {
 
 }

@@ -7,11 +7,15 @@ public record User(
     @Id String id,
     String userName,
     String password,
-    String friends,
     String email,
-    String description,
+    String bio,
     String profilePic,
     String banner,
-    String demo
+    String demo,
+    String friends,
+    int followers,
+    int posts,
+    int following
+
 ) {
 }
