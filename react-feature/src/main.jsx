@@ -4,11 +4,13 @@ import './index.css'
 import App from './App.jsx'
 import Feed from './Pages/Feed.jsx'
 import Profile from './Pages/Profile.jsx'
+import Homepage from './Pages/Homepage.jsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {createBrowserRouter, RouterProvider} from 'react-router-dom'
 
 const router = createBrowserRouter([
   {path: '/', element: <App />},
+  {path: 'home', element: <Homepage />},
   {path: 'feed', element: <Feed />},
   {path: 'profile', element: <Profile />},
   {path: 'signup', element: <h1>Signup</h1>},

@@ -3,7 +3,7 @@ import ProgressBar from '../HomepageF/ProgressBar';
 import Header from '../Components/Header';
 function Homepage() {
   
-    const [loggedIn, setLoggedIn] = useState(false);
+    const [loggedIn, setLoggedIn] = useState(true);
     const [progress, setProgress] = useState(0);
     const [progCheck, setProgCheck] = useState(true);
 
@@ -32,7 +32,7 @@ function Homepage() {
     <div>
         <Header />
 
-       <div id='profileS'>
+      {loggedIn && <div id='profileS' >
         <section id='profileSi'>
         <h2>SuperDex</h2>
         <h3>Followers: 0</h3>
@@ -54,6 +54,9 @@ function Homepage() {
             <h3><a href="/upload"></a>Upload a song/beat</h3>
           </section>
          
+        </div>}
+        <div>
+
         </div>
     </div>
   );

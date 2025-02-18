@@ -1,0 +1,16 @@
+#firstsection{
+    padding-top: 30px;
+    color: white;
+    font-weight: bold;
+    font-size: 125%;
+    width: 50%;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif ;
+}
+#bi{
+    margin-top: -140px;
+    width: 100%;
+   opacity: 0.3;
+}
+#maintitle{
+    padding-left: 20%;
+}
