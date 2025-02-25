@@ -1,6 +1,6 @@
 import './App.css'
 
-import Header from './Components/Header'
+import Header2 from './Components/Header2'
 import './Styling/Main.css'
 import Que from './que'
 function App() {
@@ -8,7 +8,7 @@ function App() {
 
   return (
     <>
-   <Header />
+   <Header2 />
    <div id='firstsection'>
     <h1 id='maintitle'>FeatureMe</h1>
     <p id='under'>Hub for musicians of all flavors.</p>

@@ -35,7 +35,7 @@
 
   }
   #notiTab{
-
+    overflow:auto;
     background-color: rgba(27, 27, 27, 0.935);
     position:relative;
     width: 18.3%;
@@ -52,6 +52,17 @@ flex-direction: column;
 gap: 7px;
 list-style:disc;
   }
-  
+  #seeAll{
+    padding-left: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 90%;
+
+  }
+  #seeAll:hover{
+    color: #fff25d;
+    
+  }
   
   

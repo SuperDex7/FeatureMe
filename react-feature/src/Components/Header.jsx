@@ -11,7 +11,7 @@ const [displayNoti, setDisplayNoti] = useState(false);
   return (
     <nav id="nav" >
         <ul id="head">
-          <h1 id="title"><a href="/">FeatureMe</a></h1>
+          <h1 id="title"><a href="/home">FeatureMe</a></h1>
             <li className="click"><a href="/feed">Feed</a></li>
             
             <li><button id="noti" onClick={showNoti}>Notifications</button></li> 
@@ -29,6 +29,8 @@ const [displayNoti, setDisplayNoti] = useState(false);
                 <li><strong>AK2003</strong> liked your post</li>
                 <li><strong>Over9000</strong> Commented on your post</li>
               </ul>
+              
+              <button id="seeAll">See All</button>
             </div>
           
           }

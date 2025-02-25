@@ -1,5 +1,5 @@
 #firstsection{
-    padding-top: 30px;
+    padding-top: 100px;
     color: white;
     font-weight: bold;
     font-size: 125%;
@@ -10,7 +10,29 @@
     margin-top: -140px;
     width: 100%;
    opacity: 0.3;
+   animation: slide-in 1.3s;
 }
 #maintitle{
     padding-left: 20%;
+    animation: fadein 3s;
 }
+#under{
+    animation: fadein 3.5s ease-in-out;
+}
+@keyframes fadein {
+    
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    
+}
+@keyframes slide-in {
+    from {
+      translate: 150vw 0;
+      scale: 200% 1;
+    }
+  
+    to {
+      translate: 0 0;
+      scale: 100% 1;
+    }
+  }
