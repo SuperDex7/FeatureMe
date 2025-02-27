@@ -1,5 +1,6 @@
 import React from "react";
 import { useState } from "react";
+import Notifications from "./Notifications";
 import "./Header.css";
 
 
@@ -25,11 +26,7 @@ const [displayNoti, setDisplayNoti] = useState(false);
         {displayNoti && 
             <div id="notiTab">
               <h2 id="notiTitle">Notifications</h2>
-              <ul id="notifications">
-                <li><strong>StrongBoy123</strong> followed you</li>
-                <li><strong>AK2003</strong> liked your post</li>
-                <li><strong>Over9000</strong> Commented on your post</li>
-              </ul>
+              <Notifications />
               
               <button id="seeAll">See All</button>
             </div>

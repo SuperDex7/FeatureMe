@@ -11,6 +11,7 @@ function ProfileDetails() {
           alt="User Avatar"
         />
       </div>
+      <button id="edit-button">Edit Profile</button>
       <div className="profile-details__info">
         <h2 className="profile-details__name">SuperDex</h2>
         <p className="profile-details__bio">

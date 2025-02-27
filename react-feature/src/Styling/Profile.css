@@ -66,10 +66,10 @@
     padding: 1rem;
     box-sizing: border-box;
     min-height: 200px;
+    margin-bottom: 100px;
   }
   #edit-button{
-    position: fixed;
-    left: 93%;
+
     background-color:rgb(102, 102, 102);
     width: 100px;
     height: 35px;
@@ -78,3 +78,4 @@
     border-color:rgb(47, 27, 121);
     
   }
+  

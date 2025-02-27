@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import ProgressBar from '../HomepageF/ProgressBar';
 import Header from '../Components/Header';
+import Notifications from '../Components/Notifications';
+import Footer from '../Components/Footer';
 import "../App.css"
 function Homepage() {
   
@@ -38,6 +40,7 @@ function Homepage() {
         <h2>SuperDex</h2>
         <h3>Followers: 0</h3>
         <h3>Following: 0</h3>
+        <button id='ppEdit'>Edit Profile Page</button>
          </section>
          <section>
           <a href="/profile"><img id='pp' src="dpp.jpg" alt="" />  </a>
@@ -50,15 +53,29 @@ function Homepage() {
           </section>
           
           }
-          
-          <section className='upload'>
-            <h3><a href="/upload"></a>Upload a song/beat</h3>
-          </section>
+      
          
         </div>}
-        <div>
-<p>hi</p>
+        <div id='homeWidgets'>
+          <div className='homeSection' id='recent-activity'>
+            <h3 className='sectionTitle' id='recentTitle'>Recent Activity</h3>
+            <Notifications />
+          </div>
+          <div className='homeSection' id='uploadTab'>
+            <h3 className='sectionTitle' id='uploadTitle'>Upload</h3>
+            <div id='uploadButtons'> 
+              <button className='uploadButton'>Song</button>
+            <button className='uploadButton'>Beat</button>
+            <button className='uploadButton'>Loop</button>
+            <button className='uploadButton'>Instrument</button>
+            </div>
+            
+          </div>
+          <div className='homeSection' id='latestPost'>
+            <h3 className='sectionTitle' id='latestTitle'>Latest Post</h3>
+          </div>
         </div>
+        <Footer />
     </div>
   );
 }
