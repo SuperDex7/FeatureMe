@@ -1,5 +1,5 @@
 #nav{
-    background-color: rgb(0, 0, 0);
+    background: rgb(0,0,0);
     position: absolute;
     top: 0;
     left: 0;
@@ -62,7 +62,6 @@ list-style:disc;
   }
   #seeAll:hover{
     color: #fff25d;
-    
   }
   
   

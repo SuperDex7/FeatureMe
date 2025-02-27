@@ -14,6 +14,7 @@ function Profile() {
       <Header />
       <ProfileBanner />
       <div className="profile-main">
+        <button id="edit-button">Edit Profile</button>
         <ProfileDetails />
         <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <ProfileContent activeTab={activeTab} />

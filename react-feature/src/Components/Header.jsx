@@ -20,6 +20,7 @@ const [displayNoti, setDisplayNoti] = useState(false);
        
           
           <li></li>
+          
         </ul>
         {displayNoti && 
             <div id="notiTab">
@@ -34,7 +35,9 @@ const [displayNoti, setDisplayNoti] = useState(false);
             </div>
           
           }
+          
       </nav>
+    
   );
 }
 

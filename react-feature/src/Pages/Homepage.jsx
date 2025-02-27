@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ProgressBar from '../HomepageF/ProgressBar';
 import Header from '../Components/Header';
+import "../App.css"
 function Homepage() {
   
     const [loggedIn, setLoggedIn] = useState(true);
@@ -29,7 +30,7 @@ function Homepage() {
         e.preventDefault();
     }
     return (
-    <div>
+    <div id='home-body'>
         <Header />
 
       {loggedIn && <div id='profileS' >
@@ -56,7 +57,7 @@ function Homepage() {
          
         </div>}
         <div>
-
+<p>hi</p>
         </div>
     </div>
   );

@@ -1,13 +1,20 @@
+  .feed-page{
+    
+    background: rgb(238,174,202);
+background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 100%);
+  }
   .feed {
+    overflow: auto;
     margin-top: 60px;
     flex: 1;
     padding: 1rem;
     box-sizing: border-box;
+    
   }
   .feed-item {
     background-color: #fcfcfc;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 2px solid #161816;
+    border-radius: 10px;
     margin-bottom: 1rem;
     padding: 1rem;
     transition: box-shadow 0.2s;
@@ -66,4 +73,26 @@
     border-radius: 50%;
     margin-top: 10px;
     margin-left: -4px;
+  }
+  .feat{
+    font-size: 10x;
+  }
+  #features-section{
+    color: black;
+    display: flex;
+    align-items: center;
+    margin-top: -30px;
+    padding-left: 1px;
+  }
+  #features-list{
+    display: flex;
+    gap: 4px;
+    list-style: none;
+    margin-left: -30px;
+  }
+  #stats{
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    color: black;
   }

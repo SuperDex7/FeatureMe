@@ -1,5 +1,8 @@
 
-
+#home-body{
+  
+min-height: 100vh;
+}
 #profileS{
   background-color: rgba(8, 8, 8, 0.541);
   margin-top: 80px;
