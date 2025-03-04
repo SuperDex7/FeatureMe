@@ -1,5 +1,6 @@
 import React from "react";
 import FeedItem from "./FeedItem";
+import Spotlight from "./Spotlight";
 
 
 function Feedf() {
@@ -53,6 +54,7 @@ function Feedf() {
 
   return (
     <main className="feed">
+      <Spotlight />
       {feedData.map((item) => (
         <FeedItem key={item.id} {...item} />
       ))}

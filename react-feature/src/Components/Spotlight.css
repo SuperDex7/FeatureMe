@@ -1,0 +1,10 @@
+#spotlight{
+    
+    background-color: black;
+}
+#spotlight-list{
+    display: flex;
+    gap: 20px;
+    list-style: none;
+    background-color: antiquewhite;
+}
