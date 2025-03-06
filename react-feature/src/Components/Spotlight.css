@@ -1,10 +1,52 @@
 #spotlight{
-    
-    background-color: black;
-}
-#spotlight-list{
     display: flex;
     gap: 20px;
-    list-style: none;
-    background-color: antiquewhite;
+    margin-bottom: 20px;
+}
+
+.spotlight-item{
+    background-color: black;
+    width: 280px;
+    min-width: 280px;
+    height: 250px;
+    border-radius: 50px;
+    
+}
+.feed-spotlight__author{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: bold;
+}
+.feed-spotlight__timestamp{
+    display: flex;
+    justify-content: center;
+    font-size: 13px;
+}
+#spotlight-features{
+    display: flex;
+    align-items: center;
+    margin-top: -30px;
+    padding-left: 1px;
+
+}
+#spotlight-stats{
+    display: flex;
+    gap: 40px;
+    align-items: center;
+}
+.spotlight-playsection{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#spotlight-playbutton{
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    margin-top: 10px;
+    margin-left: -4px;
+    background-color: white;
 }
