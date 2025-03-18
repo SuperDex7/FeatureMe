@@ -1,21 +1,24 @@
 package Feat.FeatureMe.Entity;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "user")
 public record User(
     @Id String id,
-    String userName,
+    
+    @Indexed(unique = true) String userName,
     String password,
-    String email,
+    @Indexed(unique = true) String email,
     String bio,
+    String about,
     String profilePic,
     String banner,
     String demo,
     String friends,
-    int followers,
+    String followers,
     int posts,
-    int following
+    String following
 
 ) {
 }

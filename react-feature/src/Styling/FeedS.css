@@ -71,7 +71,6 @@ background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    margin-top: 10px;
     margin-left: -4px;
   }
   .feat{
@@ -96,3 +95,10 @@ background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 
     align-items: center;
     color: black;
   }
+  #spotName,
+  #feedName{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  

@@ -13,7 +13,7 @@ public record Posts(
     String genre,
     String comments,
     LocalDate time,
-    int likes
+    String likes
 
 ) {
 

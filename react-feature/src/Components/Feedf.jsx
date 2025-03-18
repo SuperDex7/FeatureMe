@@ -54,7 +54,9 @@ function Feedf() {
 
   return (
     <main className="feed">
+      <h2 id="spotName">Spotlight</h2>
       <Spotlight />
+      <h2 id="feedName">Feed</h2>
       {feedData.map((item) => (
         <FeedItem key={item.id} {...item} />
       ))}

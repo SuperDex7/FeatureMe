@@ -4,6 +4,7 @@ import Header from '../Components/Header';
 import Notifications from '../Components/Notifications';
 import Footer from '../Components/Footer';
 import "../App.css"
+import Spotlight from '../Components/Spotlight';
 function Homepage() {
   
     const [loggedIn, setLoggedIn] = useState(true);
@@ -73,6 +74,11 @@ function Homepage() {
           </div>
           <div className='homeSection' id='latestPost'>
             <h3 className='sectionTitle' id='latestTitle'>Latest Post</h3>
+          </div>
+          <div className='homeSection' id='trending-posts'>
+            <h3 className='sectionTitle'>Spotlight</h3>
+              <Spotlight />
+            
           </div>
         </div>
         <Footer />
