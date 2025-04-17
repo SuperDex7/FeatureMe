@@ -6,7 +6,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.UserService;
+
+import java.util.List;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 
 
 @RestController
@@ -14,30 +21,33 @@ import org.springframework.web.bind.annotation.PostMapping;
 public class UserController {
 
     private final UserService userService;
-    @PostMapping("path")
-    public String postMethodName(@RequestBody String entity) {
-        //TODO: process POST request
-        
-        return entity;
-    }
     
     public UserController(UserService userService) {
         this.userService = userService;
 
     }
-    public void addUser(@RequestBody User user) {
-        userService.addUser(user);
+
+     @PostMapping("/create")
+    public User createUser(@RequestBody User user) {
+        return userService.createUser(user);
     }
-    public void updateUser() {
+    @PutMapping("/update/{id}")
+    public User updateUser(@PathVariable String id, @RequestBody User user) {
+        return userService.createUser(user);
 
     }
-    public void getAllUsers() {
+    @GetMapping("/get")
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+    @GetMapping("/get/{id}")
+    public void getUserByName(@PathVariable String id) {
+        userService.getUserByName(id);
 
     }
-    public void getUserByName() {
-
-    }
-    public void deleteUser() {
+    @DeleteMapping("/delete/{id}")
+    public void deleteUser(@PathVariable String id) {
+        userService.deleteUser(id);
 
     }
 }

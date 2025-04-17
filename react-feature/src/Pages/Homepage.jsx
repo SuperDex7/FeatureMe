@@ -36,7 +36,7 @@ function Homepage() {
     <div id='home-body'>
         <Header />
 
-      {loggedIn && <div id='profileS' >
+      <div id='profileS' >
         <section id='profileSi'>
         <h2>SuperDex</h2>
         <h3>Followers: 0</h3>
@@ -56,7 +56,8 @@ function Homepage() {
           }
       
          
-        </div>}
+        </div>
+        
         <div id='homeWidgets'>
           <div className='homeSection' id='recent-activity'>
             <h3 className='sectionTitle' id='recentTitle'>Recent Activity</h3>

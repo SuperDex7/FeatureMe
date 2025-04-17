@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-FeatureMeApplication<FeatureMe>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "Feat.FeatureMe.FeatureMeApplication",
+            "projectName": "FeatureMe",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
