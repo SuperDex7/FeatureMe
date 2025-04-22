@@ -40,11 +40,16 @@ public class UserController {
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
-    @GetMapping("/get/{userName}")
+    @GetMapping("/get/user/{userName}")
     public List<User> getUserByName(@PathVariable String userName) {
        return userService.getUserByName(userName);
 
     }
+    @GetMapping("/get/id/{id}")
+        public String getUserNameById(@PathVariable String id){
+            return userService.getUserNameById(id);
+        }
+    
     @DeleteMapping("/delete/{id}")
     public void deleteUser(@PathVariable String id) {
         userService.deleteUser(id);
