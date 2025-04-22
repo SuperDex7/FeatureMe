@@ -17,17 +17,32 @@ public class UserService {
         this.userRepository = userRepository;
     }
     public User createUser(User user) {
+        if(userRepository.existsByUserName(user.userName())){
+            throw new IllegalArgumentException("User already exists with this username");
+        }
+        if(userRepository.existsByEmail(user.email())){
+            throw new IllegalArgumentException("User already exists with this email");
+        }
         return userRepository.insert(user);
+    }
+    public User updateUser(User user) {
+        if(userRepository.existsByUserName(user.userName())){
+            throw new IllegalArgumentException("User already exists with this username");
+        }
+        if(userRepository.existsByEmail(user.email())){
+            throw new IllegalArgumentException("User already exists with this email");
+        }
+        return userRepository.save(user);
     }
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
+    public User getUserNameById(String id) {
+        
+        return userRepository.findById(id).orElse(null);
+    }
     public List<User> getUserByName(String userName) {
-        // Check if the user exists before attempting to retrieve it
-        if (!userRepository.existsByUserName(userName)) {
-            throw new IllegalArgumentException("User with username " + userName + " does not exist.");
-        }
-        // Retrieve the user by its username
+       
         return userRepository.findByUserNameStartingWithIgnoreCase(userName);
     }
     public void deleteUser(String id) {
