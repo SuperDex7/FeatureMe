@@ -2,14 +2,14 @@ import React from "react";
 import Spotlight from "./Spotlight";
 
 
-function SpotlightItem({ author, content, timestamp, songname, features, genre, comments, likes }) {
+function SpotlightItem({ author, description, time, title, features, genre, comments, likes }) {
   return (
     <div className="spotlight-item">
       <div className="feed-spotlight__header">
         <span className="feed-spotlight__author">{author}</span>
-        <span className="feed-spotlight__timestamp">{timestamp}</span>
+        <span className="feed-spotlight__timestamp">{time}</span>
       </div>
-      {features && features.length > 0 && (
+      {features.length > 1 && (
         <div id="spotlight-features">
           <p>(<strong>Feat</strong>:</p>
           <ul id="features-list">
@@ -23,13 +23,13 @@ function SpotlightItem({ author, content, timestamp, songname, features, genre, 
           </ul>
         </div>
       )}
-      <div className="spotlight-item__content">{content}</div>
+      <div className="spotlight-item__content">{description}</div>
       <div id="spotlight-playsection">
         <img id="spotlight-playbutton" src="play-button.png" alt="PlayButton" />
-        <h4 id="spotlight-songname">{songname}</h4>
+        <h4 id="spotlight-songname">{title}</h4>
       </div>
       <div id="spotlight-stats">
-        <p>Likes: {likes.length}</p>
+        <p>Likes: {likes.length - 1}</p>
         <p>Comments: {comments.length}</p>
       </div>
     </div>

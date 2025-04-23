@@ -9,9 +9,9 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface PostsRepository extends MongoRepository<Posts, String> {
     
-    List<Posts> findByTitleStartingWith(String title);
+    List<Posts> findByTitleStartingWithIgnoreCase(String title);
     List<Posts>  findByFeatures(String features);
     List<Posts>  findByGenre(String genre);
-   
-    
+    List<Posts> findByAuthorStartingWithIgnoreCase(String author);
+    List<Posts> findAllByOrderByLikesDesc(Posts posts);
 }

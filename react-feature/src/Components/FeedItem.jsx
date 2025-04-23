@@ -1,14 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 
 
-function FeedItem({ author, content, timestamp, songname, features, genre, comments, likes }) {
+function FeedItem({ author, description, time, title, features, genre, comments, likes }) {
+  const [comment, showComment] = useState(false)
+  function showComments() {
+    showComment((prevComment) => {
+      return !prevComment;
+    });
+  }
   return (
     <div className="feed-item">
       <div className="feed-item__header">
-        <span className="feed-item__author">{author}</span>
-        <span className="feed-item__timestamp">{timestamp}</span>
+        <span className="feed-item__title"> {title}</span>
+        <span className="feed-item__timestamp">{time}</span>
       </div>
-      {features && features.length > 0 && (
+      <h2 id="feed-item__author">{author}</h2>
+      {features && features.length > 1 && (
         <div id="features-section">
           <p>( <strong>Feat</strong>:</p>
           <ul id="features-list">
@@ -22,15 +29,25 @@ function FeedItem({ author, content, timestamp, songname, features, genre, comme
           </ul>
         </div>
       )}
-      <div className="feed-item__content">{content}</div>
+      <div className="feed-item__content">{description}</div>
       <div id="play-section">
         <img id="play-button" src="play-button.png" alt="PlayButton" />
-        <h4 id="song-name">{songname}</h4>
+        <h4 id="song-name">{title}</h4>
       </div>
       <div id="stats">
-        <p>Likes: {likes.length}</p>
-        <p>Comments: {comments.length}</p>
+        <p>Likes: {likes.length - 1}</p>
+        <p id="commentButton" onClick={showComments}>Comments: {comments.length}</p>
       </div>
+      {comment &&
+      
+      <div id="commentSection">
+        <p id="commentsHeader">Comments:</p>
+         {comments.map((comments, index)=> (
+          <li key={index}>
+            {comments}
+          </li>
+        ))}
+      </div> }
     </div>
   );
 }

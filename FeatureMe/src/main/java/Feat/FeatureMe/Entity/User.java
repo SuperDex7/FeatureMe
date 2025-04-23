@@ -1,4 +1,6 @@
 package Feat.FeatureMe.Entity;
+import java.util.List;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -7,18 +9,22 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public record User(
     @Id String id,
     
-    @Indexed(unique = true) String userName,
+    @Indexed(unique = true) 
+    String userName,
     String password,
-    @Indexed(unique = true) String email,
+
+    @Indexed(unique = true) 
+    String email,
+    
     String bio,
     String about,
     String profilePic,
     String banner,
     String demo,
-    String friends,
-    String followers,
+    List<String> friends,
+    List<String> followers,
     int posts,
-    String following
+    List<String> following
 
 ) {
 }

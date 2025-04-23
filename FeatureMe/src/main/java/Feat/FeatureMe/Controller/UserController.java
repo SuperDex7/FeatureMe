@@ -9,13 +9,15 @@ import Feat.FeatureMe.Service.UserService;
 
 import java.util.List;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 
 
+@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
@@ -31,9 +33,9 @@ public class UserController {
     public User createUser(@RequestBody User user) {
         return userService.createUser(user);
     }
-    @PutMapping("/update/{id}")
+    @PatchMapping("/update/{id}")
     public User updateUser(@PathVariable String id, @RequestBody User user) {
-        return userService.createUser(user);
+        return userService.updateUser(id, user);
 
     }
     @GetMapping("/get")
@@ -47,7 +49,7 @@ public class UserController {
     }
     @GetMapping("/get/id/{id}")
         public String getUserNameById(@PathVariable String id){
-            return userService.getUserNameById(id);
+            return userService.getUserNameById(id).userName();
         }
     
     @DeleteMapping("/delete/{id}")

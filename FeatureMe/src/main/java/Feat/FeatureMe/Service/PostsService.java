@@ -19,12 +19,35 @@ public class PostsService {
     public Posts createPost(Posts posts) {
         return postsRepository.insert(posts);
     }
+    public Posts updatePost(String id, Posts updatedPosts){
+        Posts posts = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("posts not found"));
+        posts = new Posts(
+            posts.id(),
+            posts.author(),
+            updatedPosts.title() != null && !updatedPosts.title().isBlank() ? updatedPosts.title() : posts.title(),
+            updatedPosts.description() != null && !updatedPosts.description().isBlank() ? updatedPosts.description() : posts.description(),
+            updatedPosts.features() != null && !updatedPosts.features().isEmpty() ? updatedPosts.features() : posts.features(),
+            updatedPosts.genre() != null && !updatedPosts.genre().isEmpty() ? updatedPosts.genre() : posts.genre(),
+            updatedPosts.music() != null && !updatedPosts.music().isBlank() ? updatedPosts.music() : posts.music(),
+            updatedPosts.comments() != null && !updatedPosts.comments().isEmpty() ? updatedPosts.comments() : posts.comments(),
+            updatedPosts.time() != null ? updatedPosts.time() : posts.time(),
+            updatedPosts.likes() != null && !updatedPosts.likes().isEmpty() ? updatedPosts.likes() : posts.likes()
+    
+        );
+        return postsRepository.save(posts);
+    }
     
     public List<Posts> getAllPosts() {
         return postsRepository.findAll();
     }
-    public Optional<Posts> getPostByName(String id) {
+    public Optional<Posts> getPostById(String id) {
         return postsRepository.findById(id);
+    }
+    public List<Posts> getPostsbyTitle(String title){
+        return postsRepository.findByTitleStartingWithIgnoreCase(title);
+    }
+    public List<Posts> findByLikesDesc(Posts posts){
+        return postsRepository.findAllByOrderByLikesDesc(posts);
     }
     public void deletePost(String id) {
         // Check if the post exists before attempting to delete it
