@@ -3,12 +3,14 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "posts")
 public record Posts(
     @Id String id,
-    String author,
+    @DBRef(lazy = true)
+    User author,
     String title,
     String description,
     List<String> features,

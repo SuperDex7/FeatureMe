@@ -17,10 +17,10 @@ public class UserService {
         this.userRepository = userRepository;
     }
     public User createUser(User user) {
-        if(userRepository.existsByUserName(user.userName())){
+        if(userRepository.existsByUserName(user.getUserName())){
             throw new IllegalArgumentException("User already exists with this username");
         }
-        if(userRepository.existsByEmail(user.email())){
+        if(userRepository.existsByEmail(user.getEmail())){
             throw new IllegalArgumentException("User already exists with this email");
         }
         return userRepository.insert(user);
@@ -29,19 +29,19 @@ public class UserService {
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         user = new User(
-            user.id(),
-            updatedUser.userName() != null && !updatedUser.userName().isBlank() ? updatedUser.userName() : user.userName(),
-            updatedUser.password() != null && !updatedUser.password().isBlank() ? updatedUser.password() : user.password(),
-            updatedUser.email() != null && !updatedUser.email().isBlank() ? updatedUser.email() : user.email(),
-            updatedUser.bio() != null && !updatedUser.bio().isBlank() ? updatedUser.bio() : user.bio(),
-            updatedUser.about() != null && !updatedUser.about().isBlank() ? updatedUser.about() : user.about(),
-            updatedUser.profilePic() != null && !updatedUser.profilePic().isBlank() ? updatedUser.profilePic() : user.profilePic(),
-            updatedUser.banner() != null && !updatedUser.banner().isBlank() ? updatedUser.banner() : user.banner(),
-            updatedUser.demo() != null && !updatedUser.demo().isBlank() ? updatedUser.demo() : user.demo(),
-            updatedUser.friends() != null ? updatedUser.friends() : user.friends(),
-            updatedUser.followers() != null ? updatedUser.followers() : user.followers(),
-            updatedUser.posts() >= 0 ? updatedUser.posts() : user.posts(),
-            updatedUser.following() != null ? updatedUser.following() : user.following()
+            user.getId(),
+            updatedUser.getUserName() != null && !updatedUser.getUserName().isBlank() ? updatedUser.getUserName() : user.getUserName(),
+            updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank() ? updatedUser.getPassword() : user.getPassword(),
+            updatedUser.getEmail() != null && !updatedUser.getEmail().isBlank() ? updatedUser.getEmail() : user.getEmail(),
+            updatedUser.getBio() != null && !updatedUser.getBio().isBlank() ? updatedUser.getBio() : user.getBio(),
+            updatedUser.getAbout() != null && !updatedUser.getAbout().isBlank() ? updatedUser.getAbout() : user.getAbout(),
+            updatedUser.getProfilePic() != null && !updatedUser.getProfilePic().isBlank() ? updatedUser.getProfilePic() : user.getProfilePic(),
+            updatedUser.getBanner() != null && !updatedUser.getBanner().isBlank() ? updatedUser.getBanner() : user.getBanner(),
+            updatedUser.getDemo() != null && !updatedUser.getDemo().isBlank() ? updatedUser.getDemo() : user.getDemo(),
+            updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
+            updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),
+            updatedUser.getPosts() >= 0 ? updatedUser.getPosts() : user.getPosts(),
+            updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing()
         );
         return userRepository.save(user);
     }

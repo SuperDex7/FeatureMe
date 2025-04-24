@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Service.PostsService;
 
@@ -28,9 +29,9 @@ public class PostsController {
     public PostsController(PostsService postsService) {
         this.postsService = postsService;
     }
-    @PostMapping("/create")
-    public Posts createPost(@RequestBody Posts posts) {
-    return postsService.createPost(posts);
+    @PostMapping("/create/{id}")
+    public Posts createPost(@PathVariable String id, @RequestBody Posts posts) {
+    return postsService.createPost(id, posts);
     }
     @PatchMapping("/update/{id}")
     public Posts updatePost(@PathVariable String id, @RequestBody Posts posts) {
@@ -38,7 +39,7 @@ public class PostsController {
     
     }
     @GetMapping("/get")
-    public List<Posts> getAllPosts() {
+    public List<PostsDTO> getAllPosts() {
         return postsService.getAllPosts();
     }
     @GetMapping("/get/id/{id}")
@@ -47,11 +48,11 @@ public class PostsController {
 
     }
     @GetMapping("get/title/{title}")
-    public List<Posts> getPostsByTitle(@PathVariable String title) {
+    public List<PostsDTO> getPostsByTitle(@PathVariable String title) {
         return postsService.getPostsbyTitle(title);
     }
     @GetMapping("/get/likesdesc")
-    public List<Posts> getPostsByLikesDesc(Posts post) {
+    public List<PostsDTO> getPostsByLikesDesc(Posts post) {
         
         return postsService.findByLikesDesc(post);
     }

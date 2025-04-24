@@ -1,23 +1,44 @@
 package Feat.FeatureMe.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import Feat.FeatureMe.Dto.PostsDTO;
+import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.Posts;
+import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.PostsRepository;
+import Feat.FeatureMe.Repository.UserRepository;
 
 @Service
 public class PostsService {
 
     private final PostsRepository postsRepository;
-
-    public PostsService(PostsRepository postsRepository) {
+    private final UserRepository userRepository;
+    
+    public PostsService(PostsRepository postsRepository, UserRepository userRepository) {
         this.postsRepository = postsRepository;
+        this.userRepository = userRepository;
     }
-    public Posts createPost(Posts posts) {
-        return postsRepository.insert(posts);
+    public Posts createPost(String authorId, Posts posts) {
+        User author = userRepository.findById(authorId)
+                         .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                         Posts post = new Posts(
+            null,
+            author,
+            posts.title(),
+            posts.description(),
+            posts.features(),
+            posts.genre(),
+            posts.music(),
+            posts.comments(),
+            LocalDate.now(),
+            List.of()
+        );
+        return postsRepository.insert(post);
     }
     public Posts updatePost(String id, Posts updatedPosts){
         Posts posts = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("posts not found"));
@@ -37,18 +58,60 @@ public class PostsService {
         return postsRepository.save(posts);
     }
     
-    public List<Posts> getAllPosts() {
-        return postsRepository.findAll();
+    public List<PostsDTO> getAllPosts() {
+        return postsRepository.findAll().stream().map(p -> {
+            User u = p.author();
+            UserDTO author = new UserDTO(
+                    u.getId(),
+                    u.getUserName(),
+                    u.getProfilePic(),
+                    u.getBanner()
+            );
+            return new PostsDTO(
+                    p.id(),
+                    author,
+                    p.title(),
+                    p.description(),
+                    p.features(),
+                    p.genre(),
+                    p.music(),
+                    p.comments(),
+                    p.time(),
+                    p.likes() == null ? 0 : p.likes().size()
+            );
+        }).toList();
     }
+    
     public Optional<Posts> getPostById(String id) {
         return postsRepository.findById(id);
     }
-    public List<Posts> getPostsbyTitle(String title){
+    public List<PostsDTO> getPostsbyTitle(String title){
         return postsRepository.findByTitleStartingWithIgnoreCase(title);
     }
-    public List<Posts> findByLikesDesc(Posts posts){
-        return postsRepository.findAllByOrderByLikesDesc(posts);
+    public List<PostsDTO> findByLikesDesc(Posts posts){
+        return postsRepository.findAllByOrderByLikesDesc().stream().map(p -> {
+            User u = p.author();
+            UserDTO author = new UserDTO(
+                    u.getId(),
+                    u.getUserName(),
+                    u.getProfilePic(),
+                    u.getBanner()
+            );
+            return new PostsDTO(
+                    p.id(),
+                    author,
+                    p.title(),
+                    p.description(),
+                    p.features(),
+                    p.genre(),
+                    p.music(),
+                    p.comments(),
+                    p.time(),
+                    p.likes() == null ? 0 : p.likes().size()
+            );
+        }).toList();
     }
+    
     public void deletePost(String id) {
         // Check if the post exists before attempting to delete it
         if (!postsRepository.existsById(id)) {

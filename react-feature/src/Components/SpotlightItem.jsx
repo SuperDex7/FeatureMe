@@ -2,11 +2,12 @@ import React from "react";
 import Spotlight from "./Spotlight";
 
 
-function SpotlightItem({ author, description, time, title, features, genre, comments, likes }) {
+function SpotlightItem({ author, description, time, title, features, genre, comments, likes = []}) {
+  const { userName, profilePic, banner } = author ?? {};
   return (
     <div className="spotlight-item">
       <div className="feed-spotlight__header">
-        <span className="feed-spotlight__author">{author}</span>
+        <span className="feed-spotlight__author">{userName}</span>
         <span className="feed-spotlight__timestamp">{time}</span>
       </div>
       {features.length > 1 && (
@@ -29,7 +30,7 @@ function SpotlightItem({ author, description, time, title, features, genre, comm
         <h4 id="spotlight-songname">{title}</h4>
       </div>
       <div id="spotlight-stats">
-        <p>Likes: {likes.length - 1}</p>
+        <p>Likes: {likes.length}</p>
         <p>Comments: {comments.length}</p>
       </div>
     </div>

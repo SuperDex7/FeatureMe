@@ -18,7 +18,6 @@ function Feedf() {
   return (
     <main className="feed">
       <h2 id="spotName">Spotlight</h2>
-      {posts.length > 0 && <h3>{posts[0].author}</h3>}
       <Spotlight />
       <h2 id="feedName">Feed</h2>
       {posts.map((item) => (

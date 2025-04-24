@@ -11,6 +11,15 @@ function Sidebar() {
         <li>Messages</li>
         <li>Notifications</li>
       </ul>
+      <div className="container">
+      <a href="/create-post" className="button type--A">
+    <div className="button__line"></div>
+    <div className="button__line"></div>
+    <span className="button__text">Create Post</span>
+    <div className="button__drow1"></div>
+    <div className="button__drow2"></div>
+  </a>
+  </div>
     </aside>
   );
 }

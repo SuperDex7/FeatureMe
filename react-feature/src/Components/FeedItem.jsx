@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 
 
-function FeedItem({ author, description, time, title, features, genre, comments, likes }) {
+function FeedItem({ author, description, time, title, features, genre, comments=[] , likes =[] }) {
+  const { userName, profilePic, banner } = author ?? {};
   const [comment, showComment] = useState(false)
   function showComments() {
     showComment((prevComment) => {
@@ -14,7 +15,7 @@ function FeedItem({ author, description, time, title, features, genre, comments,
         <span className="feed-item__title"> {title}</span>
         <span className="feed-item__timestamp">{time}</span>
       </div>
-      <h2 id="feed-item__author">{author}</h2>
+      <h2 id="feed-item__author">{userName}</h2>
       {features && features.length > 1 && (
         <div id="features-section">
           <p>( <strong>Feat</strong>:</p>
@@ -35,7 +36,7 @@ function FeedItem({ author, description, time, title, features, genre, comments,
         <h4 id="song-name">{title}</h4>
       </div>
       <div id="stats">
-        <p>Likes: {likes.length - 1}</p>
+        <p>Likes: {likes.length}</p>
         <p id="commentButton" onClick={showComments}>Comments: {comments.length}</p>
       </div>
       {comment &&

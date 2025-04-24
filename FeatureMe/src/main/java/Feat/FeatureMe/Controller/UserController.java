@@ -49,7 +49,7 @@ public class UserController {
     }
     @GetMapping("/get/id/{id}")
         public String getUserNameById(@PathVariable String id){
-            return userService.getUserNameById(id).userName();
+            return userService.getUserNameById(id).getUserName();
         }
     
     @DeleteMapping("/delete/{id}")
