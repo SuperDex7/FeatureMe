@@ -1,15 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import AudioPlayer from "./AudioPlayer";
+import AudioPlayer2 from "./AudioPlayer2";
 
 
-function FeedItem({ author, description, time, title, features, genre, comments=[] , likes =[] }) {
+function FeedItem({ author, description, time, title, features, genre, music, comments=[] , likes =[] }) {
   const { userName, profilePic, banner } = author ?? {};
   const [comment, showComment] = useState(false)
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
 
   function showComments() {
     showComment((prevComment) => {
       return !prevComment;
     });
   }
+  const openAudioPlayer = () => {
+    setShowAudioPlayer(true);
+  };
+  
   
   return (
     <div className="feed-item">
@@ -34,9 +41,10 @@ function FeedItem({ author, description, time, title, features, genre, comments=
       )}
       <div className="feed-item__content">{description}</div>
       <div id="play-section">
-        <img id="play-button" src="play-button.png" alt="PlayButton" />
-        <h4 id="song-name">{title}</h4>
-      </div>
+  <img id="play-button" src="play-button.png" alt="PlayButton" onClick={openAudioPlayer} />
+  <h4 id="song-name">{title}</h4>
+  {showAudioPlayer && <AudioPlayer2 src={music} onClose={() => setShowAudioPlayer(false)} />}
+</div>
       <div id="stats">
         <p>Likes: {likes.length}</p>
         <p id="commentButton" onClick={showComments}>Comments: {comments.length}</p>
@@ -51,6 +59,7 @@ function FeedItem({ author, description, time, title, features, genre, comments=
           </li>
         ))}
       </div> }
+      
     </div>
   );
 }

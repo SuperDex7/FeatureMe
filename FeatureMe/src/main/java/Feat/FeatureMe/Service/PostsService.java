@@ -3,7 +3,6 @@ package Feat.FeatureMe.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -129,7 +128,7 @@ public class PostsService {
                 p.getDescription(),
                 p.getFeatures(),
                 p.getGenre(),
-                null,
+                p.getMusic(),
                 p.getComments(),
                 p.getTime(),
                 p.getLikes() == null ? List.of() : p.getLikes()
@@ -161,7 +160,7 @@ public class PostsService {
         post.getDescription(),
         post.getFeatures(),
         post.getGenre(),
-        null,
+        post.getMusic(),
         post.getComments(),
         post.getTime(),
         post.getLikes() == null ? List.of() : post.getLikes()
@@ -193,7 +192,7 @@ public class PostsService {
                 p.getDescription(),
                 p.getFeatures(),
                 p.getGenre(),
-                null,
+                p.getMusic(),
                 p.getComments(),
                 p.getTime(),
                 p.getLikes() == null ? List.of() : p.getLikes()
