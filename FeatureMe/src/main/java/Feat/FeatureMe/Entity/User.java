@@ -6,6 +6,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import Feat.FeatureMe.Dto.PostsDTO;
+
 @Document(collection = "user")
 public class User {
 
@@ -24,12 +26,12 @@ public class User {
     private String about;
     private String profilePic;
     private String banner;
-    private String demo;
+    private List<String> demo;
     private List<String> friends;
     private List<String> followers;
-    private int posts;
+    private List<PostsDTO> posts;
     private List<String> following;
-
+//{"title":"Best Pop Song","description":"Song for my love", "features":["RezzyPhil","GioGuru"], "genre":["Pop"], "music":"", "comments": ["hellooooo","soo good twinnn","wwowowowow"]}
     public User() {}
 
     public User(String id,
@@ -40,10 +42,10 @@ public class User {
                 String about,
                 String profilePic,
                 String banner,
-                String demo,
+                List<String> demo,
                 List<String> friends,
                 List<String> followers,
-                int posts,
+                List<PostsDTO> posts,
                 List<String> following) {
         this.id = id;
         this.userName = userName;
@@ -124,11 +126,11 @@ public class User {
         this.banner = banner;
     }
 
-    public String getDemo() {
+    public List<String> getDemo() {
         return demo;
     }
 
-    public void setDemo(String demo) {
+    public void setDemo(List<String> demo) {
         this.demo = demo;
     }
 
@@ -148,11 +150,11 @@ public class User {
         this.followers = followers;
     }
 
-    public int getPosts() {
+    public List<PostsDTO> getPosts() {
         return posts;
     }
 
-    public void setPosts(int posts) {
+    public void setPosts(List<PostsDTO> posts) {
         this.posts = posts;
     }
 
@@ -162,5 +164,9 @@ public class User {
 
     public void setFollowing(List<String> following) {
         this.following = following;
+    }
+
+    public User user() {
+        return this;
     }
 }

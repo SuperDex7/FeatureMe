@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.UserService;
 
@@ -39,7 +40,7 @@ public class UserController {
 
     }
     @GetMapping("/get")
-    public List<User> getAllUsers() {
+    public List<UserDTO> getAllUsers() {
         return userService.getAllUsers();
     }
     @GetMapping("/get/user/{userName}")
@@ -48,8 +49,8 @@ public class UserController {
 
     }
     @GetMapping("/get/id/{id}")
-        public String getUserNameById(@PathVariable String id){
-            return userService.getUserNameById(id).getUserName();
+        public UserDTO getUserById(@PathVariable String id){
+            return userService.getUserById(id);
         }
     
     @DeleteMapping("/delete/{id}")

@@ -1,6 +1,7 @@
 package Feat.FeatureMe.Service;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,34 +26,81 @@ public class PostsService {
     }
     public Posts createPost(String authorId, Posts posts) {
         User author = userRepository.findById(authorId)
-                         .orElseThrow(() -> new IllegalArgumentException("User not found"));
-                         Posts post = new Posts(
+                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    Posts post = new Posts(
+        null,
+        author,
+        posts.getTitle(),
+        posts.getDescription(),
+        posts.getFeatures(),
+        posts.getGenre(),
+        posts.getMusic(),
+        posts.getComments(),
+        LocalDateTime.now(),
+        List.of()
+    );
+    Posts savedPost = postsRepository.insert(post);
+    PostsDTO postDto = new PostsDTO(
+        savedPost.getId(),
+        new UserDTO(
+            author.getId(),
+            author.getUserName(),
+            author.getProfilePic(),
+            author.getBanner(),
+            author.getBio(),
+            author.getAbout(),
             null,
-            author,
-            posts.title(),
-            posts.description(),
-            posts.features(),
-            posts.genre(),
-            posts.music(),
-            posts.comments(),
-            LocalDate.now(),
-            List.of()
-        );
-        return postsRepository.insert(post);
+            author.getFriends(),
+            author.getFollowers(),
+            author.getPosts() != null ? author.getPosts().stream().map(
+                p -> new PostsDTO(
+                    p.id(),
+                    p.author(),
+                    p.title(),
+                    p.description(),
+                    p.features(),
+                    p.genre(),
+                    p.music(),
+                    p.comments(),
+                    p.time(),
+                    p.likes()  // already a list of Strings
+                )
+            ).toList() : List.of(),
+            author.getFollowing()
+        ),
+        savedPost.getTitle(),
+        savedPost.getDescription(),
+        savedPost.getFeatures(),
+        savedPost.getGenre(),
+        savedPost.getMusic(),
+        savedPost.getComments(),
+        savedPost.getTime(),
+        savedPost.getLikes() == null ? List.of() : savedPost.getLikes()
+    );
+
+        // Update user's posts list
+        if (author.getPosts() == null) {
+            author.setPosts(new ArrayList<>());
+        }
+        author.getPosts().add(postDto);
+        userRepository.save(author);
+
+        return savedPost;
+        
     }
     public Posts updatePost(String id, Posts updatedPosts){
         Posts posts = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("posts not found"));
         posts = new Posts(
-            posts.id(),
-            posts.author(),
-            updatedPosts.title() != null && !updatedPosts.title().isBlank() ? updatedPosts.title() : posts.title(),
-            updatedPosts.description() != null && !updatedPosts.description().isBlank() ? updatedPosts.description() : posts.description(),
-            updatedPosts.features() != null && !updatedPosts.features().isEmpty() ? updatedPosts.features() : posts.features(),
-            updatedPosts.genre() != null && !updatedPosts.genre().isEmpty() ? updatedPosts.genre() : posts.genre(),
-            updatedPosts.music() != null && !updatedPosts.music().isBlank() ? updatedPosts.music() : posts.music(),
-            updatedPosts.comments() != null && !updatedPosts.comments().isEmpty() ? updatedPosts.comments() : posts.comments(),
-            updatedPosts.time() != null ? updatedPosts.time() : posts.time(),
-            updatedPosts.likes() != null && !updatedPosts.likes().isEmpty() ? updatedPosts.likes() : posts.likes()
+            posts.getId(),
+            posts.getAuthor(),
+            updatedPosts.getTitle() != null && !updatedPosts.getTitle().isBlank() ? updatedPosts.getTitle() : posts.getTitle(),
+            updatedPosts.getDescription() != null && !updatedPosts.getDescription().isBlank() ? updatedPosts.getDescription() : posts.getDescription(),
+            updatedPosts.getFeatures() != null && !updatedPosts.getFeatures().isEmpty() ? updatedPosts.getFeatures() : posts.getFeatures(),
+            updatedPosts.getGenre() != null && !updatedPosts.getGenre().isEmpty() ? updatedPosts.getGenre() : posts.getGenre(),
+            updatedPosts.getMusic() != null && !updatedPosts.getMusic().isBlank() ? updatedPosts.getMusic() : posts.getMusic(),
+            updatedPosts.getComments() != null && !updatedPosts.getComments().isEmpty() ? updatedPosts.getComments() : posts.getComments(),
+            updatedPosts.getTime() != null ? updatedPosts.getTime() : posts.getTime(),
+            updatedPosts.getLikes() != null && !updatedPosts.getLikes().isEmpty() ? updatedPosts.getLikes() : posts.getLikes()
     
         );
         return postsRepository.save(posts);
@@ -60,54 +108,95 @@ public class PostsService {
     
     public List<PostsDTO> getAllPosts() {
         return postsRepository.findAll().stream().map(p -> {
-            User u = p.author();
+            User u = p.getAuthor();
             UserDTO author = new UserDTO(
-                    u.getId(),
-                    u.getUserName(),
-                    u.getProfilePic(),
-                    u.getBanner()
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getAbout(),
+                null, 
+                u.getFriends(),
+                u.getFollowers(),
+                u.getPosts(),
+                u.getFollowing()
             );
             return new PostsDTO(
-                    p.id(),
-                    author,
-                    p.title(),
-                    p.description(),
-                    p.features(),
-                    p.genre(),
-                    p.music(),
-                    p.comments(),
-                    p.time(),
-                    p.likes() == null ? 0 : p.likes().size()
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                null,
+                p.getComments(),
+                p.getTime(),
+                p.getLikes() == null ? List.of() : p.getLikes()
             );
         }).toList();
     }
     
-    public Optional<Posts> getPostById(String id) {
-        return postsRepository.findById(id);
+    public PostsDTO getPostById(String id) {
+        Posts post = postsRepository.findById(id)
+                   .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+    User u = post.getAuthor();
+    UserDTO author = new UserDTO(
+        u.getId(),
+        u.getUserName(),
+        u.getProfilePic(),
+        u.getBanner(),
+        u.getBio(),
+        u.getAbout(),
+        null, 
+        u.getFriends(),
+        u.getFollowers(),
+        u.getPosts(),
+        u.getFollowing()
+    );
+    return new PostsDTO(
+        post.getId(),
+        author,
+        post.getTitle(),
+        post.getDescription(),
+        post.getFeatures(),
+        post.getGenre(),
+        null,
+        post.getComments(),
+        post.getTime(),
+        post.getLikes() == null ? List.of() : post.getLikes()
+    );
     }
-    public List<PostsDTO> getPostsbyTitle(String title){
-        return postsRepository.findByTitleStartingWithIgnoreCase(title);
+    public List<PostsDTO> getPostsbyTitle(String getTitle){
+        return postsRepository.findByTitleStartingWithIgnoreCase(getTitle);
     }
     public List<PostsDTO> findByLikesDesc(Posts posts){
         return postsRepository.findAllByOrderByLikesDesc().stream().map(p -> {
-            User u = p.author();
+            User u = p.getAuthor();
             UserDTO author = new UserDTO(
-                    u.getId(),
-                    u.getUserName(),
-                    u.getProfilePic(),
-                    u.getBanner()
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getAbout(),
+                null, 
+                u.getFriends(),
+                u.getFollowers(),
+                u.getPosts(),
+                u.getFollowing()
             );
             return new PostsDTO(
-                    p.id(),
-                    author,
-                    p.title(),
-                    p.description(),
-                    p.features(),
-                    p.genre(),
-                    p.music(),
-                    p.comments(),
-                    p.time(),
-                    p.likes() == null ? 0 : p.likes().size()
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                null,
+                p.getComments(),
+                p.getTime(),
+                p.getLikes() == null ? List.of() : p.getLikes()
             );
         }).toList();
     }

@@ -3,8 +3,11 @@ package Feat.FeatureMe.Service;
 
 import java.util.List;
 
+
 import org.springframework.stereotype.Service;
 
+
+import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
 
@@ -37,20 +40,50 @@ public class UserService {
             updatedUser.getAbout() != null && !updatedUser.getAbout().isBlank() ? updatedUser.getAbout() : user.getAbout(),
             updatedUser.getProfilePic() != null && !updatedUser.getProfilePic().isBlank() ? updatedUser.getProfilePic() : user.getProfilePic(),
             updatedUser.getBanner() != null && !updatedUser.getBanner().isBlank() ? updatedUser.getBanner() : user.getBanner(),
-            updatedUser.getDemo() != null && !updatedUser.getDemo().isBlank() ? updatedUser.getDemo() : user.getDemo(),
+            updatedUser.getDemo() != null && !updatedUser.getDemo().isEmpty() ? updatedUser.getDemo() : user.getDemo(),
             updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
             updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),
-            updatedUser.getPosts() >= 0 ? updatedUser.getPosts() : user.getPosts(),
+            updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
             updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing()
         );
         return userRepository.save(user);
     }
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public List<UserDTO> getAllUsers() {
+        return userRepository.findAll()
+        .stream()
+        .map(u -> new UserDTO(
+            u.getId(),
+            u.getUserName(),
+            u.getProfilePic(),
+            u.getBanner(),
+            u.getBio(),
+            u.getAbout(),
+            null,
+            u.getFriends(),
+            u.getFollowers(),
+            u.getPosts(),
+            u.getFollowing()
+        ))
+        .toList();
     }
-    public User getUserNameById(String id) {
-        
-        return userRepository.findById(id).orElse(null);
+    
+    public UserDTO getUserById(String id) {
+        User user = userRepository.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+return new UserDTO(
+ user.getId(),
+ user.getUserName(),
+ user.getProfilePic(),
+ user.getBanner(),
+ user.getBio(),
+ user.getAbout(),
+ null,
+ user.getFriends(),
+ user.getFollowers(),
+ user.getPosts(),
+ user.getFollowing()
+);
+
     }
     public List<User> getUserByName(String userName) {
        

@@ -1,17 +1,18 @@
 package Feat.FeatureMe.Dto;
-import java.time.LocalDate;
+
+import java.time.LocalDateTime;
 import java.util.List;
 public record PostsDTO(
     String id,
-        UserDTO author,          // only the four fields you want
+        UserDTO author,
         String title,
         String description,
         List<String> features,
         List<String> genre,
         String music,
         List<String> comments,
-        LocalDate time,
-        int likeCount      // example derived value
+        LocalDateTime time,
+        List<String> likes
         
 ) {
 

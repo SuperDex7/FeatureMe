@@ -1,7 +1,10 @@
 package Feat.FeatureMe.Controller;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,14 +13,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Service.PostsService;
-
-
-
+import Feat.FeatureMe.Service.S3Service;
 
 @CrossOrigin("*")
 @RestController
@@ -25,46 +28,62 @@ import Feat.FeatureMe.Service.PostsService;
 public class PostsController {
     
     private final PostsService postsService;
+    private final S3Service s3Service;
 
-    public PostsController(PostsService postsService) {
+    
+    public PostsController(PostsService postsService, S3Service s3Service) {
         this.postsService = postsService;
+        this.s3Service = s3Service;
     }
-    @PostMapping("/create/{id}")
-    public Posts createPost(@PathVariable String id, @RequestBody Posts posts) {
-    return postsService.createPost(id, posts);
+    
+    // Create a post with a file upload. The "post" part contains the post's JSON data,
+    // while the "file" part is the uploaded song file.
+    @PostMapping(path ="/create/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Posts createPost(@PathVariable String id, 
+                            @RequestPart("post") Posts posts,
+                            @RequestPart("file") MultipartFile file) throws IOException {
+        // Upload file to S3 bucket
+        String keyName = file.getOriginalFilename();
+        File tempFile = File.createTempFile("temp", null);
+        file.transferTo(tempFile);
+        String filePath = tempFile.getAbsolutePath();
+        
+        // Upload the file and get its S3 URL
+        String s3Url = s3Service.uploadFile(keyName, filePath);
+        
+        // Set the S3 URL (e.g., to the "music" field) in the Posts entity
+        posts.setMusic(s3Url);
+        
+        return postsService.createPost(id, posts);
     }
+    
     @PatchMapping("/update/{id}")
     public Posts updatePost(@PathVariable String id, @RequestBody Posts posts) {
         return postsService.updatePost(id, posts);
-    
     }
+    
     @GetMapping("/get")
     public List<PostsDTO> getAllPosts() {
         return postsService.getAllPosts();
     }
+    
     @GetMapping("/get/id/{id}")
-    public void getPostById(@PathVariable String id, Posts posts) {
-        postsService.getPostById(id);
-
+    public PostsDTO getPostById(@PathVariable String id, Posts posts) {
+        return postsService.getPostById(id);
     }
+    
     @GetMapping("get/title/{title}")
     public List<PostsDTO> getPostsByTitle(@PathVariable String title) {
         return postsService.getPostsbyTitle(title);
     }
+    
     @GetMapping("/get/likesdesc")
     public List<PostsDTO> getPostsByLikesDesc(Posts post) {
-        
         return postsService.findByLikesDesc(post);
     }
     
-    
     @DeleteMapping("/delete/{id}")
     public void deletePost(@PathVariable String id) {
-        // Check if the post exists before attempting to delete it
-        if (!postsService.getPostById(id).isPresent()) {
-            throw new IllegalArgumentException("Post with id " + id + " does not exist.");
-        }
-        // Delete the post by its ID
-       postsService.deletePost(id);
+        postsService.deletePost(id);
     }
 }
