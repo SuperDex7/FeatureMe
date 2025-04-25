@@ -4,11 +4,13 @@ import React, { useState } from "react";
 function FeedItem({ author, description, time, title, features, genre, comments=[] , likes =[] }) {
   const { userName, profilePic, banner } = author ?? {};
   const [comment, showComment] = useState(false)
+
   function showComments() {
     showComment((prevComment) => {
       return !prevComment;
     });
   }
+  
   return (
     <div className="feed-item">
       <div className="feed-item__header">
