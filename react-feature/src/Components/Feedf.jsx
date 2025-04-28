@@ -20,7 +20,7 @@ function Feedf() {
       <h2 id="spotName">Spotlight</h2>
       <Spotlight />
       <h2 id="feedName">Feed</h2>
-
+      <h3>Search Bar:</h3>
       {posts.map((item) => (
         <FeedItem key={item.id} {...item} />
       ))}

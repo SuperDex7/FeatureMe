@@ -15,7 +15,7 @@ const router = createBrowserRouter([
   {path: '/', element: <App />},
   {path: 'home', element: <Homepage />},
   {path: 'feed', element: <Feed />},
-  {path: 'profile/:id', element: <Profile />},
+  {path: 'profile', element: <Profile />},
   {path: 'signup', element: <h1>Signup</h1>},
   {path: 'login', element: <h1>Login</h1>},
   {path: 'create-post', element: <CreatePost />},

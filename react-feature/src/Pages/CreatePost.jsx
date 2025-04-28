@@ -2,7 +2,7 @@ import "../Styling/CreatePost.css"
 import React, { useState, useRef } from "react";
 import Header from "../Components/Header";
 const GENRES = [
-    'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
+    "Song","Beat","Loop","Instrument","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
     'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
   ];
 function CreatePost(){
@@ -64,6 +64,7 @@ function CreatePost(){
         <input
           type="text"
           className="text-input"
+          placeholder="Format Suggestion: Song Name or Instrument - BPM"
           value={songName}
           onChange={(e) => setSongName(e.target.value)}
         />
@@ -116,27 +117,39 @@ function CreatePost(){
             className="dropdown-toggle"
             onClick={() => {
               setDdOpen((o) => !o);
-              setTimeout(() => ddRef.current?.focus(), 0);
-            }}
-          >
-            {genreLabel}
-          </div>
+                setTimeout(() => ddRef.current?.focus(), 0);
+              }}
+              >
+              {genreLabel}
+              </div>
 
-          <div className="dropdown-menu">
-            {GENRES.map((g) => (
-              <label key={g} className="dropdown-item">
+              <div className="dropdown-menu">
+              <h3>Category:</h3>
+              {GENRES.slice(0, 6).map((g) => (
+                <label key={g} className="dropdown-item">
                 <input
                   type="checkbox"
                   checked={genres.includes(g)}
                   onChange={() => toggleGenre(g)}
                 />
                 {g}
-              </label>
-            ))}
-          </div>
-        </div>
+                </label>
+              ))}
+              <h3>Genres:</h3>
+              {GENRES.slice(6).map((g) => (
+                <label key={g} className="dropdown-item">
+                <input
+                  type="checkbox"
+                  checked={genres.includes(g)}
+                  onChange={() => toggleGenre(g)}
+                />
+                {g}
+                </label>
+              ))}
+              </div>
+            </div>
 
-        {/* Submit */}
+            {/* Submit */}
         <button type="submit" className="submit-button">
           Post
         </button>
