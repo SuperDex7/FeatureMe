@@ -3,6 +3,25 @@
     background: rgb(238,174,202);
 background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 100%);
   }
+  #rec-title{
+    color: #161816;
+    font-weight: bolder;
+    font-size: 22px;
+    width: 390%;
+  }
+  #recentposts{
+    display: flex;
+    gap: 20px;
+    overflow: auto;
+  
+  }
+  #new-section{
+    display: flex;
+    align-items: end;
+  }
+  .showmore{
+    width: 500px;
+  }
   .feed {
     overflow: auto;
     margin-top: 60px;
@@ -19,6 +38,8 @@ background: radial-gradient(circle, rgba(238,174,202,1) 0%, rgba(148,187,233,1) 
     padding: 1rem;
     transition: box-shadow 0.2s;
     transition: background-color 0.2s;
+    min-width: 400px;
+   
   }
   
   .feed-item:hover {

@@ -43,8 +43,9 @@ function FeedItem({ author, description, time, title, features, genre, music, co
       <div id="play-section">
   <img id="play-button" src="play-button.png" alt="PlayButton" onClick={openAudioPlayer} />
   <h4 id="song-name">{title}</h4>
-  {showAudioPlayer && <AudioPlayer2 src={music} onClose={() => setShowAudioPlayer(false)} />}
+  
 </div>
+{showAudioPlayer && <AudioPlayer2 src={music} onClose={() => setShowAudioPlayer(false)} />}
       <div id="stats">
         <p>Likes: {likes.length}</p>
         <p id="commentButton" onClick={showComments}>Comments: {comments.length}</p>

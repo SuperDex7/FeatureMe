@@ -20,11 +20,15 @@ function Feedf() {
       <h2 id="spotName">Spotlight</h2>
       <Spotlight />
       <h2 id="feedName">Feed</h2>
-      <h3>Search Bar:</h3>
+      <div id="new-section">
+      <h3 id="rec-title">New Releases: </h3>
+      <h3 className="showmore">Show More</h3>
+      </div>
+      <div id="recentposts">
       {posts.map((item) => (
         <FeedItem key={item.id} {...item} />
       ))}
-      
+      </div>
     </main>
   );
 }

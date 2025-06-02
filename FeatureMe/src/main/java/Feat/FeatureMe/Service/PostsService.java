@@ -23,6 +23,10 @@ public class PostsService {
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
     }
+
+
+    
+    
     public Posts createPost(String authorId, Posts posts) {
         User author = userRepository.findById(authorId)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -87,6 +91,8 @@ public class PostsService {
         return savedPost;
         
     }
+    
+    
     public Posts updatePost(String id, Posts updatedPosts){
         Posts posts = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("posts not found"));
         posts = new Posts(
@@ -104,6 +110,7 @@ public class PostsService {
         );
         return postsRepository.save(posts);
     }
+    
     
     public List<PostsDTO> getAllPosts() {
         return postsRepository.findAll().stream().map(p -> {
@@ -136,6 +143,8 @@ public class PostsService {
         }).toList();
     }
     
+    
+    
     public PostsDTO getPostById(String id) {
         Posts post = postsRepository.findById(id)
                    .orElseThrow(() -> new IllegalArgumentException("Post not found"));
@@ -166,9 +175,13 @@ public class PostsService {
         post.getLikes() == null ? List.of() : post.getLikes()
     );
     }
+    
+    
     public List<PostsDTO> getPostsbyTitle(String getTitle){
         return postsRepository.findByTitleStartingWithIgnoreCase(getTitle);
     }
+    
+    
     public List<PostsDTO> findByLikesDesc(Posts posts){
         return postsRepository.findAllByOrderByLikesDesc().stream().map(p -> {
             User u = p.getAuthor();
@@ -199,6 +212,7 @@ public class PostsService {
             );
         }).toList();
     }
+    
     
     public void deletePost(String id) {
         // Check if the post exists before attempting to delete it
