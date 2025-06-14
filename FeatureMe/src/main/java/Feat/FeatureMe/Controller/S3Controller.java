@@ -25,7 +25,7 @@ public class S3Controller
 
 	//Uploads a file to AWS S3.
 	@PostMapping("/upload")
-	public String uploadFile(@RequestParam("file") MultipartFile file) throws IOException
+	public String uploadFile(@RequestParam MultipartFile file) throws IOException
 	{
 		//The file is saved temporarily on the server before uploading to S3.
 		String keyName = file.getOriginalFilename();
@@ -38,8 +38,8 @@ public class S3Controller
 
 	//Downloads a file from AWS S3 to a specific location on your computer.
 	@GetMapping("/download")
-	public String downloadFile(@RequestParam("keyName") String keyName,
-			@RequestParam("downloadPath") String downloadPath)
+	public String downloadFile(@RequestParam String keyName,
+			@RequestParam String downloadPath)
 	{
 		s3Service.downloadFile(keyName, downloadPath);
 		return "File downloaded successfully.";

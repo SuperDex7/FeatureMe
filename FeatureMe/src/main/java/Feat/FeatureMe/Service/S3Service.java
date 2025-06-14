@@ -6,13 +6,12 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
+import java.nio.file.Path;
 
-import java.nio.file.Paths;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
 import software.amazon.awssdk.core.sync.RequestBody;
-
 
 
 @Service
@@ -30,7 +29,7 @@ public class S3Service
 	public String uploadFile(String keyName, String filePath)
 	{
 		PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucketName).key(keyName).build();
-		s3Client.putObject(putObjectRequest, RequestBody.fromFile(Paths.get(filePath)));
+		s3Client.putObject(putObjectRequest, RequestBody.fromFile(Path.of(filePath)));
         String encodedKeyName = keyName.replace(" ", "+");
         String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + encodedKeyName;
         return s3Url;
@@ -42,6 +41,6 @@ public class S3Service
 	public void downloadFile(String keyName, String downloadPath)
 	{
 		GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(bucketName).key(keyName).build();
-		s3Client.getObject(getObjectRequest, Paths.get(downloadPath));
+		s3Client.getObject(getObjectRequest, Path.of(downloadPath));
 	}
 }
