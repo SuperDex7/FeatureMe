@@ -11,13 +11,13 @@ function ProfileDetails2(props) {
   function displayText(){
     setHover(!hover);
   }
-const handleFileChange = (e) => {
+const handleppChange = (e) => {
   e.preventDefault();
   const file = e.target.files[0];
   if (file) {
      const picUrl = URL.createObjectURL(file)
      setPic(picUrl);
-     props.onProfilePicChange(picUrl)
+     props.onProfilePicChange(file, picUrl)
   }
   
 }
@@ -31,7 +31,7 @@ const handleFileChange = (e) => {
       <div onMouseEnter={displayText} onMouseLeave={displayText} 
       className="profile-details__avatar-container-signup" onClick={handleContainerClick}>
         {hover && <div><p id="cpp">Change Profile Picture</p> 
-        <input type="file" onChange={handleFileChange} ref={fileInputRef} style={{display:"none"}}/>
+        <input type="file" onChange={handleppChange} ref={fileInputRef} style={{display:"none"}}/>
           </div>} 
         <img
           className="profile-details__avatar"
