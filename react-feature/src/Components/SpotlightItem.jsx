@@ -39,7 +39,7 @@ function SpotlightItem({ author, description, time, title, features, genre, musi
       </div>
       <div id="spotlight-stats">
         <p>Likes: {likes.length}</p>
-        <p>Comments: {comments.length}</p>
+        <p>Comments: {comments == null ? 0 : comments.length}</p>
       </div>
     </div>
   );

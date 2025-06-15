@@ -48,7 +48,7 @@ function FeedItem({ author, description, time, title, features, genre, music, co
 {showAudioPlayer && <AudioPlayer2 src={music} onClose={() => setShowAudioPlayer(false)} />}
       <div id="stats">
         <p>Likes: {likes.length}</p>
-        <p id="commentButton" onClick={showComments}>Comments: {comments.length}</p>
+        <p id="commentButton" onClick={showComments}>Comments:{comments == null ? 0 : comments.length} </p>
       </div>
       {comment &&
       
