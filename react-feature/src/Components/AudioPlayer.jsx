@@ -1,14 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./AudioPlayer.css";
 
+function formatTime(secs) {
+  const minutes = Math.floor(secs / 60);
+  const seconds = Math.floor(secs % 60);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function AudioPlayer({ src, onClose }) {
   const audioRef = useRef(new Audio(src));
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(1);
   const [duration, setDuration] = useState(0);
+  const [fadeIn, setFadeIn] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
+    setFadeIn(true);
     if (audioRef.current) {
       const audio = audioRef.current;
       audio.play().then(() => {
@@ -50,23 +59,33 @@ function AudioPlayer({ src, onClose }) {
     setCurrentTime(time);
   };
 
+  const handleClose = () => {
+    setFadeOut(true);
+    setTimeout(() => {
+      onClose();
+    }, 350); // match CSS animation duration
+  };
+
   return (
-    <div className="audio-player-modal">
-      <div className="audio-player-card">
-        <button className="close-btn" onClick={onClose}>X</button>
-        <button onClick={togglePlay}>{playing ? "Pause" : "Play"}</button>
-        <div className="progress-container">
+    <div className={`audio-player-card${fadeIn ? ' audio-fade-in' : ''}${fadeOut ? ' audio-fade-out' : ''}`}>
+      <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
+      <div className="audio-player-controls">
+        <button className="audio-play-btn" onClick={togglePlay} title={playing ? "Pause" : "Play"}>
+          {playing ? <span>&#10073;&#10073;</span> : <span>&#9654;</span>}
+        </button>
+        <div className="audio-player-progress">
           <input
             type="range"
             min="0"
             max={duration}
             value={currentTime}
             onChange={handleSeek}
+            className="audio-progress-bar"
           />
-          <span>{Math.floor(currentTime)} / {Math.floor(duration)} sec</span>
+          <span className="audio-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
-        <div className="volume-container">
-          <label>Volume</label>
+        <div className="audio-player-volume">
+          <span role="img" aria-label="Volume">🔊</span>
           <input
             type="range"
             min="0"
@@ -74,6 +93,7 @@ function AudioPlayer({ src, onClose }) {
             step="0.01"
             value={volume}
             onChange={handleVolumeChange}
+            className="audio-volume-bar"
           />
         </div>
       </div>

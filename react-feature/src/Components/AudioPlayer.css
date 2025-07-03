@@ -1,24 +1,158 @@
-
-
+/* Ultra-compact Audio Player for Spotlight Card */
 .audio-player-card {
-    display: flex;
-  background: #fff;
-  padding: 1rem;
-  border-radius: 8px;
-  min-width: 300px;
-  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+  border-radius: 0.9rem;
+  box-shadow: 0 2px 8px rgba(100,125,222,0.10);
+  width: 80%;
+  max-width: 260px;
+  min-width: 0;
+  padding: 0.3rem 0.7rem 0.3rem 0.7rem;
+  color: #f3f3f3;
   position: relative;
-  color: black;
+  border: 2px solid #647dee;
+  height: 100px;
+  min-height: 0;
+  margin: 0.2rem auto 0 auto;
+  box-sizing: border-box;
 }
-
-.close-btn {
-  color: black;
-  background: transparent;
-  font-size: 1rem;
-  font-weight: bolder;
+.audio-close-btn {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: #bfc9d1;
+  font-size: 1.1rem;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.18s;
 }
-
-.progress-container, .volume-container {
-  margin-top: 10px;
-  
+.audio-close-btn:hover {
+  color: #fff;
+}
+.audio-play-btn {
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  color: #fff;
+  font-size: 1.7rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(100,125,222,0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, transform 0.18s;
+  margin-right: 0.5rem;
+}
+.audio-play-btn:hover {
+  background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+  transform: scale(1.08);
+}
+.audio-player-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.audio-progress-bar,
+.audio-volume-bar {
+  width: 70px;
+  accent-color: #647dee;
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+  border-radius: 8px;
+  height: 6px;
+  min-width: 0;
+  outline: none;
+  border: none;
+}
+.audio-volume-bar {
+  width: 36px;
+}
+/* Chrome, Safari, Opera */
+.audio-progress-bar::-webkit-slider-runnable-track,
+.audio-volume-bar::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+}
+.audio-progress-bar::-webkit-slider-thumb,
+.audio-volume-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #7f53ac;
+  cursor: pointer;
+  margin-top: -4px;
+  box-shadow: 0 2px 8px rgba(100,125,222,0.10);
+}
+/* Firefox */
+.audio-progress-bar::-moz-range-track,
+.audio-volume-bar::-moz-range-track {
+  height: 6px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+}
+.audio-progress-bar::-moz-range-thumb,
+.audio-volume-bar::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #7f53ac;
+  cursor: pointer;
+}
+/* IE */
+.audio-progress-bar::-ms-fill-lower,
+.audio-volume-bar::-ms-fill-lower {
+  background: #7f53ac;
+}
+.audio-progress-bar::-ms-fill-upper,
+.audio-volume-bar::-ms-fill-upper {
+  background: #647dee;
+}
+.audio-progress-bar::-ms-thumb,
+.audio-volume-bar::-ms-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #7f53ac;
+  cursor: pointer;
+}
+.audio-time {
+  font-size: 0.85rem;
+  color: #bfc9d1;
+  min-width: 38px;
+  text-align: right;
+}
+.audio-player-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.3rem;
+}
+.audio-player-card.audio-fade-in {
+  animation: audioFadeIn 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes audioFadeIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.audio-player-card.audio-fade-out {
+  animation: audioFadeOut 0.33s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes audioFadeOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(16px) scale(0.98); }
 }

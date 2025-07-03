@@ -1,67 +1,188 @@
-#nav{
-    background: rgb(0,0,0);
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 50px;
-    color: white;
-    padding-top: 1%;
-    
-  }
-  #head{
-    height: 50px;
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    justify-content:space-around;
-    margin-top: -10px;
-    list-style-type: none;
-  }
-  #title{
-    font-size: 33px;
-    flex-grow: 1;
-  }
-  .click{
-    flex-grow: 3;
-  }
-  #noti{
-    background-color:rgba(0, 0, 0, 0);
-    border-color: rgba(240, 248, 255, 0);
-    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-    font-weight: 450;
-    cursor: pointer;
-    font-size: 15px;
+/* Modern Fixed Header */
+.main-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  background: #181a20;
+  color: #f3f3f3;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  z-index: 100;
+  height: 64px;
+  display: flex;
+  align-items: center;
+}
 
-  }
-  #notiTab{
-    overflow:auto;
-    background-color: rgba(27, 27, 27, 0.935);
-    position:relative;
-    width: 18.3%;
-    left: 81.2%;
-    top: -10px;
-    height: 300px;
-  }
-  #notiTitle{
-    padding-left: 10px;
-  }
-  #notifications{
-display: flex;
-flex-direction: column;
-gap: 7px;
-list-style:disc;
-  }
-  #seeAll{
-    padding-left: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 90%;
+.header-inner {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  height: 64px;
+}
 
+.header-logo a {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #4f8cff;
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: color 0.2s;
+}
+.header-logo a:hover {
+  color: #a084e8;
+}
+
+.header-nav {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.nav-link {
+  color: #f3f3f3;
+  font-size: 1.1rem;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.3rem 1.1rem;
+  border-radius: 0.7rem;
+  transition: background 0.18s, color 0.18s;
+}
+.nav-link:hover {
+  background: #232946;
+  color: #4f8cff;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.noti-btn {
+  background: none;
+  border: none;
+  color: #f3f3f3;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.7rem;
+  padding: 0.3rem 1rem;
+  transition: background 0.18s, color 0.18s;
+  position: relative;
+}
+.noti-btn:hover {
+  background: #232946;
+  color: #4f8cff;
+}
+.noti-icon {
+  font-size: 1.2rem;
+}
+.noti-label {
+  display: none;
+}
+@media (min-width: 600px) {
+  .noti-label {
+    display: inline;
   }
-  #seeAll:hover{
-    color: #fff25d;
+}
+
+.profile-link {
+  color: #f3f3f3;
+  font-size: 1.1rem;
+  text-decoration: none;
+  font-weight: 500;
+  border-radius: 0.7rem;
+  padding: 0.3rem 1.1rem;
+  transition: background 0.18s, color 0.18s;
+}
+.profile-link:hover {
+  background: #232946;
+  color: #a084e8;
+}
+
+.noti-dropdown {
+  position: absolute;
+  right: 2.5rem;
+  top: 70px;
+  width: 340px;
+  background: #232946;
+  color: #f3f3f3;
+  border-radius: 1.2rem;
+  box-shadow: 0 6px 32px rgba(79,140,255,0.13);
+  padding: 1.2rem 1.1rem 1rem 1.1rem;
+  z-index: 200;
+  animation: fadeIn 0.2s;
+}
+.noti-dropdown-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+  color: #4f8cff;
+}
+.see-all-btn {
+  background: none;
+  border: none;
+  color: #a084e8;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 0.7rem;
+  text-align: left;
+  padding: 0;
+  transition: color 0.18s;
+}
+.see-all-btn:hover {
+  color: #4f8cff;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 800px) {
+  .header-inner {
+    padding: 0 1rem;
   }
+  .noti-dropdown {
+    right: 1rem;
+    width: 95vw;
+    max-width: 340px;
+  }
+}
+@media (max-width: 600px) {
+  .header-inner {
+    flex-direction: column;
+    height: auto;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0 0.5rem;
+  }
+  .header-nav {
+    gap: 1.2rem;
+  }
+  .noti-dropdown {
+    top: 60px;
+    right: 0.5rem;
+  }
+}
+
+.gradient-logo {
+  background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  transition: background 0.3s;
+}
+.gradient-logo:hover {
+  background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+}
   
   

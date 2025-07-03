@@ -1,40 +1,36 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
 
-
 function Header() {
-const [displayNoti, setDisplayNoti] = useState(false);
-  const showNoti = () => {
-    setDisplayNoti(!displayNoti);
-  }
+  const [displayNoti, setDisplayNoti] = useState(false);
+  const showNoti = () => setDisplayNoti((v) => !v);
+
   return (
-    <nav id="nav" >
-        <ul id="head">
-          <h1 id="title"><a href="/home">FeatureMe</a></h1>
-            <li className="click"><a href="/feed">Feed</a></li>
-            
-            <li><button id="noti" onClick={showNoti}>Notifications</button></li> 
-          
-       <li><a href="/profile">Profile</a></li> 
-       
-          
-          <li></li>
-          
-        </ul>
-        {displayNoti && 
-            <div id="notiTab">
-              <h2 id="notiTitle">Notifications</h2>
-              <Notifications />
-              
-              <button id="seeAll">See All</button>
-            </div>
-          
-          }
-          
-      </nav>
-    
+    <header className="main-header">
+      <div className="header-inner">
+        <div className="header-logo">
+          <a href="/home" className="gradient-logo">FeatureMe</a>
+        </div>
+        <nav className="header-nav">
+          <a href="/feed" className="nav-link">Feed</a>
+        </nav>
+        <div className="header-actions">
+          <button className="noti-btn" onClick={showNoti} aria-label="Show notifications">
+            <span className="noti-icon">🔔</span>
+            <span className="noti-label">Notifications</span>
+          </button>
+          <a href="/profile" className="profile-link">Profile</a>
+        </div>
+        {displayNoti && (
+          <div className="noti-dropdown">
+            <div className="noti-dropdown-title">Notifications</div>
+            <Notifications />
+            <button className="see-all-btn">See All</button>
+          </div>
+        )}
+      </div>
+    </header>
   );
 }
 

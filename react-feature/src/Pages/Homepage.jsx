@@ -5,85 +5,108 @@ import Notifications from '../Components/Notifications';
 import Footer from '../Components/Footer';
 import "../App.css"
 import Spotlight from '../Components/Spotlight';
+import ProfileTabs from '../ProfileComp/ProfileTabs';
+
 function Homepage() {
-  
-    const [loggedIn, setLoggedIn] = useState(true);
-    const [progress, setProgress] = useState(0);
-    const [progCheck, setProgCheck] = useState(true);
+  const [progress, setProgress] = useState(40);
+  const [progCheck, setProgCheck] = useState(true);
+  const [activeTab, setActiveTab] = useState('profile');
+  const [tabTransition, setTabTransition] = useState(false);
 
-    const simulateProgress = () => {
-      setProgress(progress + 10);
-      if(progress >= 100){
-        maxProgress();
-      }
-    };
-    const maxProgress = () => {
-      setProgress(100);
-      setProgCheck(false);
-    }
-    const login = () => {
-        setLoggedIn(true);
-    }
-    const checkLogin = () => {
-        if(loggedIn){
-            setLoggedIn(true);
-        }
-    }
-    const preventD = (e) => {
-        e.preventDefault();
-    }
-    return (
-    <div id='home-body'>
-        <Header />
+  const simulateProgress = () => {
+    setProgress((prev) => Math.min(prev + 20, 100));
+    if (progress >= 80) setProgCheck(false);
+  };
 
-      <div id='profileS' >
-        <section id='profileSi'>
-        <h2>SuperDex</h2>
-        <h3>Followers: 0</h3>
-        <h3>Following: 0</h3>
-        <button id='ppEdit'>Edit Profile Page</button>
-         </section>
-         <section>
-          <a href="/profile"><img id='pp' src="dpp.jpg" alt="" />  </a>
-          </section>
-          {progCheck && 
-          <section id='progress'>
-            <h2 id='complete'>Complete Profile</h2>
-            <ProgressBar value={progress} max={100} />
-      <button onClick={simulateProgress}>Increase Progress</button>
-          </section>
-          
-          }
-      
-         
+  const handleTabChange = (tab) => {
+    if (tab !== activeTab) {
+      setTabTransition(true);
+      setTimeout(() => {
+        setActiveTab(tab);
+        setTabTransition(false);
+      }, 250); // match CSS transition duration
+    }
+  };
+
+  return (
+    <div id="home-body">
+      <Header />
+      <div className="tabbed-profile-card">
+        <div className="tabbed-profile-tabs">
+          <button
+            className={`tab ${activeTab === "profile" ? "tab-active" : ""}`}
+            onClick={() => handleTabChange("profile")}
+          >
+            Profile
+          </button>
+          <button
+            className={`tab ${activeTab === "upload" ? "tab-active" : ""}`}
+            onClick={() => handleTabChange("upload")}
+          >
+            Upload
+          </button>
         </div>
-        
-        <div id='homeWidgets'>
-          <div className='homeSection' id='recent-activity'>
-            <h3 className='sectionTitle' id='recentTitle'>Recent Activity</h3>
-            <Notifications />
-          </div>
-          <div className='homeSection' id='uploadTab'>
-            <h3 className='sectionTitle' id='uploadTitle'>Upload</h3>
-            <div id='uploadButtons'> 
-              <button className='uploadButton'>Song</button>
-            <button className='uploadButton'>Beat</button>
-            <button className='uploadButton'>Loop</button>
-            <button className='uploadButton'>Instrument</button>
+        <div className={`tabbed-profile-content${tabTransition ? " tab-transition" : ""}`}
+          style={{ minHeight: 340, maxWidth: 700, width: '100%', position: 'relative' }}>
+          {activeTab === 'profile' && !tabTransition && (
+            <div className="profile-tab-panel">
+              <button className="profile-edit-btn">Edit Profile</button>
+              <img className="profile-avatar" src="dpp.jpg" alt="Profile" />
+              <div className="profile-info">
+                <div className="profile-name">SuperDex</div>
+                <div className="profile-stats">
+                  <span className="profile-stat">Followers: 0</span>
+                  <span className="profile-stat">Following: 0</span>
+                </div>
+              </div>
+              <div className="profile-progress">
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <span style={{fontWeight: 500}}>Profile Completion</span>
+                  <span style={{fontSize: '0.95rem', color: '#bfc9d1'}}>{progress}%</span>
+                </div>
+                <ProgressBar value={progress} max={100} />
+                {progCheck && (
+                  <button className="increase-progress-btn" onClick={simulateProgress}>Increase Progress</button>
+                )}
+              </div>
             </div>
-            
-          </div>
-          <div className='homeSection' id='latestPost'>
-            <h3 className='sectionTitle' id='latestTitle'>Latest Post</h3>
-          </div>
-          <div className='homeSection' id='trending-posts'>
-            <h3 className='sectionTitle'>Spotlight</h3>
-              <Spotlight />
-            
-          </div>
+          )}
+          {activeTab === 'upload' && !tabTransition && (
+            <div className="upload-tab-panel">
+              <div className="upload-title">Upload</div>
+              <div className="upload-buttons">
+                <button className="upload-btn">Song</button>
+                <button className="upload-btn">Beat</button>
+                <button className="upload-btn">Loop</button>
+                <button className="upload-btn">Instrument</button>
+              </div>
+            </div>
+          )}
         </div>
-        <Footer />
+      </div>
+      <div className="widgets-grid">
+        <div className="widget-card">
+          <div className="widget-title">Recent Activity</div>
+          <Notifications />
+        </div>
+        <div className="widget-card">
+          <div className="widget-title">Latest Post</div>
+          {/* Add latest post content here */}
+        </div>
+        <div className="widget-card">
+          <div className="widget-title">Spotlight</div>
+          <Spotlight />
+        </div>
+      </div>
+      <div className="footer">
+        <div><strong>FeatureMe</strong> &mdash; Hub for Musicians.</div>
+        <div style={{marginTop: '0.7rem', fontSize: '1rem'}}>
+          About &nbsp;|&nbsp; Features &nbsp;|&nbsp; Pricing &nbsp;|&nbsp; Blog &nbsp;|&nbsp; Twitter &nbsp;|&nbsp; Facebook &nbsp;|&nbsp; Instagram
+        </div>
+        <div style={{marginTop: '1.2rem', fontSize: '0.95rem', color: '#888'}}>© 2025 FeatureMe. All rights reserved.</div>
+      </div>
     </div>
   );
 }
-export default Homepage
+
+export default Homepage;

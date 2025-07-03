@@ -1,16 +1,19 @@
-
 import Spotlight from "./Spotlight";
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
-import AudioPlayer2 from "./AudioPlayer2";
-
+import "./AudioPlayer.css"
 
 function SpotlightItem({ author, description, time, title, features, genre, music, comments, likes = []}) {
-  const { userName, profilePic, banner } = author ?? {};
+  const { userName } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const openAudioPlayer = () => {
+  const [playing, setPlaying] = useState(false);
+
+  // Handler for play button (shows player)
+  const handlePlayClick = (e) => {
+    e.stopPropagation();
     setShowAudioPlayer(true);
   };
+
   return (
     <div className="spotlight-item">
       <div className="feed-spotlight__header">
@@ -27,15 +30,19 @@ function SpotlightItem({ author, description, time, title, features, genre, musi
                 {index !== features.length - 1 && features[index + 1] !== null ? "," : ")"}
               </li>
             ))}
-            
           </ul>
         </div>
       )}
       <div className="spotlight-item__content">{description}</div>
-      <div id="spotlight-playsection">
-        <img id="spotlight-playbutton" src="play-button.png" alt="PlayButton" onClick={openAudioPlayer} />
-        <h4 id="spotlight-songname">{title}</h4>
-        {showAudioPlayer && <AudioPlayer2 src={music} onClose={() => setShowAudioPlayer(false)} />}
+      <div id="spotlight-playsection" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0.5rem 0 0.2rem 0' }}>
+        {!showAudioPlayer ? (
+          <button className="audio-play-btn" onClick={handlePlayClick} title="Play">
+            <span>&#9654;</span>
+          </button>
+        ) : (
+          <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} />
+        )}
+        <h4 id="spotlight-songname" style={{ margin: 0 }}>{title}</h4>
       </div>
       <div id="spotlight-stats">
         <p>Likes: {likes.length}</p>
