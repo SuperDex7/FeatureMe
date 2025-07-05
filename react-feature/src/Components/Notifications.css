@@ -1,0 +1,53 @@
+/* Modern notifications list styles */
+.notifications-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.notification-item {
+  padding: 0.7rem 0.5rem;
+  border-bottom: 1px solid #232946;
+  border-radius: 0.5rem;
+  background: rgba(36, 40, 54, 0.32);
+  color: #f3f3f7;
+  font-size: 1.08rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.18s;
+}
+.notification-item:hover {
+  background: rgba(100,125,222,0.10);
+}
+.notification-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.notification-user {
+  color: #7eaaff;
+  margin-right: 0.3rem;
+}
+.notification-time {
+  color: #bfc9d1;
+  font-size: 0.97rem;
+  margin-left: 2.5rem;
+  white-space: nowrap;
+  opacity: 0.62;
+  letter-spacing: 0.5px;
+  font-style: italic;
+}
+@media (max-width: 600px) {
+  .notification-item {
+    font-size: 1rem;
+    padding: 0.5rem 0.2rem;
+  }
+  .notification-time {
+    margin-left: 1.1rem;
+    font-size: 0.93rem;
+  }
+}

@@ -1,54 +1,27 @@
 .footer {
-    
-    background-color: #2d2f36;  /* Or your brand color */
-    color: #fff;
-    padding: 2rem 1rem 1rem;    /* Extra top padding for visual appeal */
-    position: relative;
-  }
+  width: 100vw;
+  background: #232946;
+  color: #bfc9d1;
+  text-align: center;
+  padding: 2rem 0 1rem 0;
+  margin-top: 2rem;
+  font-size: 1.1rem;
+  border-radius: 2rem 2rem 0 0;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.18);
+}
   
-  .footer__container {
-    display: flex;
-    flex-wrap: wrap;           /* Responsive layout: wrap if needed */
-    justify-content: space-between;
-    max-width: 1200px;
-    margin: 0 auto;
-    gap: 2rem;                 /* Spacing between sections on wrap */
-  }
   
-  .footer__brand,
-  .footer__links {
-    flex: 1 1 200px;           /* Minimum width before wrapping */
-    margin-bottom: 1rem;
-  }
   
-  .footer__brand h2 {
-    margin: 0 0 0.5rem;
-  }
   
-  .footer__links ul {
-    display: flex;
-    list-style: none;
-    gap: 20px;
-    justify-content: center;
-  }
   
-  .footer__links li{
-    margin: 0.5rem 0;
-  }
   
-  .footer__links a {
-    color: #fff;
-    text-decoration: none;
-    transition: color 0.3s ease;
-  }
   
-  .footer__links a:hover {
-    color: #b3c0ff;            /* Slightly lighter color on hover */
-  }
   
-  .footer__bottom {
-    margin-top: -10px;
-    text-align: center;
-    font-size: 0.9rem;
-  }
+  
+  
+  
+  
+  
+  
+  
   

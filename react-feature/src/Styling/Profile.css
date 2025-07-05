@@ -1,81 +1,298 @@
-.profile-page {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+
+  /* Modern Glassmorphic Profile Page Styles */
+  .profile-glass-root {
+    width: 100vw;
     min-height: 100vh;
-    background-color: #1a1919;
-  }
-  
-  .profile-main {
+    background: linear-gradient(120deg, #19191a 60%, #2a1a3a 100%);
     display: flex;
     flex-direction: column;
-    margin: 0 auto;
-    max-width: 1000px;
-    width: 100%;
-    padding: 1rem;
-    box-sizing: border-box;
-  }
-  .profile-banner {
-    width: 100%;
-    height: 300px;
-    overflow: hidden;
-    
-    background-color: #cecece; /* fallback color */
-    display: flex;
-    justify-content: center;
     align-items: center;
-   
   }
-  
-  .profile-banner__image {
-    width: 100%;
-    height: auto;
+  .profile-glass-banner-wrap {
+    width: 100vw;
+    height: 340px;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-glass-banner {
+    width: 100vw;
+    height: 340px;
     object-fit: cover;
-  }
-  .profile-tabs {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    justify-content: center;
+    
   }
   
-  .tab {
-    padding: 0.5rem 1rem;
-    background-color: #444242;
+  .profile-glass-avatar-wrap {
+    position: absolute;
+    left: 50%;
+    top: 58%;
+    transform: translateX(-50%);
+    z-index: 2;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+  }
+  .profile-glass-avatar {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    object-fit: cover;
+    background: #eee;
+    box-shadow: 0 4px 24px rgba(31,38,135,0.18);
+  }
+  .profile-glass-info-card, .profile-glass-content {
+    background: linear-gradient(135deg, rgba(162,89,198,0.11) 0%, rgba(95,95,217,0.10) 100%);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.13);
+    backdrop-filter: blur(12px);
+    border: 1.5px solid rgba(255,255,255,0.18);
+  }
+  .profile-glass-info-card {
+    margin-top: 110px;
+    padding: 2.5rem 3.5rem 2rem 3.5rem;
+    max-width: 800px;
+    width: 80vw;
+    text-align: center;
+    position: relative;
+    background: linear-gradient(135deg, rgba(162,89,198,0.16) 0%, rgba(95,95,217,0.13) 100%);
+  }
+  .profile-glass-edit {
+    position: absolute;
+    top: 1.5rem;
+    right: 2rem;
+    background: linear-gradient(90deg,#a259c6,#5f5fd9);
+    color: #fff;
     border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.4rem;
+    font-weight: 700;
     cursor: pointer;
-    border-radius: 4px;
-    font-weight: 500;
-    transition: background-color 0.2s;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px rgba(31,38,135,0.10);
+    transition: background 0.2s;
   }
-  
-  .tab:hover {
-    background-color: #942d8f91;
+  .profile-glass-edit:hover {
+    background: linear-gradient(90deg,#7d3bbd,#3a3ad9);
   }
-  
-  .tab-active {
-    background-color: #b53faf;
+  .profile-glass-username {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    margin-top: 40px;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+  .profile-glass-bio {
+    font-size: 1.2rem;
+    color: #e0e0e0;
+    margin-bottom: 0.5rem;
+  }
+  .profile-glass-location {
+    font-size: 1rem;
+    color: #bdbdbd;
+    margin-bottom: 1.2rem;
+  }
+  .profile-glass-stats {
+    display: flex;
+    justify-content: center;
+    gap: 3.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .profile-glass-stat {
+    text-align: center;
     color: #fff;
   }
-  .profile-content {
-    background-color: #fff;
-    color: #1a1919;
-    border: 1px solid #8d56363d;
-    border-width: 5px;
-    border-radius: 6px;
-    padding: 1rem;
-    box-sizing: border-box;
-    min-height: 200px;
-    margin-bottom: 100px;
+  .stat-icon {
+    font-size: 1.3rem;
+    margin-right: 0.2rem;
   }
-  #edit-button{
-
-    background-color:rgb(102, 102, 102);
-    width: 100px;
-    height: 35px;
-    border-width: 2px;
-    border-radius: 5px;
-    border-color:rgb(47, 27, 121);
-    
+  .stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-right: 0.2rem;
+  }
+  .stat-label {
+    display: block;
+    font-size: 1rem;
+    color: #e0e0e0;
+  }
+  .profile-glass-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin: 2.5rem 0 1.5rem 0;
+    position: relative;
+    width: 60vw;
+    max-width: 700px;
+  }
+  .profile-glass-tab {
+    background: none;
+    border: none;
+    color: #bdbdbd;
+    font-weight: 700;
+    font-size: 1.2rem;
+    padding: 0.7rem 2.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    position: relative;
+    z-index: 2;
+  }
+  .profile-glass-tab.active, .profile-glass-tab:hover {
+    color: #fff;
+    background: linear-gradient(90deg,#a259c6,#5f5fd9);
+  }
+  .profile-glass-content {
+    padding: 2.2rem 2.8rem;
+    max-width: 950px;
+    width: 85vw;
+    margin: 0 auto 3rem auto;
+    color: #ffffff;
+    min-height: 200px;
+    font-size: 1.15rem;
+  }
+  @media (max-width: 900px) {
+    .profile-glass-info-card, .profile-glass-content, .profile-glass-tabs {
+      width: 97vw;
+      padding: 1.2rem 0.5rem;
+    }
+    .profile-glass-tabs {
+      gap: 0.5rem;
+    }
+  }
+  @media (max-width: 600px) {
+    .profile-glass-banner {
+      height: 160px;
+    }
+    .profile-glass-avatar {
+      width: 90px;
+      height: 90px;
+    }
+    .profile-glass-info-card {
+      margin-top: 50px;
+      padding: 1rem 0.2rem;
+    }
+    .profile-glass-content {
+      padding: 1rem 0.2rem;
+    }
+    .profile-glass-tabs {
+      width: 100vw;
+    }
+  }
+  
+  .profile-glass-banner-wrap.taller {
+    height: 420px;
+  }
+  .profile-glass-avatar-wrap.lower {
+    bottom: -100px;
+  }
+  .profile-glass-info-card.raised {
+    margin-top: 60px;
+  }
+  .profile-glass-badges-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.7rem;
+    margin-bottom: 0.7rem;
+    margin-top: 0.2rem;
+  }
+  .profile-glass-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(31,38,135,0.10);
+    cursor: pointer;
+    border: 2.5px solid #fff;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .profile-glass-badge:hover {
+    transform: scale(1.13) rotate(-6deg);
+    box-shadow: 0 4px 16px rgba(31,38,135,0.18);
+    z-index: 2;
+  }
+  .profile-glass-badge[title]:hover:after {
+    content: attr(title);
+    position: absolute;
+    bottom: -2.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40,40,60,0.95);
+    color: #fff;
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 1;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(31,38,135,0.18);
+  }
+  /* Tighter vertical spacing for info card */
+  .profile-glass-info-card {
+    padding-top: 2rem;
+    padding-bottom: 1.5rem;
+  }
+  .profile-glass-username {
+    margin-bottom: 0.1rem;
+  }
+  .profile-glass-bio {
+    margin-bottom: 0.3rem;
+  }
+  .profile-glass-location {
+    margin-bottom: 0.7rem;
+  }
+  .profile-glass-stats {
+    margin-bottom: 0.7rem;
+  }
+  .profile-glass-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .stat-icon {
+    margin-right: 0.15rem;
+    font-size: 1.2rem;
+    vertical-align: middle;
+  }
+  .stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin-right: 0.1rem;
+  }
+  .stat-label {
+    font-size: 0.98rem;
+    color: #e0e0e0;
+    margin-left: 0.1rem;
+  }
+  
+  .profile-glass-avatar-wrap.overlap-half {
+    bottom: -80px;
+  }
+  .profile-glass-info-card.overlap-margin {
+    margin-top: -80px;
+  }
+  .profile-glass-edit {
+    position: absolute;
+    top: 1.5rem;
+    right: 2rem;
+    z-index: 2;
+  }
+  .profile-glass-badges-row {
+    margin-bottom: 0.5rem;
+    margin-top: 0.1rem;
+  }
+  .profile-glass-bio {
+    margin-bottom: 0.2rem;
+  }
+  .profile-glass-location {
+    margin-bottom: 0.5rem;
+  }
+  .profile-glass-stats {
+    margin-bottom: 0.5rem;
   }
   

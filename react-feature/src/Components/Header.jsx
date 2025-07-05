@@ -10,7 +10,10 @@ function Header() {
     <header className="main-header">
       <div className="header-inner">
         <div className="header-logo">
-          <a href="/home" className="gradient-logo">FeatureMe</a>
+          <a href="/home" className="gradient-logo">
+            <span className="gradient-logo-base">FeatureMe</span>
+            <span className="gradient-logo-hover">FeatureMe</span>
+          </a>
         </div>
         <nav className="header-nav">
           <a href="/feed" className="nav-link">Feed</a>

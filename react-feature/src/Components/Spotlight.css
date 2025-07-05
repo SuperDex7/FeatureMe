@@ -63,7 +63,7 @@
 }
 
 #spotlight-scroll-container {
-  width: 95%;
+  width: 100%;
   max-width: 100%;
   height: 350px;
   overflow-x: auto;

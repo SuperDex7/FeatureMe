@@ -174,15 +174,41 @@
 }
 
 .gradient-logo {
+  position: relative;
+  display: inline-block;
+}
+.gradient-logo-base {
   background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
-  transition: background 0.3s;
+  transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1);
+  opacity: 1;
+  z-index: 1;
+  position: static;
 }
-.gradient-logo:hover {
+.gradient-logo-hover {
   background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  opacity: 0;
+  z-index: 2;
+  position: absolute;
+  left: 0; top: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1);
 }
+.gradient-logo:hover .gradient-logo-hover {
+  opacity: 1;
+}
+.gradient-logo:hover .gradient-logo-base {
+  opacity: 0;
+}
+/* Remove previous ::after solution if present */
+.gradient-logo::after { display: none !important; }
   
   

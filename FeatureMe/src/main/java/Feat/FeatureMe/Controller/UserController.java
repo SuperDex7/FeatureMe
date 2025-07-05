@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 @CrossOrigin("*")
@@ -79,4 +81,9 @@ public class UserController {
         userService.deleteUser(id);
 
     }
+    @GetMapping("/login")
+    public String login() {
+        return "redirect:http://localhost:5173/login";
+    }
+    
 }

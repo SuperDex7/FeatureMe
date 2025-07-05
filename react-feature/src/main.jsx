@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {createBrowserRouter, RouterProvider} from 'react-router-dom'
 import ProfilesPage from './Pages/ProfilesPage.jsx'
 import SignupPage from './Pages/SignupPage.jsx'
+import LoginPage from './Pages/LoginPage.jsx'
 
 
 const router = createBrowserRouter([
@@ -18,7 +19,7 @@ const router = createBrowserRouter([
   {path: 'feed', element: <Feed />},
   {path: 'profile', element: <Profile />},
   {path: 'signup', element: <SignupPage />},
-  {path: 'login', element: <h1>Login</h1>},
+  {path: 'login', element: <LoginPage />},
   {path: 'create-post', element: <CreatePost />},
   {path: 'profiles', element: <ProfilesPage />},
   {path: '*', element: <h1>404</h1>}

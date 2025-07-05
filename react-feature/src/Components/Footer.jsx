@@ -3,58 +3,14 @@ import "./Footer.css";
 
 function Footer() {
   return (
-    <footer className="footer">
-      <div className="footer__container">
-        
-        
-        <div className="footer__brand">
-          <h2>FeatureMe</h2>
-          <p>Hub for Musicians.</p>
+    <div className="footer">
+        <div><strong>FeatureMe</strong> &mdash; Hub for Musicians.</div>
+        <div style={{marginTop: '0.7rem', fontSize: '1rem'}}>
+          About &nbsp;|&nbsp; Features &nbsp;|&nbsp; Pricing &nbsp;|&nbsp; Blog &nbsp;|&nbsp; Twitter &nbsp;|&nbsp; Facebook &nbsp;|&nbsp; Instagram
         </div>
-
-        {/* Quick Links */}
-        <div className="footer__links">
-          <ul>
-            <li><a href="/about">About Us</a></li>
-            <li><a href="/features">Features</a></li>
-            <li><a href="/pricing">Pricing</a></li>
-            <li><a href="/blog">Blog</a></li>
-            <li>
-              <a 
-                href="https://twitter.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                Twitter
-              </a>
-            </li>
-            <li>
-              <a 
-                href="https://facebook.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                Facebook
-              </a>
-            </li>
-            <li>
-              <a 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                Instagram
-              </a>
-            </li>
-          </ul>
-        </div>
+        <div style={{marginTop: '1.2rem', fontSize: '0.95rem', color: '#888'}}>© 2025 FeatureMe. All rights reserved.</div>
       </div>
-
- 
-      <div className="footer__bottom">
-        <p>&copy; {new Date().getFullYear()} FeatureMe. All rights reserved.</p>
-      </div>
-    </footer>
+    
   );
 }
 

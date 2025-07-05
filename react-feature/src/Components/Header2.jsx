@@ -3,19 +3,24 @@ import './Header.css';
 function Header2(){
 
     return (
-        <nav id="nav" >
-            <ul id="head">
-              <h1 id="title"><a href="/">FeatureMe</a></h1>
-                <li className="click"><a href="/feed">Feed</a></li>
-                
-              
-           <li><a href="/home">Login</a></li> 
-           <li><a href="/signup">Signup</a></li> 
-              
-              <li></li>
-            </ul>
+       <header className="main-header">
+      <div className="header-inner">
+        <div className="header-logo">
+          <a href="/home" className="gradient-logo">FeatureMe</a>
+        </div>
+        <nav className="header-nav">
+          
+        </nav>
+        <div className="header-actions">
+          <button className="noti-btn"  aria-label="Show notifications">
             
-          </nav>
+            <a href='/login' className="noti-label">Log In</a>
+          </button>
+          <a href="/signup" className="profile-link">Signup</a>
+        </div>
+        
+      </div>
+    </header>
       );
     }
     
