@@ -21,7 +21,7 @@
   background: linear-gradient(135deg, rgba(162,89,198,0.16) 0%, rgba(95,95,217,0.13) 100%);
   border-radius: 24px;
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.13);
-  backdrop-filter: blur(12px);
+  /* Removed backdrop-filter for better performance */
   border: 1.5px solid rgba(255,255,255,0.18);
   padding: 3rem;
   max-width: 500px;
@@ -105,7 +105,7 @@
   color: #fff;
   font-size: 1rem;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  /* Removed backdrop-filter for better performance */
 }
 
 .form-group input:focus,
@@ -186,7 +186,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  /* Removed backdrop-filter for better performance */
 }
 
 .back-btn:hover {

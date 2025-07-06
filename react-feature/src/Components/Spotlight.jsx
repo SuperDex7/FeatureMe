@@ -1,94 +1,147 @@
 import "./Spotlight.css";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import SpotlightItem from "./SpotlightItem";
 import { listPostsDesc } from "../services/PostsService";
 
+// Genre to icon mapping
+const GENRE_ICONS = {
+  Rock: "🎸",
+  Pop: "🎤",
+  Jazz: "🎷",
+  HipHop: "🎧",
+  Electronic: "🎹",
+  Indie: "🌈",
+  Classical: "🎻",
+  Country: "🤠",
+  Blues: "🎺",
+  Default: "🎵"
+};
+
 function Spotlight() {
   const [spotlightPosts, setSpotlightPosts] = useState([]);
-  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-  const scrollRef = useRef(null);
-  const PAGE_SIZE = 6;
-  const CARD_WIDTH = 300; // px, including gap
+  const [selectedGenre, setSelectedGenre] = useState('all');
 
   useEffect(() => {
-    fetchPosts(page);
-    // eslint-disable-next-line
-  }, [page]);
+    fetchPosts();
+  }, []);
 
-  useEffect(() => {
-    updateArrowState();
-    // eslint-disable-next-line
-  }, [spotlightPosts]);
-
-  const fetchPosts = async (pageNum) => {
-    if (loading || !hasMore) return;
+  const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await listPostsDesc(pageNum, PAGE_SIZE);
-      const newPosts = response.data || [];
-      setSpotlightPosts((prev) => [...prev, ...newPosts]);
-      if (newPosts.length < PAGE_SIZE) setHasMore(false);
+      const response = await listPostsDesc(0, 50); // Get more posts to organize by genre
+      const posts = response.data || [];
+      setSpotlightPosts(posts);
     } catch (error) {
-      setHasMore(false);
+      console.error('Error fetching spotlight posts:', error);
     }
     setLoading(false);
   };
 
-  const updateArrowState = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+  // Group posts by genre and get top liked posts for each
+  const getPostsByGenre = () => {
+    const genreGroups = {};
+    
+    spotlightPosts.forEach(post => {
+      const genres = Array.isArray(post.genre) ? post.genre : [post.genre];
+      genres.forEach(genre => {
+        if (genre && genre.trim()) {
+          if (!genreGroups[genre]) {
+            genreGroups[genre] = [];
+          }
+          genreGroups[genre].push(post);
+        }
+      });
+    });
+
+    // Sort posts by likes count within each genre
+    Object.keys(genreGroups).forEach(genre => {
+      genreGroups[genre].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+    });
+
+    return genreGroups;
   };
 
-  const handleArrow = (dir) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const scrollAmount = dir === 'left' ? -CARD_WIDTH : CARD_WIDTH;
-    el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    setTimeout(() => {
-      updateArrowState();
-      // If scrolling right and near end, trigger load more
-      if (dir === 'right' && el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 * CARD_WIDTH && hasMore && !loading) {
-        setPage((prev) => prev + 1);
-      }
-    }, 350);
+  const genreGroups = getPostsByGenre();
+  const availableGenres = Object.keys(genreGroups);
+
+  const getTopPostsForGenre = (genre, count = 6) => {
+    return genreGroups[genre]?.slice(0, count) || [];
   };
 
-  // Also update arrows on manual scroll (e.g., touchpad)
-  const handleManualScroll = () => {
-    updateArrowState();
-    const el = scrollRef.current;
-    if (el && el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 * CARD_WIDTH && hasMore && !loading) {
-      setPage((prev) => prev + 1);
-    }
+  const getTopPostsOverall = (count = 6) => {
+    return spotlightPosts
+      .sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
+      .slice(0, count);
   };
+
+  if (loading) {
+    return (
+      <div className="spotlight-container">
+        <div className="spotlight-loading">Loading Spotlight...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="spotlight-arrow-container">
-      {canScrollLeft && (
-        <button className="spotlight-arrow left" onClick={() => handleArrow('left')} aria-label="Scroll left">&#8592;</button>
-      )}
-      <div
-        id="spotlight-scroll-container"
-        ref={scrollRef}
-        onScroll={handleManualScroll}
-      >
-        <div id="spotlight" style={{ minWidth: 'fit-content' }}>
-          {spotlightPosts.map((item) => (
-            <SpotlightItem key={item.id + '-' + item.title} {...item} />
-          ))}
-          {loading && <div className="spotlight-loading">Loading...</div>}
-        </div>
+    <div className="spotlight-container">
+      {/* Genre Filter Tabs */}
+      <div className="spotlight-genre-tabs">
+        <button 
+          className={`spotlight-genre-tab ${selectedGenre === 'all' ? 'active' : ''}`}
+          onClick={() => setSelectedGenre('all')}
+        >
+          <span role="img" aria-label="all">🔥</span>
+          Top Overall
+        </button>
+        {availableGenres.map(genre => (
+          <button 
+            key={genre}
+            className={`spotlight-genre-tab ${selectedGenre === genre ? 'active' : ''}`}
+            onClick={() => setSelectedGenre(genre)}
+          >
+            <span role="img" aria-label={genre}>{GENRE_ICONS[genre] || GENRE_ICONS.Default}</span>
+            {genre}
+          </button>
+        ))}
       </div>
-      {canScrollRight && (
-        <button className="spotlight-arrow right" onClick={() => handleArrow('right')} aria-label="Scroll right">&#8594;</button>
-      )}
+
+      {/* Spotlight Content */}
+      <div className="spotlight-content">
+        {selectedGenre === 'all' ? (
+          <div className="spotlight-section">
+            <div className="spotlight-section-header">
+              <h2 className="spotlight-section-title">
+                <span role="img" aria-label="fire">🔥</span>
+                Top Liked Posts
+              </h2>
+              <p className="spotlight-section-subtitle">Most popular posts across all genres</p>
+            </div>
+            <div className="spotlight-cards-grid">
+              {getTopPostsOverall().map((item) => (
+                <SpotlightItem key={item.id + '-' + item.title} {...item} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="spotlight-section">
+            <div className="spotlight-section-header">
+              <h2 className="spotlight-section-title">
+                <span role="img" aria-label={selectedGenre}>{GENRE_ICONS[selectedGenre] || GENRE_ICONS.Default}</span>
+                Top {selectedGenre}
+              </h2>
+              <p className="spotlight-section-subtitle">Most popular {selectedGenre.toLowerCase()} posts</p>
+            </div>
+            <div className="spotlight-cards-grid">
+              {getTopPostsForGenre(selectedGenre).map((item) => (
+                <SpotlightItem key={item.id + '-' + item.title} {...item} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
 export default Spotlight;

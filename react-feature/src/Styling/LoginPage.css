@@ -74,7 +74,7 @@
 /* Login Card */
 .login-card {
   background: rgba(35, 41, 70, 0.8);
-  backdrop-filter: blur(20px);
+  /* Removed backdrop-filter for better performance */
   border-radius: 2rem;
   padding: 3rem 2.5rem;
   width: 100%;
@@ -151,7 +151,7 @@
   color: #f3f3f3;
   font-size: 1rem;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  /* Removed backdrop-filter for better performance */
 }
 
 .login-input::placeholder {
@@ -326,7 +326,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  /* Removed backdrop-filter for better performance */
 }
 
 .social-btn:hover {

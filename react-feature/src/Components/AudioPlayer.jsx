@@ -7,7 +7,7 @@ function formatTime(secs) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function AudioPlayer({ src, onClose }) {
+function AudioPlayer({ src, onClose, title }) {
   const audioRef = useRef(new Audio(src));
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -59,7 +59,8 @@ function AudioPlayer({ src, onClose }) {
     setCurrentTime(time);
   };
 
-  const handleClose = () => {
+  const handleClose = (e) => {
+    e.stopPropagation(); // Prevent bubbling to parent
     setFadeOut(true);
     setTimeout(() => {
       onClose();
@@ -67,12 +68,15 @@ function AudioPlayer({ src, onClose }) {
   };
 
   return (
-    <div className={`audio-player-card${fadeIn ? ' audio-fade-in' : ''}${fadeOut ? ' audio-fade-out' : ''}`}>
-      <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
-      <div className="audio-player-controls">
+    <div className={`audio-player-card glassy${fadeIn ? ' audio-fade-in' : ''}${fadeOut ? ' audio-fade-out' : ''}`}>
+      <div className="audio-player-top-row">
         <button className="audio-play-btn" onClick={togglePlay} title={playing ? "Pause" : "Play"}>
           {playing ? <span>&#10073;&#10073;</span> : <span>&#9654;</span>}
         </button>
+        <span className="audio-song-title">{title}</span>
+        <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
+      </div>
+      <div className="audio-player-bottom-row">
         <div className="audio-player-progress">
           <input
             type="range"

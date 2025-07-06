@@ -46,7 +46,7 @@
 }
 .glass-card:hover {
   box-shadow: 0 12px 36px 0 rgba(79, 140, 255, 0.18);
-  transform: translateY(-2px) scale(1.01);
+  transform: translateY(-1px) scale(1.01);
 }
 
 /* Spotlight glassmorphism */
@@ -63,7 +63,7 @@
 }
 .spotlight-item:hover {
   box-shadow: 0 8px 32px rgba(100,125,222,0.18);
-  transform: translateY(-4px) scale(1.03);
+  transform: translateY(-2px) scale(1.02);
 }
 .spotlight-item > * {
   position: relative;
@@ -411,7 +411,7 @@
   position: fixed;
   z-index: 0;
   border-radius: 50%;
-  filter: blur(60px);
+  /* Removed filter for better performance */
   opacity: 0.18;
   pointer-events: none;
 }
@@ -583,8 +583,7 @@
   inset: 0;
   z-index: 1000;
   background: rgba(24, 26, 32, 0.55);
-  backdrop-filter: blur(8px) saturate(1.1);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  /* Removed backdrop-filter for better performance */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -632,7 +631,7 @@
 .modal-open .homepage-modern-main,
 .modal-open header,
 .modal-open footer {
-  filter: blur(4px) brightness(0.92);
+  /* Removed filter for better performance */
   pointer-events: none;
   user-select: none;
 }
@@ -663,7 +662,7 @@
   object-fit: cover;
   object-position: center;
   display: block;
-  filter: brightness(0.92) saturate(1.1);
+  /* Removed filter for better performance */
 }
 .modal-avatar-container {
   position: absolute;

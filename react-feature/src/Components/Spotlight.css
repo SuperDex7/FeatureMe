@@ -5,6 +5,7 @@
     overflow: auto;
     padding-top: 50px;
     padding-bottom: 50px;
+    
 }
 
 .spotlight-item{
@@ -114,7 +115,7 @@
 }
 .spotlight-item:hover {
   box-shadow: 0 8px 32px rgba(100,125,222,0.18);
-  transform: translateY(-4px) scale(1.03);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .feed-spotlight__header {
@@ -173,7 +174,7 @@
 }
 #spotlight-playbutton:hover {
   background: linear-gradient(135deg, #a084e8 0%, #4f8cff 100%);
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 #spotlight-songname {
   font-size: 1.15rem;
@@ -241,7 +242,7 @@
 .spotlight-arrow:hover {
   background: linear-gradient(135deg, #a084e8 0%, #4f8cff 100%);
   opacity: 1;
-  transform: translateY(-50%) scale(1.08);
+  transform: translateY(-50%) scale(1.05);
 }
 
 @media (max-width: 700px) {
@@ -268,4 +269,736 @@
 .audio-time {
   font-size: 0.8rem;
   min-width: 32px;
+}
+
+/* Spotlight Container */
+.spotlight-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  height: 100%;
+  overflow-y: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+  border-radius: 1%;
+  background: linear-gradient(135deg, #181a20 0%, #232946 100%);
+}
+
+/* Genre Filter Tabs */
+.spotlight-genre-tabs {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border-bottom: 2px solid rgba(79, 140, 255, 0.2);
+}
+
+.spotlight-genre-tab {
+  background: rgba(30,34,45,0.92);
+  border: 2px solid rgba(79, 140, 255, 0.18);
+  border-radius: 1rem;
+  padding: 0.8rem 1.5rem;
+  color: #bfc9d1;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: fit-content;
+}
+
+.spotlight-genre-tab:hover {
+  background: rgba(79, 140, 255, 0.1);
+  border-color: #4f8cff;
+  color: #4f8cff;
+  transform: translateY(-2px);
+}
+
+.spotlight-genre-tab.active {
+  background: linear-gradient(135deg, #1db954 0%, #4f8cff 100%);
+  border-color: #1db954;
+  color: #fff;
+  box-shadow: 0 4px 16px #1db95433;
+}
+
+.spotlight-genre-tab span {
+  font-size: 1.2rem;
+}
+
+/* Spotlight Content */
+.spotlight-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.spotlight-section {
+  background: rgba(30,34,45,0.85);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px rgba(79, 140, 255, 0.10);
+  border: 1.5px solid rgba(79, 140, 255, 0.18);
+  padding: 2rem 1rem 2rem 1rem;
+  margin-bottom: 2rem;
+}
+
+.spotlight-section-header {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.spotlight-section-title {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #4f8cff;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 8px #23294688;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spotlight-section-subtitle {
+  font-size: 1.1rem;
+  color: #bfc9d1;
+  margin: 0;
+  font-weight: 500;
+}
+
+.spotlight-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Spotlight Card Glass - Performance Optimized */
+.spotlight-card-glass {
+  position: relative;
+  background: rgba(30,34,45,0.95);
+  border-radius: 2.2rem;
+  box-shadow: 0 8px 32px 0 #1db95422, 0 0 0 6px #4f8cff22;
+  /* Removed backdrop-filter for better performance */
+  border: 2.5px solid rgba(79, 140, 255, 0.18);
+  overflow: hidden;
+  margin: 0;
+  min-width: 340px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.22s, transform 0.22s;
+}
+
+.spotlight-card-glass:hover {
+  box-shadow: 0 12px 48px 0 #1db95444, 0 0 0 8px #4f8cff44;
+  transform: translateY(-2px) scale(1.02);
+}
+
+.spotlight-card-banner {
+  width: 100%;
+  height: 110px;
+  background-size: cover;
+  background-position: center;
+  border-top-left-radius: 2.2rem;
+  border-top-right-radius: 2.2rem;
+  /* Removed filter effects for better performance */
+  position: relative;
+}
+
+.spotlight-card-content {
+  padding: 1.5rem 1.3rem 1.2rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.spotlight-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.spotlight-card-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.spotlight-card-profile-pic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2.5px solid #1db954;
+  object-fit: cover;
+  box-shadow: 0 2px 8px #1db95433;
+}
+
+.spotlight-card-author {
+  font-size: 1.13rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+.spotlight-card-time {
+  font-size: 0.98rem;
+  color: #a084e8;
+  font-weight: 700;
+}
+
+.spotlight-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.spotlight-card-title {
+  color: #1db954;
+  font-weight: 900;
+  font-size: 1.45rem;
+  margin: 0;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 8px #23294633;
+}
+
+.spotlight-card-play-btn {
+  background: linear-gradient(135deg, #1db954 0%, #4f8cff 100%);
+  border: none;
+  border-radius: 50%;
+  width: 54px;
+  height: 54px;
+  color: #fff;
+  font-size: 2.1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #1db95433;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, transform 0.18s;
+  margin-left: 1.1rem;
+}
+
+.spotlight-card-play-btn:hover {
+  background: linear-gradient(135deg, #a084e8 0%, #4f8cff 100%);
+  transform: scale(1.05);
+}
+
+.spotlight-card-desc {
+  font-size: 1.08rem;
+  color: #fff;
+  margin-bottom: 0.2rem;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.spotlight-card-features {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.98rem;
+  color: #a084e8;
+  font-weight: 700;
+}
+
+.spotlight-card-feat-label {
+  color: #1db954;
+  font-weight: 900;
+  margin-right: 0.2rem;
+}
+
+.spotlight-card-feat-list {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Genre Tags */
+.spotlight-card-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.spotlight-card-genre-tag {
+  background: rgba(29, 185, 84, 0.2);
+  color: #1db954;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  transition: all 0.2s ease;
+}
+
+.spotlight-card-genre-tag:hover {
+  background: rgba(29, 185, 84, 0.3);
+  transform: translateY(-1px);
+}
+
+.spotlight-card-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 2.2rem;
+  margin-top: 0.5rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.spotlight-card-likes {
+  color: #1db954;
+  font-weight: 900;
+}
+
+.spotlight-card-comments {
+  color: #4f8cff;
+  font-weight: 900;
+  transition: color 0.18s;
+}
+
+.spotlight-card-comments:hover {
+  color: #a084e8;
+}
+
+/* Spotlight Modal - Performance Optimized */
+.spotlight-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(24, 26, 32, 0.82);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform, opacity;
+  transition: opacity 0.22s cubic-bezier(0.4,0,0.2,1);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.spotlight-modal-overlay.modal-closed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spotlight-modal {
+  background: rgba(30,34,45,0.98);
+  border-radius: 2.5rem;
+  box-shadow: 0 8px 32px 0 #1db95444, 0 0 0 6px #4f8cff44;
+  border: 3.5px solid #1db954;
+  min-width: 420px;
+  max-width: 600px;
+  width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding-bottom: 2.2rem;
+  will-change: transform, opacity;
+  transition: opacity 0.22s cubic-bezier(0.4,0,0.2,1), transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  backface-visibility: hidden;
+}
+
+.spotlight-modal.modal-closed {
+  opacity: 0;
+  transform: scale(0.98);
+  pointer-events: none;
+}
+
+.spotlight-modal-close {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.7rem;
+  font-size: 2.5rem;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 10001;
+  transition: color 0.18s, transform 0.18s;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.spotlight-modal-close:hover {
+  color: #a084e8;
+  transform: scale(1.05);
+}
+
+.spotlight-modal-banner {
+  width: 100%;
+  height: 120px;
+  background-size: cover;
+  background-position: center;
+  border-top-left-radius: 2.5rem;
+  border-top-right-radius: 2.5rem;
+  /* Removed filter effects for better performance */
+  position: relative;
+}
+
+.spotlight-modal-content {
+  padding: 1.5rem 1.3rem 1.2rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.spotlight-modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.spotlight-modal-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.spotlight-modal-profile-pic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2.5px solid #1db954;
+  object-fit: cover;
+  box-shadow: 0 2px 8px #1db95433;
+}
+
+.spotlight-modal-author {
+  font-size: 1.13rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+.spotlight-modal-time {
+  font-size: 0.98rem;
+  color: #a084e8;
+  font-weight: 700;
+}
+
+.spotlight-modal-features {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.98rem;
+  color: #a084e8;
+  font-weight: 700;
+}
+
+.spotlight-modal-feat-label {
+  color: #1db954;
+  font-weight: 900;
+  margin-right: 0.2rem;
+}
+
+.spotlight-modal-feat-list {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Modal Genre Tags */
+.spotlight-modal-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.spotlight-modal-genre-tag {
+  background: rgba(29, 185, 84, 0.2);
+  color: #1db954;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  transition: all 0.2s ease;
+}
+
+.spotlight-modal-genre-tag:hover {
+  background: rgba(29, 185, 84, 0.3);
+  transform: translateY(-1px);
+}
+
+.spotlight-modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.spotlight-modal-title {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #1db954;
+  margin: 0;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 8px #23294633;
+}
+
+.spotlight-modal-play-btn {
+  background: linear-gradient(135deg, #1db954 0%, #4f8cff 100%);
+  border: none;
+  border-radius: 50%;
+  width: 54px;
+  height: 54px;
+  color: #fff;
+  font-size: 2.1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #1db95433;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, transform 0.18s;
+  margin-left: 1.1rem;
+}
+
+.spotlight-modal-play-btn:hover {
+  background: linear-gradient(135deg, #a084e8 0%, #4f8cff 100%);
+  transform: scale(1.05);
+}
+
+.spotlight-modal-desc {
+  font-size: 1.08rem;
+  color: #fff;
+  margin-bottom: 0.2rem;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.spotlight-modal-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 2.2rem;
+  margin-top: 0.5rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.spotlight-modal-likes {
+  color: #1db954;
+  font-weight: 900;
+  transition: color 0.18s;
+}
+
+.spotlight-modal-comments {
+  color: #4f8cff;
+  font-weight: 900;
+  transition: color 0.18s;
+}
+
+.spotlight-modal-likes.active, .spotlight-modal-comments.active {
+  color: #1db954;
+  text-shadow: 0 2px 8px #1db95433;
+}
+
+.spotlight-modal-likes-section {
+  background: rgba(36, 36, 46, 0.82);
+  border-radius: 1.1rem;
+  margin-top: 0.7rem;
+  padding: 0.7rem 1.1rem;
+  box-shadow: 0 2px 8px #1db95422;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.spotlight-modal-likes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+}
+
+.spotlight-modal-like-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(34, 40, 49, 0.88);
+  border-radius: 0.7rem;
+  padding: 0.3rem 1rem 0.3rem 0.5rem;
+  box-shadow: 0 1px 4px #4f8cff22;
+}
+
+.spotlight-modal-like-profile-pic {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #1db954;
+}
+
+.spotlight-modal-like-username {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.01rem;
+  letter-spacing: 0.1px;
+}
+
+.spotlight-modal-comments-section {
+  background: rgba(36, 36, 46, 0.82);
+  border-radius: 1.1rem;
+  margin-top: 0.7rem;
+  padding: 0.7rem 1.1rem;
+  box-shadow: 0 2px 8px #4f8cff22;
+}
+
+.spotlight-modal-comments-title {
+  font-size: 1.08rem;
+  font-weight: 900;
+  color: #1db954;
+  margin-bottom: 0.3rem;
+}
+
+.spotlight-modal-comments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  color: #fff;
+  font-size: 0.98rem;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.spotlight-modal-add-comment-row {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+
+.spotlight-modal-add-comment-input {
+  flex: 1;
+  border-radius: 0.7rem;
+  border: 2px solid #4f8cff;
+  padding: 0.5rem 1rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+  background: rgba(34, 40, 49, 0.88);
+  color: #fff;
+  outline: none;
+  transition: border 0.18s;
+}
+
+.spotlight-modal-add-comment-input:focus {
+  border: 2px solid #1db954;
+}
+
+.spotlight-modal-add-comment-btn {
+  background: linear-gradient(90deg, #1db954 0%, #4f8cff 100%);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 900;
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #1db95433;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+}
+
+.spotlight-modal-add-comment-btn:hover {
+  background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.spotlight-modal-actions-row {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.spotlight-modal-action-btn {
+  background: linear-gradient(90deg, #1db954 0%, #4f8cff 100%);
+  color: #fff;
+  font-size: 1.08rem;
+  font-weight: 900;
+  border: none;
+  border-radius: 0.8rem;
+  padding: 0.6rem 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #1db95433;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+}
+
+.spotlight-modal-action-btn:hover {
+  background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* Loading State */
+.spotlight-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1db954;
+  font-weight: 600;
+  font-size: 1.1rem;
+  min-height: 200px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .spotlight-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .spotlight-genre-tabs {
+    padding: 0.5rem 0;
+    gap: 0.5rem;
+  }
+  
+  .spotlight-genre-tab {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .spotlight-section-title {
+    font-size: 1.5rem;
+  }
+  
+  .spotlight-section-subtitle {
+    font-size: 1rem;
+  }
+  
+  .spotlight-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .spotlight-modal {
+    min-width: 95vw;
+    max-width: 95vw;
+    margin: 1rem;
+  }
+  
+  .spotlight-modal-content {
+    padding: 1rem;
+  }
+  
+  .spotlight-modal-actions-row {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
 }
