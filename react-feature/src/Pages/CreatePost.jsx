@@ -15,7 +15,7 @@ function CreatePost(){
   const [features, setFeatures] = useState([]);
   const [featureInput, setFeatureInput] = useState('');
   const [description, setDescription] = useState('');
-  const [id, setId] = useState("684ccf832a1a4e06ca828c50")
+  const [id, setId] = useState("6808300414c8040b4ce99ac6")
   const [file, setFile] = useState(null);
   const [genres, setGenres] = useState([]);
   const [ddOpen, setDdOpen] = useState(false);
@@ -84,7 +84,12 @@ function CreatePost(){
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () => {
+  const nextStep = (e) => {
+    // Prevent form submission when clicking Next button
+    if (e) {
+      e.preventDefault();
+    }
+    
     let canProceed = true;
     
     if (currentStep === 1) {
@@ -106,6 +111,11 @@ function CreatePost(){
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Only allow submission on the final step
+    if (currentStep !== 4) {
+      return;
+    }
 
     const formData = new FormData();
     formData.append("post", new Blob([JSON.stringify(post)], {type: "application/json"}) )
@@ -419,7 +429,7 @@ function CreatePost(){
                 <button 
                   type="button" 
                   className={`nav-button next-button ${(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
-                  onClick={nextStep}
+                  onClick={(e) => nextStep(e)}
                   disabled={(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file)}
                 >
                   Next →

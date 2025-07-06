@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import Spotlight from '../Components/Spotlight';
 import Notifications, { dummyNotifications } from '../Components/Notifications';
 import '../Styling/HomepageModern.css';
+import axios from 'axios';
 
 function Homepage() {
   const [trendsTab, setTrendsTab] = useState('trends');
   const [latestModalOpen, setLatestModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
+  const [userr, setUser] = useState(null)
+const email = "dadddex@gmail.com"
+  useEffect(() =>{
+    axios.get(`http://localhost:8080/api/user/userInfo`, {withCredentials:true}).then(response=> {
+      setUser(response.data)
+      console.log(response.data)
+      
+    }).catch((err)=>{
+      console.error(err)
+    })
+  }, [])
   // Example data (replace with real data as needed)
   const user = {
     name: 'SuperDex',

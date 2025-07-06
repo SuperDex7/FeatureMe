@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import '../Styling/LoginPage.css';
+import Header2 from "../Components/Header2"
+import { redirect, redirectDocument } from 'react-router-dom';
 
 function LoginPage() {
   const [formData, setFormData] = useState({
@@ -16,7 +18,11 @@ function LoginPage() {
       [name]: value
     }));
   };
-
+ const loginGithub = () =>{
+  
+  window.location.href = "http://localhost:8080/login/oauth2/code/github"
+  
+ }
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -31,6 +37,7 @@ function LoginPage() {
 
   return (
     <div className="login-container">
+      <Header2 />
       <div className="login-background">
         <div className="floating-shapes">
           <div className="shape shape-1"></div>
@@ -116,12 +123,10 @@ function LoginPage() {
 
           <div className="social-login">
             <button type="button" className="social-btn google">
-              <span>🎵</span>
               Continue with Google
             </button>
-            <button type="button" className="social-btn spotify">
-              <span>🎧</span>
-              Continue with Spotify
+            <button onClick={loginGithub} type="button" className="social-btn github">
+              Continue with Github
             </button>
           </div>
 
