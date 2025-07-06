@@ -45,8 +45,8 @@
   z-index: 1;
 }
 .glass-card:hover {
-  box-shadow: 0 12px 36px 0 rgba(79, 140, 255, 0.18);
-  transform: translateY(-1px) scale(1.01);
+   box-shadow: 0 12px 36px 0 rgba(79, 140, 255, 0.18); 
+  /* transform: translateY(-1px) scale(1.01); */
 }
 
 /* Spotlight glassmorphism */
