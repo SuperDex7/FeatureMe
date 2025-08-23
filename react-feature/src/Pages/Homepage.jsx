@@ -10,14 +10,15 @@ function Homepage() {
   const [trendsTab, setTrendsTab] = useState('trends');
   const [latestModalOpen, setLatestModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
-  const [userr, setUser] = useState(null)
+  const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true);
+  const [latestPost, setLatestPostt] = useState(null)
   const userString = localStorage.getItem('user');
   const userrr = JSON.parse(userString);
   console.log(userrr)
 
   useEffect(() =>{
-    // Add null check for userrr
+    // Add null check for user
   if (!userrr || !userrr.username) {
     console.error('No user data found');
     setIsLoading(false);
@@ -27,7 +28,12 @@ function Homepage() {
     setIsLoading(true);
     axios.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
       setUser(response.data)
+      
+      
       console.log(response.data)
+      setLatestPostt(response.data.posts[0])
+      console.log(response.data.posts[0].comments)
+
       setIsLoading(false);
     }).catch((err)=>{
       console.error(err)
@@ -46,7 +52,7 @@ function Homepage() {
   }
 
   // Error state
-  if (!userr) {
+  if (!user) {
     return (
       <div className="error-screen">
         <h2>Error loading profile</h2>
@@ -55,7 +61,7 @@ function Homepage() {
     );
   }
   // Example data (replace with real data as needed)
-  const user = {
+  const userr = {
     name: 'SuperDex',
     avatar: 'dpp.jpg',
     posts: 256,
@@ -79,7 +85,7 @@ function Homepage() {
     { id: 2, text: 'AK2003 liked your post' },
     { id: 3, text: 'Over9000 commented on your post' },
   ];
-  const latestPost = {
+  const latestPostt = {
     title: 'My New Track',
     date: '2 days ago',
     description: 'Check out my latest synthwave track!',
@@ -107,10 +113,10 @@ function Homepage() {
         {/* Hero Card */}
         <section className="hero-card glass-card">
           <div className="hero-avatar-section">
-            <img className="hero-avatar" src={userr.profilePic} alt="avatar" />
+            <img className="hero-avatar" src={user.profilePic} alt="avatar" />
             <div>
               <div className="hero-greeting">Welcome back,</div>
-              <div ><a className='hero-username' href="/profile">{userr.userName}</a></div>
+              <div ><a className='hero-username' href="/profile">{user.userName}</a></div>
               <div className="hero-upload-options">
                 <span className="upload-option">Beat</span>
                 <span className="upload-option">Song</span>
@@ -120,15 +126,15 @@ function Homepage() {
             </div>
           </div>
           <div className="hero-stats-row">
-            <div className="hero-stat"><span>{userr?.posts?.length || 0}</span><label>Posts</label></div>
-            <div className="hero-stat"><span>{userr?.followers?.length || 0}</span><label>Followers</label></div>
-            <div className="hero-stat"><span>{userr?.following?.length || 0}</span><label>Following</label></div>
+            <div className="hero-stat"><span>{user?.posts?.length || 0}</span><label>Posts</label></div>
+            <div className="hero-stat"><span>{user?.followers?.length || 0}</span><label>Followers</label></div>
+            <div className="hero-stat"><span>{user?.following?.length || 0}</span><label>Following</label></div>
             <div className="hero-progress">
               <label>Profile</label>
               <div className="hero-progress-bar">
                 <div className="hero-progress-bar-fill" style={{width: user.profileCompletion + '%'}}></div>
               </div>
-              <span className="hero-progress-label">{user.profileCompletion}%</span>
+              <span className="hero-progress-label">{userr.profileCompletion}%</span>
             </div>
           </div>
         </section>
@@ -190,11 +196,11 @@ function Homepage() {
           <section className="latest-post-card glass-card card-balanced" onClick={() => setLatestModalOpen(true)} style={{cursor: 'pointer'}}>
             <h3>Your Latest Post</h3>
             <div className="latest-post-title">{latestPost.title}</div>
-            <div className="latest-post-date">{latestPost.date}</div>
+            <div className="latest-post-date">{new Date(latestPost.time).toLocaleDateString()}</div>
             <div className="latest-post-desc">{latestPost.description}</div>
             <div className="latest-post-stats">
-              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes}</span>
-              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost.shares}</span>
+              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes.length}</span>
+              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0}</span>
             </div>
             <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
           </section>
@@ -207,25 +213,26 @@ function Homepage() {
           <div className="modal-content latest-modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close-btn" onClick={handleModalClose}>&times;</button>
             <div className="modal-banner-section">
-              <img src="pb.jpg" alt="Banner" className="modal-banner-image" />
+              <img src={user.banner} alt="Banner" className="modal-banner-image" />
               <div className="modal-avatar-container">
-                <img className="modal-avatar" src={user.avatar} alt="avatar" />
+                <img className="modal-avatar" src={user.profilePic} alt="avatar" />
               </div>
             </div>
             <div className="modal-main-content">
               <div className="latest-post-full-content">
                 <h4>{latestPost.title}</h4>
                 <div className="latest-post-modal-stats">
-                  <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes} Likes</span>
-                  <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost.shares} Shares</span>
+                  <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes.length} Likes</span>
+                  <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0} Shares</span>
                 </div>
                 <p>{latestPost.description}</p>
                 <div className="latest-post-comments-section">
                   <h5>Comments</h5>
+                  
                   <ul className="latest-post-comments-list">
-                    {latestPost.comments.map(c => (
-                      <li key={c.id}><span className="comment-user">{c.user}:</span> {c.text}</li>
-                    ))}
+                    { latestPost?.comments?.map((c, idx) => (
+                      <li key={idx}><span className="comment-user">user:</span> {c}</li>
+                    )) || "No Comments yet"}
                   </ul>
                 </div>
                 <div className="latest-post-comments-placeholder">Add your comment feature coming soon...</div>

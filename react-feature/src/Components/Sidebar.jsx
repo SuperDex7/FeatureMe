@@ -14,16 +14,18 @@ const playlists = [
 ];
 
 function Sidebar() {
+  const userString = localStorage.getItem('user');
+  const userrr = JSON.parse(userString);
   return (
     <aside className="sidebar sidebar-dark">
       <div className="sidebar__logo">
         <a href="/home" className="sidebar__logo-link">FeatureMe</a>
-        <div className="sidebar__username">SuperDex</div>
+        <div className="sidebar__username"><a href={`/profile/${userrr.username}`}>{userrr.username}</a></div>
       </div>
       <nav className="sidebar__nav">
         <ul>
-          <li><a href="/feed">Home</a></li>
-          <li><a href="/profile">Profile</a></li>
+          <li><a href="/home">Home</a></li>
+          <li><a href={`/profile/${userrr.username}`}>Profile</a></li>
           <li><a href="/messages">Messages</a></li>
           <li><a href="/notifications">Notifications</a></li>
         </ul>

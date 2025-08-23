@@ -1,7 +1,7 @@
 import axios from "axios"; 
 const REST_API_GET_URL = "http://localhost:8080/api/posts/get"
 
-const getAuthHeaders = () => {
+export const getAuthHeaders = () => {
     const token = localStorage.getItem('jwtToken');
     if (!token) {
       console.warn('No JWT token found in localStorage');

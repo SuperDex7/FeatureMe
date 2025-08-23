@@ -33,6 +33,9 @@ public class User implements UserDetails{
     private String about;
     private String profilePic;
     private String banner;
+    private String location;
+    private List<String> socialMedia;
+    private List<String> badges;
     private List<String> demo;
     private List<String> friends;
     private List<String> followers;
@@ -52,6 +55,9 @@ public class User implements UserDetails{
                 String about,
                 String profilePic,
                 String banner,
+                String location,
+                List<String> socialMedia,
+                List<String> badges,
                 List<String> demo,
                 List<String> friends,
                 List<String> followers,
@@ -67,6 +73,9 @@ public class User implements UserDetails{
         this.about = about;
         this.profilePic = profilePic;
         this.banner = banner;
+        this.location = location;
+        this.socialMedia = socialMedia;
+        this.badges = badges;
         this.demo = demo;
         this.friends = friends;
         this.followers = followers;
@@ -145,6 +154,30 @@ public class User implements UserDetails{
 
     public void setBanner(String banner) {
         this.banner = banner;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public List<String> getSocialMedia() {
+        return socialMedia;
+    }
+
+    public void setSocialMedia(List<String> socialMedia) {
+        this.socialMedia = socialMedia;
+    }
+
+    public List<String> getBadges() {
+        return badges;
+    }
+
+    public void setBadges(List<String> badges) {
+        this.badges = badges;
     }
 
     public List<String> getDemo() {

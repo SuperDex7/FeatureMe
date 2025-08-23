@@ -2,8 +2,7 @@ import "../Styling/CreatePost.css"
 import React, { useState, useRef } from "react";
 import Header from "../Components/Header";
 import { useNavigate } from "react-router-dom";
-import axios from 'axios'
-
+import api from "../services/AuthService";
 const GENRES = [
   "Song","Beat","Loop","Instrument","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
   'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
@@ -15,12 +14,13 @@ function CreatePost(){
   const [features, setFeatures] = useState([]);
   const [featureInput, setFeatureInput] = useState('');
   const [description, setDescription] = useState('');
-  const [id, setId] = useState("6808300414c8040b4ce99ac6")
   const [file, setFile] = useState(null);
   const [genres, setGenres] = useState([]);
   const [ddOpen, setDdOpen] = useState(false);
   const [errors, setErrors] = useState({});
-
+  const userString = localStorage.getItem('user');
+  const userrr = JSON.parse(userString);
+  
   const [post, setPost] = useState({
     title: "",
     description: "",
@@ -120,22 +120,33 @@ function CreatePost(){
     const formData = new FormData();
     formData.append("post", new Blob([JSON.stringify(post)], {type: "application/json"}) )
     if (file) {
+      /*
       if (file.type !== "audio/mpeg") {
         alert("Only MP3 files are allowed.");
         return;
-      } 
+      } */
       formData.append('file', file);
     }
 
     console.log('Posting…', Object.fromEntries(formData));
-    axios.post(`http://localhost:8080/api/posts/create/${id}`, formData, {
-      headers:{"Content-Type": "multipart/form-date"}
+    api.post(`/posts/create/${userrr.username}`, formData, {
+      headers:{"Content-Type": "multipart/form-data"}
     }).then(res => {
+      console.log('Upload successful:', res.data);
       alert("Upload successful!");
       navigate("/feed");
     })
-    .catch(err=> console.log(err))
-  };
+    .catch(error => {
+      console.error('Upload failed:', error);
+      if (error.code === 'ECONNABORTED') {
+        alert("Request timed out. Please check your connection and try again.");
+      } else if (error.response && error.response.status === 500) {
+        alert("Server error: " + (error.response.data || "Unknown error"));
+      } else {
+        alert("Upload failed. Please try again.");
+      }
+  });
+}
 
   // Handle file selection and clear errors
   const handleFileChange = (e) => {
@@ -347,7 +358,7 @@ function CreatePost(){
             <div className="preview-profile">
               <div className="preview-avatar">👤</div>
               <div className="preview-user-info">
-                <span className="preview-username">Your Username</span>
+                <span className="preview-username">{userrr.username}</span>
                 <span className="preview-time">Just now</span>
               </div>
             </div>
