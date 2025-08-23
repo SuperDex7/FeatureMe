@@ -55,6 +55,7 @@ public class PostsService {
             null,
             author.getFriends(),
             author.getFollowers(),
+            author.getFollowing(),
             author.getPosts() != null ? author.getPosts().stream().map(
                 p -> new PostsDTO(
                     p.id(),
@@ -68,8 +69,7 @@ public class PostsService {
                     p.time(),
                     p.likes()  // already a list of Strings
                 )
-            ).toList() : List.of(),
-            author.getFollowing()
+            ).toList() : List.of() 
         ),
         savedPost.getTitle(),
         savedPost.getDescription(),
@@ -125,8 +125,8 @@ public class PostsService {
                 null, 
                 u.getFriends(),
                 u.getFollowers(),
-                u.getPosts(),
-                u.getFollowing()
+                u.getFollowing(),
+                u.getPosts()
             );
             return new PostsDTO(
                 p.getId(),
@@ -159,8 +159,8 @@ public class PostsService {
         null, 
         u.getFriends(),
         u.getFollowers(),
-        u.getPosts(),
-        u.getFollowing()
+        u.getFollowing(),
+        u.getPosts()
     );
     return new PostsDTO(
         post.getId(),
@@ -195,8 +195,8 @@ public class PostsService {
                 null, 
                 u.getFriends(),
                 u.getFollowers(),
-                u.getPosts(),
-                u.getFollowing()
+                u.getFollowing(),
+                u.getPosts()
             );
             return new PostsDTO(
                 p.getId(),

@@ -1,15 +1,21 @@
 package Feat.FeatureMe.Entity;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import Feat.FeatureMe.Dto.PostsDTO;
 
 @Document(collection = "user")
-public class User {
+public class User implements UserDetails{
 
     @Id
     private String id;
@@ -21,6 +27,7 @@ public class User {
 
     @Indexed(unique = true)
     private String email;
+    private String role;
 
     private String bio;
     private String about;
@@ -29,8 +36,10 @@ public class User {
     private List<String> demo;
     private List<String> friends;
     private List<String> followers;
-    private List<PostsDTO> posts;
     private List<String> following;
+    private List<PostsDTO> posts;
+    @CreatedDate
+    private LocalDateTime createdAt;
 //{"title":"Best Pop Song","description":"Song for my love", "features":["RezzyPhil","GioGuru"], "genre":["Pop"], "music":"", "comments": ["hellooooo","soo good twinnn","wwowowowow"]}
     public User() {}
 
@@ -38,6 +47,7 @@ public class User {
                 String userName,
                 String password,
                 String email,
+                String role,
                 String bio,
                 String about,
                 String profilePic,
@@ -45,12 +55,14 @@ public class User {
                 List<String> demo,
                 List<String> friends,
                 List<String> followers,
+                List<String> following,
                 List<PostsDTO> posts,
-                List<String> following) {
+                LocalDateTime createdAt) {
         this.id = id;
         this.userName = userName;
         this.password = password;
         this.email = email;
+        this.role = role;
         this.bio = bio;
         this.about = about;
         this.profilePic = profilePic;
@@ -58,8 +70,9 @@ public class User {
         this.demo = demo;
         this.friends = friends;
         this.followers = followers;
-        this.posts = posts;
         this.following = following;
+        this.posts = posts;
+        this.createdAt = LocalDateTime.now();
     }
 
     public String getId() {
@@ -69,7 +82,7 @@ public class User {
     public void setId(String id) {
         this.id = id;
     }
-
+    
     public String getUserName() {
         return userName;
     }
@@ -77,7 +90,7 @@ public class User {
     public void setUserName(String userName) {
         this.userName = userName;
     }
-
+    @Override
     public String getPassword() {
         return password;
     }
@@ -92,6 +105,14 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public String getBio() {
@@ -168,5 +189,39 @@ public class User {
 
     public User user() {
         return this;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
     }
 }

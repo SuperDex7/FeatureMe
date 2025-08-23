@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import '../Styling/LoginPage.css';
 import Header2 from "../Components/Header2"
+import { useNavigate } from 'react-router-dom';
 import { redirect, redirectDocument } from 'react-router-dom';
 
 function LoginPage() {
+  const navigate = useNavigate(); 
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -27,12 +29,42 @@ function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate login process
-    setTimeout(() => {
+    try {
+      // Create base64 encoded credentials for basic auth
+      const credentials = btoa(`${formData.email}:${formData.password}`);
+      
+      const response = await fetch('http://localhost:8080/api/user/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },body: JSON.stringify({
+          username: formData.email,
+          password: formData.password
+        }),
+        credentials: 'include' // CRITICAL: This enables cookies
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('jwtToken', data.token);
+  localStorage.setItem('user', JSON.stringify({
+    username: data.username,
+    email: formData.email
+  }));
+        console.log('Login successful:', data);
+        //redirect to home page
+        navigate('/home');
+      } else {
+        console.log('Login failed');
+        // Handle login error
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+    } finally {
       setIsLoading(false);
-      // Add your login logic here
-      console.log('Login attempt:', formData);
-    }, 2000);
+    }
+  
+    
   };
 
   return (
@@ -59,12 +91,12 @@ function LoginPage() {
           <div className="form-group">
             <div className="input-container">
               <input
-                type="email"
+                type="text"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className="login-input"
-                placeholder="Email"
+                placeholder="Email or Username"
                 required
               />
               <div className="input-icon">📧</div>

@@ -11,16 +11,49 @@ function Homepage() {
   const [latestModalOpen, setLatestModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [userr, setUser] = useState(null)
-const email = "dadddex@gmail.com"
+  const [isLoading, setIsLoading] = useState(true);
+  const userString = localStorage.getItem('user');
+  const userrr = JSON.parse(userString);
+  console.log(userrr)
+
   useEffect(() =>{
-    axios.get(`http://localhost:8080/api/user/userInfo`, {withCredentials:true}).then(response=> {
+    // Add null check for userrr
+  if (!userrr || !userrr.username) {
+    console.error('No user data found');
+    setIsLoading(false);
+    window.location.href = '/login';
+    return;
+  }
+    setIsLoading(true);
+    axios.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
       setUser(response.data)
       console.log(response.data)
-      
+      setIsLoading(false);
     }).catch((err)=>{
       console.error(err)
+      setIsLoading(false);
     })
   }, [])
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <span>Loading your profile...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (!userr) {
+    return (
+      <div className="error-screen">
+        <h2>Error loading profile</h2>
+        <p>Please try refreshing the page or logging in again.</p>
+      </div>
+    );
+  }
   // Example data (replace with real data as needed)
   const user = {
     name: 'SuperDex',
@@ -74,10 +107,10 @@ const email = "dadddex@gmail.com"
         {/* Hero Card */}
         <section className="hero-card glass-card">
           <div className="hero-avatar-section">
-            <img className="hero-avatar" src={user.avatar} alt="avatar" />
+            <img className="hero-avatar" src={userr.profilePic} alt="avatar" />
             <div>
               <div className="hero-greeting">Welcome back,</div>
-              <div ><a className='hero-username' href="/profile">{user.name}</a></div>
+              <div ><a className='hero-username' href="/profile">{userr.userName}</a></div>
               <div className="hero-upload-options">
                 <span className="upload-option">Beat</span>
                 <span className="upload-option">Song</span>
@@ -87,9 +120,9 @@ const email = "dadddex@gmail.com"
             </div>
           </div>
           <div className="hero-stats-row">
-            <div className="hero-stat"><span>{user.posts}</span><label>Posts</label></div>
-            <div className="hero-stat"><span>{user.followers.toLocaleString()}</span><label>Followers</label></div>
-            <div className="hero-stat"><span>{user.following}</span><label>Following</label></div>
+            <div className="hero-stat"><span>{userr?.posts?.length || 0}</span><label>Posts</label></div>
+            <div className="hero-stat"><span>{userr?.followers?.length || 0}</span><label>Followers</label></div>
+            <div className="hero-stat"><span>{userr?.following?.length || 0}</span><label>Following</label></div>
             <div className="hero-progress">
               <label>Profile</label>
               <div className="hero-progress-bar">
