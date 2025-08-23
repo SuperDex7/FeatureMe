@@ -38,8 +38,8 @@ public class PostsController {
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
     // while the "file" part is the uploaded song file.
-    @PostMapping(path ="/create/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Posts createPost(@PathVariable String id, 
+    @PostMapping(path ="/create/{userName}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public PostsDTO createPost(@PathVariable String userName, 
                             @RequestPart("post") Posts posts,
                             @RequestPart("file") MultipartFile file) throws IOException {
         // Upload file to S3 bucket
@@ -54,7 +54,9 @@ public class PostsController {
         // Set the S3 URL (e.g., to the "music" field) in the Posts entity
         posts.setMusic(s3Url);
         
-        return postsService.createPost(id, posts);
+        // Create the post and return the DTO
+        Posts createdPost = postsService.createPost(userName, posts);
+        return postsService.getPostById(createdPost.getId());
     }
     
     @PatchMapping("/update/{id}")

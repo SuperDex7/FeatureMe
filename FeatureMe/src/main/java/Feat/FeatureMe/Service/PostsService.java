@@ -27,8 +27,8 @@ public class PostsService {
 
     
     
-    public Posts createPost(String authorId, Posts posts) {
-        User author = userRepository.findById(authorId)
+    public Posts createPost(String authoruserName, Posts posts) {
+        User author = userRepository.findByUserName(authoruserName)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
     Posts post = new Posts(
         null,
@@ -53,6 +53,9 @@ public class PostsService {
             author.getBio(),
             author.getAbout(),
             null,
+            author.getLocation(),
+            author.getSocialMedia(),
+            author.getBadges(),
             author.getFriends(),
             author.getFollowers(),
             author.getFollowing(),
@@ -123,6 +126,9 @@ public class PostsService {
                 u.getBio(),
                 u.getAbout(),
                 null, 
+                u.getLocation(),
+                u.getSocialMedia(),
+                u.getBadges(),
                 u.getFriends(),
                 u.getFollowers(),
                 u.getFollowing(),
@@ -157,6 +163,9 @@ public class PostsService {
         u.getBio(),
         u.getAbout(),
         null, 
+        u.getLocation(),
+        u.getSocialMedia(),
+        u.getBadges(),
         u.getFriends(),
         u.getFollowers(),
         u.getFollowing(),
@@ -193,6 +202,9 @@ public class PostsService {
                 u.getBio(),
                 u.getAbout(),
                 null, 
+                u.getLocation(),
+                u.getSocialMedia(),
+                u.getBadges(),
                 u.getFriends(),
                 u.getFollowers(),
                 u.getFollowing(),

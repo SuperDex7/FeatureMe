@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Document(collection = "posts")
 public class Posts {
@@ -14,6 +15,7 @@ public class Posts {
     private String id;
     
     @DBRef(lazy = true)
+    @JsonIgnore
     private User author;
     
     private String title;
