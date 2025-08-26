@@ -21,6 +21,8 @@ import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Service.PostsService;
 import Feat.FeatureMe.Service.S3Service;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @CrossOrigin("*")
 @RestController
@@ -88,4 +90,21 @@ public class PostsController {
     public void deletePost(@PathVariable String id) {
         postsService.deletePost(id);
     }
+    
+    @GetMapping("/get/featuredOn/{userName}")
+    public List<PostsDTO> getFeaturedOn(@PathVariable String userName) {
+        return postsService.getFeaturedOn(userName);
+    }
+
+    @GetMapping("/get/all/id/{ids}")
+    public List<Posts> getAllById(@PathVariable List<String> ids) {
+        return postsService.getAllById(ids);
+    }
+    @GetMapping("get/all/featuredOn/{ids}")
+    public List<Posts> getAllFeatureOn(@PathVariable List<String> ids) {
+        return postsService.getAllById(ids);
+    }
+    
+    
+
 }

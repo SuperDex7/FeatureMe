@@ -50,8 +50,9 @@ public class UserService {
             updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
             updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),
             updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing(),
+            updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
-            updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()
+            updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
         return userRepository.save(user);
     }
@@ -72,6 +73,7 @@ public class UserService {
             u.getFriends(),
             u.getFollowers(),
             u.getFollowing(),
+            u.getFeaturedOn(),
             u.getPosts()
         ))
         .toList();
@@ -94,6 +96,7 @@ return new UserDTO(
  user.getFriends(),
  user.getFollowers(),
  user.getFollowing(),
+ user.getFeaturedOn(),
  user.getPosts()
 );
 
@@ -156,6 +159,7 @@ return new UserDTO(
  user.getFriends(),
  user.getFollowers(),
  user.getFollowing(),
+ user.getFeaturedOn(),
  user.getPosts()
 );
 

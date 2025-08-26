@@ -3,6 +3,7 @@ import Header2 from "../Components/Header2";
 import "../SignupComp/SignupPage.css";
 import "../Styling/Profile.css";
 import axios from 'axios';
+import api from '../services/AuthService';
 
 function SignupPage() {
   const [step, setStep] = useState(1); // 1-4 = form steps, 5 = profile preview
@@ -11,11 +12,20 @@ function SignupPage() {
     userName: "",
     password: "",
     email: "",
+    role: "USER",
     bio: "",
     about: "",
-    location: "",
     profilePic: "/dpp.jpg",
-    banner: "/pb.jpg"
+    banner: "/pb.jpg",
+    location: "",
+    socialMedia: [],
+    badges: [],
+    demo: [],
+    friends: [],
+    followers: [],
+    following: [],
+    featuredOn: [],
+    posts: []
   });
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
@@ -78,7 +88,7 @@ function SignupPage() {
       submitData.append("banner", bannerFile);
     }
 
-    axios.post("http://localhost:8080/api/user/create", submitData, {
+    axios.post("http://localhost:8080/api/user/auth/create", submitData, {
       headers: { "Content-Type": "multipart/form-data" }
     })
     .then(res => {

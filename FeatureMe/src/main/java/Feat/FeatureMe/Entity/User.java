@@ -40,7 +40,8 @@ public class User implements UserDetails{
     private List<String> friends;
     private List<String> followers;
     private List<String> following;
-    private List<PostsDTO> posts;
+    private List<String> featuredOn;
+    private List<String> posts;
     @CreatedDate
     private LocalDateTime createdAt;
 //{"title":"Best Pop Song","description":"Song for my love", "features":["RezzyPhil","GioGuru"], "genre":["Pop"], "music":"", "comments": ["hellooooo","soo good twinnn","wwowowowow"]}
@@ -62,7 +63,8 @@ public class User implements UserDetails{
                 List<String> friends,
                 List<String> followers,
                 List<String> following,
-                List<PostsDTO> posts,
+                List<String> featuredOn,
+                List<String> posts,
                 LocalDateTime createdAt) {
         this.id = id;
         this.userName = userName;
@@ -80,6 +82,7 @@ public class User implements UserDetails{
         this.friends = friends;
         this.followers = followers;
         this.following = following;
+        this.featuredOn = featuredOn;
         this.posts = posts;
         this.createdAt = LocalDateTime.now();
     }
@@ -204,11 +207,19 @@ public class User implements UserDetails{
         this.followers = followers;
     }
 
-    public List<PostsDTO> getPosts() {
+    public List<String> getFeaturedOn() {
+        return featuredOn;
+    }
+
+    public void setFeaturedOn(List<String> featuredOn) {
+        this.featuredOn = featuredOn;
+    }
+
+    public List<String> getPosts() {
         return posts;
     }
 
-    public void setPosts(List<PostsDTO> posts) {
+    public void setPosts(List<String> posts) {
         this.posts = posts;
     }
 

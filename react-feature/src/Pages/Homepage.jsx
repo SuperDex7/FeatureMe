@@ -5,6 +5,7 @@ import Spotlight from '../Components/Spotlight';
 import Notifications, { dummyNotifications } from '../Components/Notifications';
 import '../Styling/HomepageModern.css';
 import axios from 'axios';
+import api from '../services/AuthService';
 
 function Homepage() {
   const [trendsTab, setTrendsTab] = useState('trends');
@@ -13,26 +14,32 @@ function Homepage() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true);
   const [latestPost, setLatestPostt] = useState(null)
+  const [length, setLength] = useState(0);
   const userString = localStorage.getItem('user');
   const userrr = JSON.parse(userString);
-  console.log(userrr)
-
-  useEffect(() =>{
-    // Add null check for user
+  //console.log(userrr)
+// Add null check for user
   if (!userrr || !userrr.username) {
     console.error('No user data found');
     setIsLoading(false);
     window.location.href = '/login';
     return;
   }
+  useEffect(() =>{
+    
     setIsLoading(true);
     axios.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
       setUser(response.data)
       
-      
-      console.log(response.data)
-      setLatestPostt(response.data.posts[0])
-      console.log(response.data.posts[0].comments)
+      //setLength(response.data.posts.length)
+      const len = response.data.posts.length - 1
+      //console.log(len)
+      //setLatestPostt(response.data.posts[0])
+      //console.log(response.data.posts.length)
+  api.get(`http://localhost:8080/api/posts/get/id/${response.data.posts[len]}`).then(res=>{
+  //console.log(res.data)
+  setLatestPostt(res.data)
+})
 
       setIsLoading(false);
     }).catch((err)=>{
@@ -100,6 +107,7 @@ function Homepage() {
 
   // Modal close handler (click outside or close button)
   const handleModalClose = (e) => {
+  
     if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close-btn')) {
       setLatestModalOpen(false);
       setActivityModalOpen(false);
@@ -195,19 +203,24 @@ function Homepage() {
           </section>
           <section className="latest-post-card glass-card card-balanced" onClick={() => setLatestModalOpen(true)} style={{cursor: 'pointer'}}>
             <h3>Your Latest Post</h3>
+            {latestPost && (
+              <>
             <div className="latest-post-title">{latestPost.title}</div>
             <div className="latest-post-date">{new Date(latestPost.time).toLocaleDateString()}</div>
             <div className="latest-post-desc">{latestPost.description}</div>
             <div className="latest-post-stats">
-              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes.length}</span>
+              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost?.likes?.length || 0}</span>
               <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0}</span>
             </div>
             <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
+            </>
+            ) || "No posts yet"}
           </section>
         </div>
       </main>
       <Footer />
       {/* Modal Popup for Latest Post */}
+      
       {latestModalOpen && (
         <div className="modal-overlay" onClick={handleModalClose}>
           <div className="modal-content latest-modal-content" onClick={e => e.stopPropagation()}>
@@ -218,6 +231,8 @@ function Homepage() {
                 <img className="modal-avatar" src={user.profilePic} alt="avatar" />
               </div>
             </div>
+            {latestPost && (
+              <>
             <div className="modal-main-content">
               <div className="latest-post-full-content">
                 <h4>{latestPost.title}</h4>
@@ -239,9 +254,12 @@ function Homepage() {
               </div>
               <button className="latest-post-btn" style={{marginTop: '1.5rem'}} onClick={() => {/* future: go to post url */}}>Go to Post</button>
             </div>
+            </>
+            )|| "Upload a post to see it here"}
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      
       {/* Modal Popup for Activity */}
       {activityModalOpen && (
         <div className="modal-overlay" onClick={handleModalClose}>
