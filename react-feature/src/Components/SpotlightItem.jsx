@@ -126,7 +126,7 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
           
           <div className="spotlight-modal-actions-row">
             <button className="spotlight-modal-action-btn">Contact Creator</button>
-            <button className="spotlight-modal-action-btn">View Profile</button>
+            <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           
           {showAudioPlayer && (

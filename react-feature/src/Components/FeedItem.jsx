@@ -121,7 +121,7 @@ function FeedItemModal({ open, onClose, author, description, time, title, featur
           )}
           <div className="feed-card-actions-row">
             <button className="feed-card-action-btn">Contact Creator</button>
-            <button className="feed-card-action-btn">View Profile</button>
+            <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
