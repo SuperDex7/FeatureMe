@@ -12,8 +12,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import Feat.FeatureMe.Dto.PostsDTO;
-
 @Document(collection = "user")
 public class User implements UserDetails{
 

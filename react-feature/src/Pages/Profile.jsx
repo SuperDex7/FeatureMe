@@ -7,6 +7,7 @@ import { getUserInfo } from "../services/UserService";
 import api from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
+import ProfilePosts from "../Components/ProfilePosts";
 
 function Profile() {
   const [activeTab, setActiveTab] = useState("posts");
@@ -58,7 +59,7 @@ function Profile() {
   if(activeTab == "posts" && co == 0){
     api.get(`posts/get/all/id/${user.posts}`).then(res=>{
     setPosts(res.data)
-    console.log(res.data)
+    //console.log(res.data)
       setCo(co +1)
     })
     
@@ -67,12 +68,12 @@ function Profile() {
   if(activeTab == "friends" && co2 == 0){
     api.get(`posts/get/all/featuredOn/${user.featuredOn}`).then(res=>{
     setFeatureOn(res.data)
-    console.log(res.data)
+    //console.log(res.data)
       setCo2(co2 +1)
     })
     
   }
-  
+  console.log(featuredOn)
   return (
     <div className="profile-glass-root">
       <Header />
@@ -134,7 +135,17 @@ function Profile() {
         )}
         {activeTab === "friends" && (
           <div>
-            <h3>Featured On</h3>
+          <h3>Featured On</h3>
+           <div className="profilePosts">
+            
+           {featuredOn.map((item) => (
+             <ProfilePosts key={item.id} {...item} />
+           ))}
+         </div>
+         </div>
+          /*
+          <div>
+            
             {featuredOn.length > 0 && 
             <h4>{Array.from(new Map(featuredOn.map(featuredOn => [featuredOn.id, featuredOn])).values())?.map((featuredOn, i) => (
               <div key={featuredOn.id}>
@@ -144,6 +155,7 @@ function Profile() {
             ))} </h4>
             || "List or grid of featured on posts go here."}
           </div>
+          */
         )}
       </div>
       <Footer />

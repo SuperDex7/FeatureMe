@@ -7,7 +7,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.PostsDTO;
-import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Entity.User;
@@ -239,8 +238,30 @@ public class PostsService {
 
 
 
-    public List<Posts> getAllById(List<String> ids ) {
-        return postsRepository.findAllById(ids);
-        
+    public List<PostsDTO> getAllById(List<String> ids ) {
+       
+        return postsRepository.findAllById(ids).stream().map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                p.getComments(),
+                p.getTime(),
+                p.getLikes() == null ? List.of() : p.getLikes()
+            );
+        }).toList();
     }
 }

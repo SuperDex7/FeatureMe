@@ -48,6 +48,28 @@ api.interceptors.response.use(
         window.location.href = '/login';
         return Promise.reject(error);
       }
+      
+      // Handle 500 Internal Server Error that might be JWT-related
+      if (error.response.status === 500) {
+        const errorMessage = error.response.data || '';
+        if (typeof errorMessage === 'string' && (
+          errorMessage.includes('JWT expired') || 
+          errorMessage.includes('JWT token expired') ||
+          errorMessage.includes('ExpiredJwtException') ||
+          errorMessage.includes('Invalid JWT token') ||
+          errorMessage.includes('JWT authentication failed')
+        )) {
+          console.log('JWT-related 500 error detected, redirecting to login...');
+          
+          // Clear the expired token
+          localStorage.removeItem('jwtToken');
+          localStorage.removeItem('user');
+          
+          // Redirect to login page
+          window.location.href = '/login';
+          return Promise.reject(error);
+        }
+      }
     }
     
     return Promise.reject(error);
@@ -57,7 +79,39 @@ api.interceptors.response.use(
 // Helper functions
 export const isAuthenticated = () => {
   const token = localStorage.getItem('jwtToken');
-  return !!token;
+  if (!token) return false;
+  
+  // Check if token is expired
+  if (isTokenExpired(token)) {
+    console.log('Token is expired, logging out...');
+    logout();
+    return false;
+  }
+  
+  return true;
+};
+
+export const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Date.now() / 1000;
+    return payload.exp < currentTime;
+  } catch (error) {
+    console.error('Error parsing JWT token:', error);
+    return true; // Consider invalid tokens as expired
+  }
+};
+
+// Start periodic token validation
+export const startTokenValidation = () => {
+  // Check token every 5 minutes
+  setInterval(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (token && isTokenExpired(token)) {
+      console.log('Periodic check: Token expired, logging out...');
+      logout();
+    }
+  }, 5 * 60 * 1000); // 5 minutes
 };
 
 export const logout = () => {
