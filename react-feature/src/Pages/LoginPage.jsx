@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import '../Styling/LoginPage.css';
 import Header2 from "../Components/Header2"
+import { useNavigate, useLocation } from 'react-router-dom';
 import { redirect, redirectDocument } from 'react-router-dom';
+import api from '../services/AuthService';
+import axios from 'axios';
 
 function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Get the page user was trying to access before being redirected to login
+  const from = location.state?.from?.pathname || '/home';
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -27,12 +35,37 @@ function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate login process
-    setTimeout(() => {
+    try {
+      // Create base64 encoded credentials for basic auth
+      const credentials = btoa(`${formData.email}:${formData.password}`);
+      
+      const response = await axios.post('http://localhost:8080/api/user/auth/login', {
+        username: formData.email,
+        password: formData.password
+      });
+      
+      if (response.status === 200) {
+        const data = response.data;
+        localStorage.setItem('jwtToken', data.token);
+        localStorage.setItem('user', JSON.stringify({
+          username: data.username,
+          email: formData.email
+        }));
+        console.log('Login successful:', data);
+        
+        // Redirect to the page user was trying to access, or home if none
+        navigate(from, { replace: true });
+      } else {
+        console.log('Login failed');
+        // Handle login error
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+    } finally {
       setIsLoading(false);
-      // Add your login logic here
-      console.log('Login attempt:', formData);
-    }, 2000);
+    }
+  
+    
   };
 
   return (
@@ -59,12 +92,12 @@ function LoginPage() {
           <div className="form-group">
             <div className="input-container">
               <input
-                type="email"
+                type="text"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className="login-input"
-                placeholder="Email"
+                placeholder="Email or Username"
                 required
               />
               <div className="input-icon">📧</div>

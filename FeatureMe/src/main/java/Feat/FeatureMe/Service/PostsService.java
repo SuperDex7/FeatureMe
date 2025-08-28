@@ -7,7 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.PostsDTO;
-import Feat.FeatureMe.Dto.UserDTO;
+import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.PostsRepository;
@@ -27,8 +27,8 @@ public class PostsService {
 
     
     
-    public Posts createPost(String authorId, Posts posts) {
-        User author = userRepository.findById(authorId)
+    public Posts createPost(String authoruserName, Posts posts) {
+        User author = userRepository.findByUserName(authoruserName)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
     Posts post = new Posts(
         null,
@@ -45,31 +45,14 @@ public class PostsService {
     Posts savedPost = postsRepository.insert(post);
     PostsDTO postDto = new PostsDTO(
         savedPost.getId(),
-        new UserDTO(
+        new UserPostsDTO(
             author.getId(),
             author.getUserName(),
             author.getProfilePic(),
             author.getBanner(),
             author.getBio(),
-            author.getAbout(),
-            null,
-            author.getFriends(),
-            author.getFollowers(),
-            author.getPosts() != null ? author.getPosts().stream().map(
-                p -> new PostsDTO(
-                    p.id(),
-                    p.author(),
-                    p.title(),
-                    p.description(),
-                    p.features(),
-                    p.genre(),
-                    p.music(),
-                    p.comments(),
-                    p.time(),
-                    p.likes()  // already a list of Strings
-                )
-            ).toList() : List.of(),
-            author.getFollowing()
+            author.getLocation()
+                    
         ),
         savedPost.getTitle(),
         savedPost.getDescription(),
@@ -85,9 +68,26 @@ public class PostsService {
         if (author.getPosts() == null) {
             author.setPosts(new ArrayList<>());
         }
-        author.getPosts().add(postDto);
+        author.getPosts().add(savedPost.getId());
         userRepository.save(author);
 
+        List<User> features = userRepository.findByUserNameIn(post.getFeatures());
+        
+        for(int i = 0; i < features.size(); i++){
+            if(features.get(i).getFeaturedOn() == null){
+                features.get(i).setFeaturedOn(new ArrayList<>());
+            }
+            System.out.println(features.get(i));
+            features.get(i).getFeaturedOn().add(postDto.id());
+            userRepository.save(features.get(i));
+        }
+        /* 
+        if(author.getFeaturedOn() == null){
+            author.setFeaturedOn(new ArrayList<>());
+        }
+        author.getFeaturedOn().add(postDto.id());
+        userRepository.save(author);
+*/
         return savedPost;
         
     }
@@ -115,18 +115,13 @@ public class PostsService {
     public List<PostsDTO> getAllPosts() {
         return postsRepository.findAll().stream().map(p -> {
             User u = p.getAuthor();
-            UserDTO author = new UserDTO(
+            UserPostsDTO author = new UserPostsDTO(
                 u.getId(),
                 u.getUserName(),
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getAbout(),
-                null, 
-                u.getFriends(),
-                u.getFollowers(),
-                u.getPosts(),
-                u.getFollowing()
+                u.getLocation() 
             );
             return new PostsDTO(
                 p.getId(),
@@ -149,18 +144,13 @@ public class PostsService {
         Posts post = postsRepository.findById(id)
                    .orElseThrow(() -> new IllegalArgumentException("Post not found"));
     User u = post.getAuthor();
-    UserDTO author = new UserDTO(
+    UserPostsDTO author = new UserPostsDTO(
         u.getId(),
         u.getUserName(),
         u.getProfilePic(),
         u.getBanner(),
         u.getBio(),
-        u.getAbout(),
-        null, 
-        u.getFriends(),
-        u.getFollowers(),
-        u.getPosts(),
-        u.getFollowing()
+        u.getLocation()
     );
     return new PostsDTO(
         post.getId(),
@@ -185,18 +175,13 @@ public class PostsService {
     public List<PostsDTO> findByLikesDesc(Posts posts){
         return postsRepository.findAllByOrderByLikesDesc().stream().map(p -> {
             User u = p.getAuthor();
-            UserDTO author = new UserDTO(
+            UserPostsDTO author = new UserPostsDTO(
                 u.getId(),
                 u.getUserName(),
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getAbout(),
-                null, 
-                u.getFriends(),
-                u.getFollowers(),
-                u.getPosts(),
-                u.getFollowing()
+                u.getLocation()
             );
             return new PostsDTO(
                 p.getId(),
@@ -221,5 +206,62 @@ public class PostsService {
         }
         // Delete the post by its ID
       postsRepository.deleteById(id);
+    }
+
+    public List<PostsDTO> getFeaturedOn(String userName){
+        return postsRepository.findByFeatures(userName).stream().map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                p.getComments(),
+                p.getTime(),
+                p.getLikes() == null ? List.of() : p.getLikes()
+            );
+        }).toList();
+    
+    }
+
+
+
+
+    public List<PostsDTO> getAllById(List<String> ids ) {
+       
+        return postsRepository.findAllById(ids).stream().map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                p.getComments(),
+                p.getTime(),
+                p.getLikes() == null ? List.of() : p.getLikes()
+            );
+        }).toList();
     }
 }

@@ -6,23 +6,29 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import Feat.FeatureMe.Dto.LoginDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
+import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 
@@ -32,13 +38,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class UserController {
     private final S3Service s3Service;
     private final UserService userService;
+    private final JwtService jwtService;
     
-    public UserController(UserService userService, S3Service s3Service) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService) {
         this.userService = userService;
         this.s3Service = s3Service;
+        this.jwtService = jwtService;
     }
 
-     @PostMapping(path = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+     @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public User createUser(@RequestPart User user,
     @RequestPart("pp") MultipartFile pp,
     @RequestPart("banner") MultipartFile banner ) throws IOException {
@@ -66,10 +74,15 @@ public class UserController {
     public List<UserDTO> getAllUsers() {
         return userService.getAllUsers();
     }
-    @GetMapping("/get/user/{userName}")
+    @GetMapping("/get/list/{userName}")
     public List<User> getUserByName(@PathVariable String userName) {
        return userService.getUserByName(userName);
 
+    }
+
+    @GetMapping("/get/{userName}")
+    public UserDTO getUserByUserName(@PathVariable String userName) {
+        return userService.getAUser(userName);
     }
     @GetMapping("/get/id/{id}")
         public UserDTO getUserById(@PathVariable String id){
@@ -81,9 +94,30 @@ public class UserController {
         userService.deleteUser(id);
 
     }
-    @GetMapping("/login")
-    public String login() {
-        return "redirect:http://localhost:5173/login";
+    @PostMapping("/auth/login")
+    public ResponseEntity<?> login(@RequestBody LoginDTO login) {
+        try {
+            String usernameOrEmail = login.username(); // This can be either username or email
+            String password = login.password();
+            
+            // Authenticate against database (works with username OR email)
+            User user = userService.authenticateUser(usernameOrEmail, password);
+            
+            // Generate JWT token using email (for consistency)
+            String token = jwtService.generateToken(user.getEmail());
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Login successful");
+            response.put("username", user.getUserName());
+            response.put("email", user.getEmail());
+            response.put("token", token);
+            response.put("tokenType", "Bearer");
+            
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        }
+        
     }
     
 }

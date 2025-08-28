@@ -28,7 +28,6 @@
     font-size: 1.1rem;
     font-weight: 700;
     padding: 1.2rem 2rem;
-    cursor: pointer;
     transition: all 0.2s ease;
     border-bottom: 3px solid transparent;
     display: flex;
@@ -761,9 +760,6 @@
     background: rgba(34, 40, 49, 0.92);
     transition: box-shadow 0.22s, transform 0.22s, border 0.22s, background 0.22s;
   }
-  .feed-card-glass.expanded .feed-card-banner {
-    /* Removed filter effects for better performance */
-  }
   .feed-card-banner {
     width: 100%;
     height: 110px;
@@ -1155,3 +1151,4 @@
   .feed-search-input-wrapper .feed-search-clear {
     right: 5rem;
   }
+  

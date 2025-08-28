@@ -28,7 +28,15 @@ public class S3Service
 	 */
 	public String uploadFile(String keyName, String filePath)
 	{
-		PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucketName).key(keyName).build();
+		// Detect content type from file extension
+		String contentType = getContentType(keyName);
+		
+		PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+			.bucket(bucketName)
+			.key(keyName)
+			.contentType(contentType)  // This is the only new line!
+			.build();
+			
 		s3Client.putObject(putObjectRequest, RequestBody.fromFile(Path.of(filePath)));
         String encodedKeyName = keyName.replace(" ", "+");
         String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + encodedKeyName;
@@ -42,5 +50,24 @@ public class S3Service
 	{
 		GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(bucketName).key(keyName).build();
 		s3Client.getObject(getObjectRequest, Path.of(downloadPath));
+	}
+	
+	// Simple helper method to detect content type
+	private String getContentType(String fileName) {
+		if (fileName == null) return "application/octet-stream";
+		
+		String extension = fileName.toLowerCase();
+		if (extension.endsWith(".mp3")) return "audio/mpeg";
+		if (extension.endsWith(".wav")) return "audio/wav";
+		if (extension.endsWith(".ogg")) return "audio/ogg";
+		if (extension.endsWith(".m4a")) return "audio/mp4";
+		if (extension.endsWith(".flac")) return "audio/flac";
+		if (extension.endsWith(".aac")) return "audio/aac";
+		if (extension.endsWith(".jpg") || extension.endsWith(".jpeg")) return "image/jpeg";
+		if (extension.endsWith(".png")) return "image/png";
+		if (extension.endsWith(".gif")) return "image/gif";
+		if (extension.endsWith(".pdf")) return "application/pdf";
+		
+		return "application/octet-stream";
 	}
 }

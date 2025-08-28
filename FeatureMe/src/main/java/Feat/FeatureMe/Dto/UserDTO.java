@@ -10,10 +10,15 @@ public record UserDTO(
         String bio,
         String about,
         String demo,
+        String location,
+        List<String> socialMedia,
+        List<String> badges,
         List<String> friends,
         List<String> followers,
-        List<PostsDTO> posts,
-        List<String> following
+        List<String> following,
+        List<String> featuredOn,
+        List<String> posts
+        
 ) {
 
 }

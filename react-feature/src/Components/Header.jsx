@@ -1,11 +1,18 @@
 import React, { useState } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
+import { logout } from "../services/AuthService";
 
 function Header() {
   const [displayNoti, setDisplayNoti] = useState(false);
   const showNoti = () => setDisplayNoti((v) => !v);
-
+  const userString = localStorage.getItem('user');
+  const userrr = JSON.parse(userString);
+  
+  const handleLogout = () => {
+    logout();
+  };
+  
   return (
     <header className="main-header">
       <div className="header-inner">
@@ -23,7 +30,11 @@ function Header() {
             <span className="noti-icon">🔔</span>
             <span className="noti-label">Notifications</span>
           </button>
-          <a href="/profile" className="profile-link">Profile</a>
+          <a href={`/profile/${userrr.username}`} className="profile-link">Profile</a>
+          <button className="logout-btn" onClick={handleLogout} aria-label="Logout">
+            <span className="logout-icon">🚪</span>
+            <span className="logout-label">Logout</span>
+          </button>
         </div>
         {displayNoti && (
           <div className="noti-dropdown">

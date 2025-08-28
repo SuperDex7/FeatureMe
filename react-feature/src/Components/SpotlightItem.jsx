@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
 
-function SpotlightItemModal({ open, onClose, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [commentInput, setCommentInput] = useState("");
@@ -27,15 +27,23 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
           <div className="spotlight-modal-header-row">
             <div className="spotlight-modal-profile">
               <img className="spotlight-modal-profile-pic" src={profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} alt="profile" />
-              <span className="spotlight-modal-author">{userName}</span>
+              <span className="spotlight-modal-author"><a href={`/profile/${userName}`}>{userName}</a></span>
             </div>
             <span className="spotlight-modal-time">{new Date(time).toLocaleDateString()}</span>
           </div>
           
-          {features && features.length > 1 && (
-            <div className="spotlight-modal-features">
-              <span className="spotlight-modal-feat-label">Feat:</span>
-              <span className="spotlight-modal-feat-list">{features.join(", ")}</span>
+          {/* Features */}
+          {features && Array.isArray(features) && features.length > 1 && (
+                <div className="feed-card-features">
+                  <span className="feed-card-feat-label">Feat:</span>
+                  <span className="feed-card-feat-list">
+                {features.map((feature, index) => (
+                  <span key={index}>
+                    <a href={`/profile/${feature}`}>{feature}</a>
+                    {index < features.length - 1 && ", "}
+                  </span>
+                ))}
+              </span>
             </div>
           )}
           
@@ -117,8 +125,8 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
           )}
           
           <div className="spotlight-modal-actions-row">
-            <button className="spotlight-modal-action-btn">Contact Creator</button>
-            <button className="spotlight-modal-action-btn">View Profile</button>
+          <a href={`/post/${id}`}><button className="spotlight-modal-action-btn">Go To Post</button></a>
+            <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           
           {showAudioPlayer && (
@@ -132,7 +140,7 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
   );
 }
 
-function SpotlightItem({ author, description, time, title, features, genre, music, comments = [], likes = [] }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [] }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -213,6 +221,7 @@ function SpotlightItem({ author, description, time, title, features, genre, musi
       <SpotlightItemModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        id={id}
         author={author}
         description={description}
         time={time}

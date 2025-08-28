@@ -1,9 +1,15 @@
-import axios from "axios"; 
-const REST_API_GET_URL = "http://localhost:8080/api/user/get"
+import api from './AuthService';
+
+const REST_API_GET_URL = "/user/get"
 
 export function listUsers(){
-    return axios.get(REST_API_GET_URL);
+    return api.get(REST_API_GET_URL);
 }
+
 export function GetUserById(){
-    return axios.get("http://localhost:8080/api/user/get/id/{id}")
+    return api.get("/user/get/id/{id}")
+}
+
+export function getUserInfo(){
+    return api.get("/user/get/{username}");
 }

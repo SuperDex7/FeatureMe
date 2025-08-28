@@ -2,8 +2,10 @@ package Feat.FeatureMe.Service;
 
 
 import java.util.List;
+import java.util.Optional;
 
-
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 
@@ -36,15 +38,21 @@ public class UserService {
             updatedUser.getUserName() != null && !updatedUser.getUserName().isBlank() ? updatedUser.getUserName() : user.getUserName(),
             updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank() ? updatedUser.getPassword() : user.getPassword(),
             updatedUser.getEmail() != null && !updatedUser.getEmail().isBlank() ? updatedUser.getEmail() : user.getEmail(),
+            updatedUser.getRole() != null && !updatedUser.getRole().isBlank() ? updatedUser.getRole() : user.getRole(),
             updatedUser.getBio() != null && !updatedUser.getBio().isBlank() ? updatedUser.getBio() : user.getBio(),
             updatedUser.getAbout() != null && !updatedUser.getAbout().isBlank() ? updatedUser.getAbout() : user.getAbout(),
             updatedUser.getProfilePic() != null && !updatedUser.getProfilePic().isBlank() ? updatedUser.getProfilePic() : user.getProfilePic(),
             updatedUser.getBanner() != null && !updatedUser.getBanner().isBlank() ? updatedUser.getBanner() : user.getBanner(),
+            updatedUser.getLocation() != null && !updatedUser.getLocation().isBlank() ? updatedUser.getLocation() : user.getLocation(),
+            updatedUser.getSocialMedia() != null && !updatedUser.getSocialMedia().isEmpty() ? updatedUser.getSocialMedia() : user.getSocialMedia(),
+            updatedUser.getBadges() != null && !updatedUser.getBadges().isEmpty() ? updatedUser.getBadges() : user.getBadges(),
             updatedUser.getDemo() != null && !updatedUser.getDemo().isEmpty() ? updatedUser.getDemo() : user.getDemo(),
             updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
             updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),
+            updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing(),
+            updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
-            updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing()
+            updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
         return userRepository.save(user);
     }
@@ -59,10 +67,14 @@ public class UserService {
             u.getBio(),
             u.getAbout(),
             null,
+            u.getLocation(),
+            u.getSocialMedia(),
+            u.getBadges(),
             u.getFriends(),
             u.getFollowers(),
-            u.getPosts(),
-            u.getFollowing()
+            u.getFollowing(),
+            u.getFeaturedOn(),
+            u.getPosts()
         ))
         .toList();
     }
@@ -78,10 +90,14 @@ return new UserDTO(
  user.getBio(),
  user.getAbout(),
  null,
+ user.getLocation(),
+ user.getSocialMedia(),
+ user.getBadges(),
  user.getFriends(),
  user.getFollowers(),
- user.getPosts(),
- user.getFollowing()
+ user.getFollowing(),
+ user.getFeaturedOn(),
+ user.getPosts()
 );
 
     }
@@ -91,5 +107,61 @@ return new UserDTO(
     }
     public void deleteUser(String id) {
         userRepository.deleteById(id);
+    }
+    
+    public User authenticateUser(String usernameOrEmail, String password) {
+        User user = findByUsernameOrEmail(usernameOrEmail)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        // For now, simple password comparison (you should hash passwords later)
+        if (password.equals(user.getPassword())) {
+            return user;
+        } else {
+            throw new IllegalArgumentException("Invalid password");
+        }
+    }
+    
+    public Optional<User> findByUsernameOrEmail(String usernameOrEmail) {
+        // Try to find by username first
+        Optional<User> userByUsername = userRepository.findByUserName(usernameOrEmail);
+        if (userByUsername.isPresent()) {
+            return userByUsername;
+        }
+        
+        // If not found by username, try by email
+        return userRepository.findByEmail(usernameOrEmail);
+    }
+    
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        User user = findByUsernameOrEmail(usernameOrEmail)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with: " + usernameOrEmail));
+        
+        return org.springframework.security.core.userdetails.User
+            .withUsername(user.getEmail()) // Use email as the principal
+            .password(user.getPassword())
+            .authorities(user.getRole() != null ? user.getRole() : "USER")
+            .build();
+    }
+    public UserDTO getAUser(String userName) {
+        User user = userRepository.findByUserName(userName)
+        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+return new UserDTO(
+ user.getId(),
+ user.getUserName(),
+ user.getProfilePic(),
+ user.getBanner(),
+ user.getBio(),
+ user.getAbout(),
+ null,
+ user.getLocation(),
+ user.getSocialMedia(),
+ user.getBadges(),
+ user.getFriends(),
+ user.getFollowers(),
+ user.getFollowing(),
+ user.getFeaturedOn(),
+ user.getPosts()
+);
+
     }
 }

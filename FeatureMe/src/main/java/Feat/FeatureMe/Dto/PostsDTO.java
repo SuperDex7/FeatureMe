@@ -2,9 +2,10 @@ package Feat.FeatureMe.Dto;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
 public record PostsDTO(
     String id,
-        UserDTO author,
+        UserPostsDTO author,
         String title,
         String description,
         List<String> features,
