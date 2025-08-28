@@ -10,9 +10,8 @@
 
 #profile-posts-container {
     background: linear-gradient(135deg, #000000e5 0%, #1a1a1a 50%, #000000e7 100%);
-    min-height: 30vh;
-    max-width: 30vh;
-    min-width: 30vh;
+    height: 500px;
+    width: 293px;
     padding: 20px;
     position: relative;
     border-radius: 20px;
@@ -30,7 +29,7 @@
     margin-top: -20px;
     margin-left: -20px;
     width: 115%;
-    max-height: 30%;
+    max-height: 20%;
   }
   #ppp{
     width: 100px;
@@ -62,3 +61,22 @@
     color: #cccccc;
 }
 
+#pp-play-btn{
+  color: rgb(65, 153, 194);
+  width: 40px;
+ height: 40px;
+ border-radius: 100%;
+ align-self: center;
+  margin-top: 25px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  padding: 8px;
+  
+}
+#ppLastSection{
+  display: flex;
+  gap: 60%;
+}
+#ppGenre{
+  margin-bottom: 5px;
+}

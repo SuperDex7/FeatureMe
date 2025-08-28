@@ -1,11 +1,11 @@
-import "./ProfilePosts.css"
+import "./ProfilePosts2.css"
 import { useState } from "react";
 import AudioPlayer from "./AudioPlayer"
-function ProfilePosts({title, author, time, music, likes, genre, features, description}){
+function ProfilePosts2({title, author, time, music, likes, genre, features, description}){
     const { userName, profilePic, banner } = author ?? {};
     const [showAudioPlayer, setShowAudioPlayer] = useState(false);
     return(
-        <div id="profile-posts-container">
+        <div id="profile-posts-container2">
             <img id="ppb" src={banner} alt="" />
             <div id="ppName-section">
                 <img id="ppp" src={profilePic} alt="" />
@@ -21,9 +21,15 @@ function ProfilePosts({title, author, time, music, likes, genre, features, descr
                     </a>
                 ))}
             </span>
-            
-            
-            <button id="pp-play-btn" onClick={e => { e.stopPropagation(); setShowAudioPlayer(true); }} title="Play">
+
+          <h5 id="ppGenre2">
+            {genre.join(", ")}
+            </h5>
+          <div id="ppLastSection">
+          <h5>Likes: {likes.length}</h5>
+            <h6 id="ppTime">{new Date(time).toLocaleDateString()}</h6>
+            </div>
+            <button id="pp-play-btn2" onClick={e => { e.stopPropagation(); setShowAudioPlayer(true); }} title="Play">
               <span>&#9654;</span>
             </button>
             {showAudioPlayer && (
@@ -31,14 +37,8 @@ function ProfilePosts({title, author, time, music, likes, genre, features, descr
               <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
             </div>
           )}
-          <h5 id="ppGenre">
-            {genre.join(", ")}
-            </h5>
-          <div id="ppLastSection">
-          <h5>Likes: {likes.length}</h5>
-            <h6 id="ppTime">{new Date(time).toLocaleDateString()}</h6>
-            </div>
+
         </div>
     )
 }
-export default ProfilePosts
+export default ProfilePosts2

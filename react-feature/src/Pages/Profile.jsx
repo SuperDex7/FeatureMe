@@ -8,6 +8,7 @@ import api from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
 import ProfilePosts from "../Components/ProfilePosts";
+import ProfilePosts2 from "../Components/ProfilePosts2";
 
 function Profile() {
   const [activeTab, setActiveTab] = useState("posts");
@@ -85,7 +86,7 @@ function Profile() {
         </div>
       </div>
       <div className="profile-glass-info-card overlap-margin">
-        {userrr.username === username && <button className="profile-glass-edit">Edit Profile</button>}
+        {userrr.username === username && <button className="profile-glass-edit">Edit Profile</button> || <button className="profile-glass-edit">Follow</button>}
         <h2 className="profile-glass-username">{user.userName}</h2>
                  <div className="profile-glass-badges-row">
            {user?.badges?.map((badge, i) => {
@@ -119,12 +120,12 @@ function Profile() {
         {activeTab === "posts" && (
           <div>
             <h3>Your Recent Posts</h3>
-            <h4>{Array.from(new Map(posts.map(post => [post.id, post])).values())?.map((post, i) => (
-              <div key={posts.id}>
-                <h3>{post.title}</h3>
-                <p>{post.description}</p>
-              </div>
-            )) || "List or grid of user posts goes here."} </h4>
+             <div className="profilePosts">
+            
+           {posts.map((item) => (
+             <ProfilePosts2 key={item.id} {...item} />
+           ))}
+         </div>
           </div>
         )}
         {activeTab === "about" && (
