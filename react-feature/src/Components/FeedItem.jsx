@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
 
-function FeedItemModal({ open, onClose, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
+function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [commentInput, setCommentInput] = useState("");
@@ -120,7 +120,7 @@ function FeedItemModal({ open, onClose, author, description, time, title, featur
             </div>
           )}
           <div className="feed-card-actions-row">
-            <button className="feed-card-action-btn">Contact Creator</button>
+            <a href={`/post/${id}`}><button className="feed-card-action-btn">Go To Post</button></a>
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           {showAudioPlayer && (
@@ -134,7 +134,7 @@ function FeedItemModal({ open, onClose, author, description, time, title, featur
   );
 }
 
-function FeedItem({ author, description, time, title, features, genre, music, comments = [], likes = [] }) {
+function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [] }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -209,6 +209,7 @@ function FeedItem({ author, description, time, title, features, genre, music, co
       <FeedItemModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        id={id}
         author={author}
         description={description}
         time={time}

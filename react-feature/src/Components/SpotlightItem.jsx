@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
 
-function SpotlightItemModal({ open, onClose, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [commentInput, setCommentInput] = useState("");
@@ -125,7 +125,7 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
           )}
           
           <div className="spotlight-modal-actions-row">
-            <button className="spotlight-modal-action-btn">Contact Creator</button>
+          <a href={`/post/${id}`}><button className="spotlight-modal-action-btn">Go To Post</button></a>
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           
@@ -140,7 +140,7 @@ function SpotlightItemModal({ open, onClose, author, description, time, title, f
   );
 }
 
-function SpotlightItem({ author, description, time, title, features, genre, music, comments = [], likes = [] }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [] }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -221,6 +221,7 @@ function SpotlightItem({ author, description, time, title, features, genre, musi
       <SpotlightItemModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        id={id}
         author={author}
         description={description}
         time={time}

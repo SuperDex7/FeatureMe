@@ -124,12 +124,12 @@ function Homepage() {
             <img className="hero-avatar" src={user.profilePic} alt="avatar" />
             <div>
               <div className="hero-greeting">Welcome back,</div>
-              <div ><a className='hero-username' href="/profile">{user.userName}</a></div>
+              <div ><a className='hero-username' href={`/profile/${user.userName}`} >{user.userName}</a></div>
               <div className="hero-upload-options">
-                <span className="upload-option">Beat</span>
-                <span className="upload-option">Song</span>
-                <span className="upload-option">Instrument</span>
-                <span className="upload-option">Loop</span>
+                <a href="/create-post"><span className="upload-option">Beat</span></a>
+                <a href="/create-post"><span className="upload-option">Song</span></a>
+                <a href="/create-post"><span className="upload-option">Instrument</span></a>
+                <a href="/create-post"><span className="upload-option">Loop</span></a>
               </div>
             </div>
           </div>
@@ -252,7 +252,7 @@ function Homepage() {
                 </div>
                 <div className="latest-post-comments-placeholder">Add your comment feature coming soon...</div>
               </div>
-              <button className="latest-post-btn" style={{marginTop: '1.5rem'}} onClick={() => {/* future: go to post url */}}>Go to Post</button>
+              <a href={`/post/${latestPost.id}`}><button className="latest-post-btn" style={{marginTop: '1.5rem'}} >Go to Post</button></a>
             </div>
             </>
             )|| "Upload a post to see it here"}
