@@ -14,13 +14,17 @@ function Post() {
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(0.7);
     const [isMuted, setIsMuted] = useState(false);
+    const [commentInput, setCommentInput] = useState("");
+    const [comments, setComments] = useState([]); 
     const audioRef = useRef(null);
     const progressRef = useRef(null);
-
+    const userString = localStorage.getItem('user');
+    const userrr = JSON.parse(userString);
     useEffect(() => {
         api.get(`http://localhost:8080/api/posts/get/id/${id}`)
             .then(res => {
                 setPost(res.data);
+                setComments(res.data.comments);
                 console.log(res.data)
             }).catch(err => {
                 console.error("Error fetching post:", err);
@@ -33,6 +37,51 @@ function Post() {
         }
     }, [volume]);
 
+    const handleComment = (e) => {
+        e.preventDefault();
+        
+        if (commentInput.trim()) {
+            // Create the new comment object
+            const newComment = {
+                userName: userrr.username,
+                profilePic: userrr.profilePic,
+                comment: commentInput
+            };
+            
+            // Optimistically add comment to UI immediately
+            setComments(prevComments => [...prevComments, newComment]);
+            
+            // Clear input immediately
+            setCommentInput("");
+            
+            // Send to backend
+            api.post(`/posts/add/comment/${id}/${userrr.username}`, commentInput, {
+                headers: {
+                    'Content-Type': 'text/plain'  // Since you're sending just text
+                }
+            })
+            .then(res => {
+                console.log(res);
+                // Optionally refresh to get server-side data (timestamps, etc.)
+                api.get(`/posts/get/id/${id}`)
+                    .then(postRes => {
+                        if (postRes.data && postRes.data.comments) {
+                            setComments(postRes.data.comments);
+                        }
+                    })
+                    .catch(err => console.error('Error fetching updated comments:', err));
+            })
+            .catch(err => {
+                console.error(err);
+                // Remove the optimistic comment on error
+                setComments(prevComments => 
+                    prevComments.filter(c => c.comment !== newComment.comment)
+                );
+                // Restore the input
+                setCommentInput(newComment.comment);
+            });
+        }
+    };
     const handlePlayPause = () => {
         if (!audioRef.current) {
             const newAudio = new Audio(post.music);
@@ -261,7 +310,7 @@ function Post() {
                                     <span className="detail-icon">🤝</span>
                                     <div className="detail-content">
                                         <span className="detail-label">Features</span>
-                                        <span className="detail-value">{post.features.join(" • ")}</span>
+                                        <span className="detail-value">{post?.features?.join(" • ")|| "None"}</span>
                                     </div>
                                 </div>
                             </div>
@@ -394,27 +443,48 @@ function Post() {
                             <div className="tab-content">
                                 <div className="community-section">
                                     <h2 className="section-title">Community</h2>
-                                    
+                                    <div className="spotlight-modal-likes-section">
+              <div className="spotlight-modal-comments-title">Likes</div>
+              <ul className="spotlight-modal-likes-list">
+                {post.likes.length === 0 ? (
+                  <li style={{ color: '#aaa' }}>No likes yet.</li>
+                ) : (
+                    post.likes.map((like, idx) => (
+                    <li key={idx} className="spotlight-modal-like-user">
+                      <img
+                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"}
+                        alt="profile"
+                        className="spotlight-modal-like-profile-pic"
+                      />
+                      <a href={`/profile/${like.userName}`}><span className="spotlight-modal-like-username">{like.userName|| 'User'}</span></a>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
                                     <div className="comments-section">
-                                        <h3 className="subsection-title">Comments ({post?.comments?.length || 0})</h3>
+                                        <h3 className="subsection-title">Comments ({comments?.length || 0})</h3>
                                         <div className="comments-list">
-                                            {post?.comments?.map((comment, index) => (
+                                            {comments?.map((comment, index) => (
                                                 <div key={index} className="comment-item">
-                                                    <div className="comment-avatar">👤</div>
+                                                    <div ><img className="comment-avatar" src={comment.profilePic} alt="" /></div>
                                                     <div className="comment-content">
-                                                        <p className="comment-text">{comment}</p>
-                                                        <span className="comment-time">Just now</span>
+                                                        <span className="comment-username">{comment.userName}</span>
+                                                        <p className="comment-text">{comment.comment}</p>
+                                                        <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
                                             )) || "You will see comments here"}
                                         </div>
                                         <div className="add-comment">
                                             <input 
-                                                type="text" 
-                                                placeholder="Add a comment..." 
+                                                type="text"
+                                                value={commentInput}
+                                                onChange={(e) => setCommentInput(e.target.value)}
+                                                placeholder="Add a comment..."
                                                 className="comment-input"
                                             />
-                                            <button className="comment-btn">Post</button>
+                                            <button className="comment-btn" onClick={handleComment}>Post</button>
                                         </div>
                                     </div>
                                 </div>

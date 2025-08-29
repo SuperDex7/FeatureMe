@@ -916,6 +916,8 @@
     margin-top: 0.7rem;
     padding: 0.7rem 1.1rem;
     box-shadow: 0 2px 8px #4f8cff22;
+    max-height: 300px;
+    overflow-y: auto;
   }
   .feed-card-comments-title {
     font-size: 1.08rem;
@@ -1041,6 +1043,7 @@
     transform: scale(1);
     pointer-events: auto;
     backface-visibility: hidden;
+    overflow: hidden;
   }
   .feed-card-modal.modal-closed {
     opacity: 0;
@@ -1151,4 +1154,13 @@
   .feed-search-input-wrapper .feed-search-clear {
     right: 5rem;
   }
+  .comment-feed-time {
+    font-size: 12px;
+    color: #b8b8b8;
+    margin-top: 0.5rem;
+    font-weight: 700;
+    margin-bottom: -12px;
+    
+   
+}
   

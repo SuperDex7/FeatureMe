@@ -92,7 +92,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
                         alt="profile"
                         className="spotlight-modal-like-profile-pic"
                       />
-                      <span className="spotlight-modal-like-username">{like.userName || 'User'}</span>
+                      <a href={`/profile/${like.userName}`}><span className="spotlight-modal-like-username">{like.userName|| 'User'}</span></a>
                     </li>
                   ))
                 )}
