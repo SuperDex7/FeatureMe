@@ -17,7 +17,9 @@ public record UserDTO(
         List<String> followers,
         List<String> following,
         List<String> featuredOn,
-        List<String> posts
+        List<String> posts,
+        List<String> likedPosts,
+        List<CommentedOnDTO> comments
         
 ) {
 

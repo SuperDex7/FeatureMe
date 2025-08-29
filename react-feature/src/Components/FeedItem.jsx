@@ -1,21 +1,75 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
+import api from "../services/AuthService"
 
 function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [showComments, setShowComments] = useState(false);
-  const safeComments = Array.isArray(comments) ? comments : [];
-  const safeLikes = Array.isArray(likes) ? likes : [];
+  const [localLikes, setLocalLikes] = useState(likes || []);
+  
+  const userString = localStorage.getItem('user');
+  const userrr = JSON.parse(userString);
 
   if (!open) return null;
-  const handleAddComment = () => {
+
+  const handleComment = (e) => {
+    e.preventDefault();
+    
     if (commentInput.trim()) {
-      onAddComment(commentInput.trim());
-      setCommentInput("");
+        const newComment = {
+            userName: userrr.username,
+            profilePic: userrr.profilePic,
+            comment: commentInput,
+            time: new Date().toISOString()
+        };
+        
+        // Call parent callback to update the feed item immediately
+        onAddComment(newComment);
+        
+        // Clear input
+        setCommentInput("");
+        
+        // Send to backend and then refresh comments from server
+        api.post(`/posts/add/comment/${id}/${userrr.username}`, commentInput, {
+            headers: {
+                'Content-Type': 'text/plain'
+            }
+        })
+        .then(res => {
+            // Fetch updated comments from server to get proper profile pics
+            return api.get(`/posts/get/id/${id}`);
+        })
+        .then(postRes => {
+            if (postRes.data && postRes.data.comments) {
+                // Update parent with server data (has proper profile pics)
+                onAddComment(postRes.data.comments);
+            }
+        })
+        .catch(err => {
+            console.error('Error posting comment:', err);
+            // Could add error handling here if needed
+        });
     }
   };
+
+  const handleLike = (e) => {
+    api.post(`/posts/add/like/${id}/${userrr.username}`)
+    .then(res => {
+      console.log(res);
+      // After successful like, fetch updated post
+      return api.get(`/posts/get/id/${id}`);
+    })
+    .then(postRes => {
+      console.log(postRes.data.likes);
+      setLocalLikes(postRes.data.likes);
+    })
+    .catch(err => {
+      console.error(err);
+    });
+  };
+
   return (
     <div className={`feed-card-modal-overlay${open ? '' : ' modal-closed'}`} onClick={onClose}>
       <div className={`feed-card-modal${open ? '' : ' modal-closed'}`} onClick={e => e.stopPropagation()}>
@@ -67,28 +121,29 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               className={`feed-card-likes${!showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(false)}
-            >❤️ {safeLikes.length}</span>
+            >❤️ {localLikes.length}</span>
             <span
               className={`feed-card-comments${showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
-            >💬 {safeComments.length}</span>
+            >💬 {comments?.length || 0}</span>
           </div>
           {!showComments ? (
             <div className="feed-card-likes-section">
               <div className="feed-card-comments-title">Likes</div>
+              <button onClick={handleLike}>Like</button>
               <ul className="feed-card-likes-list">
-                {safeLikes.length === 0 ? (
+                {localLikes.length === 0 ? (
                   <li style={{ color: '#aaa' }}>No likes yet.</li>
                 ) : (
-                  safeLikes.map((like, idx) => (
+                  localLikes.map((like, idx) => (
                     <li key={idx} className="feed-card-like-user">
                       <img
                         src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"}
                         alt="profile"
                         className="feed-card-like-profile-pic"
                       />
-                      <span className="feed-card-like-username">{like.userName || 'User'}</span>
+                      <a href={`/profile/${like.userName}`}><span className="feed-card-like-username">{like.userName|| 'User'}</span></a>
                     </li>
                   ))
                 )}
@@ -97,15 +152,18 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
           ) : (
             <div className="feed-card-comments-section">
               <div className="feed-card-comments-title">Comments</div>
-              <ul className="feed-card-comments-list">
-                {safeComments.length === 0 ? (
-                  <li style={{ color: '#aaa' }}>No comments yet.</li>
-                ) : (
-                  safeComments.map((c, idx) => (
-                    <li key={idx}>{c}</li>
-                  ))
-                )}
-              </ul>
+              <div className="comments-list">
+                                            {comments?.map((comment, index) => (
+                                                <div key={index} className="comment-item">
+                                                    <div ><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
+                                                    <div className="comment-content">
+                                                        <span className="comment-username">{comment.userName}</span>
+                                                        <p className="comment-text">{comment.comment}</p>
+                                                        <p className="comment-feed-time">{new Date(comment.time).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                            )) || "You will see comments here"}
+                                        </div>
               <div className="feed-card-add-comment-row">
                 <input
                   className="feed-card-add-comment-input"
@@ -113,9 +171,9 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
                   placeholder="Add a comment..."
                   value={commentInput}
                   onChange={e => setCommentInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddComment(); }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleComment(); }}
                 />
-                <button className="feed-card-add-comment-btn" onClick={handleAddComment}>Post</button>
+                <button className="feed-card-add-comment-btn" onClick={handleComment}>Post</button>
               </div>
             </div>
           )}
@@ -146,14 +204,23 @@ function FeedItem({ id, author, description, time, title, features, genre, music
     e.stopPropagation();
     setShowAudioPlayer(true);
   };
+  
   const handleAddComment = () => {
     if (commentInput.trim()) {
       setAllComments([...allComments, commentInput.trim()]);
       setCommentInput("");
     }
   };
-  const handleModalAddComment = (comment) => {
-    setAllComments([...allComments, comment]);
+  
+  const handleModalAddComment = (newComment) => {
+    // If it's a single comment object, add it to the array
+    if (typeof newComment === 'object' && newComment.comment) {
+      setAllComments(prev => [...(prev || []), newComment]);
+    } 
+    // If it's an array of comments (from server refresh), replace the entire array
+    else if (Array.isArray(newComment)) {
+      setAllComments(newComment);
+    }
   };
 
   return (

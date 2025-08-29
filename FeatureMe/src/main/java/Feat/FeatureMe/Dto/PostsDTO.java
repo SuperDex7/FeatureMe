@@ -11,9 +11,9 @@ public record PostsDTO(
         List<String> features,
         List<String> genre,
         String music,
-        List<String> comments,
+        List<CommentDTO> comments,
         LocalDateTime time,
-        List<String> likes
+        List<LikesDTO> likes
         
 ) {
 

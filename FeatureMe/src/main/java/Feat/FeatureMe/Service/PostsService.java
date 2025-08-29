@@ -3,9 +3,13 @@ package Feat.FeatureMe.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import Feat.FeatureMe.Dto.CommentDTO;
+import Feat.FeatureMe.Dto.CommentedOnDTO;
+import Feat.FeatureMe.Dto.LikesDTO;
 import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Entity.Posts;
@@ -23,10 +27,26 @@ public class PostsService {
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
     }
-
-
     
-    
+
+    private List<LikesDTO> convertUsernamesToLikesDTO(List<String> usernames) {
+        if (usernames == null || usernames.isEmpty()) {
+            return List.of();
+        }
+        
+        return usernames.stream()
+            .map(username -> {
+                User user = userRepository.findByUserName(username).orElse(null);
+                if (user != null) {
+                    return new LikesDTO(user.getUserName(), user.getProfilePic(), LocalDateTime.now());
+                } else {
+                    // Fallback for deleted users
+                    return new LikesDTO(username, null, LocalDateTime.now());
+                }
+            })
+            .toList();
+    }
+        
     public Posts createPost(String authoruserName, Posts posts) {
         User author = userRepository.findByUserName(authoruserName)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -61,7 +81,7 @@ public class PostsService {
         savedPost.getMusic(),
         savedPost.getComments(),
         savedPost.getTime(),
-        savedPost.getLikes() == null ? List.of() : savedPost.getLikes()
+        convertUsernamesToLikesDTO(savedPost.getLikes())
     );
 
         // Update user's posts list
@@ -77,7 +97,6 @@ public class PostsService {
             if(features.get(i).getFeaturedOn() == null){
                 features.get(i).setFeaturedOn(new ArrayList<>());
             }
-            System.out.println(features.get(i));
             features.get(i).getFeaturedOn().add(postDto.id());
             userRepository.save(features.get(i));
         }
@@ -133,7 +152,7 @@ public class PostsService {
                 p.getMusic(),
                 p.getComments(),
                 p.getTime(),
-                p.getLikes() == null ? List.of() : p.getLikes()
+                convertUsernamesToLikesDTO(p.getLikes())
             );
         }).toList();
     }
@@ -162,7 +181,7 @@ public class PostsService {
         post.getMusic(),
         post.getComments(),
         post.getTime(),
-        post.getLikes() == null ? List.of() : post.getLikes()
+        convertUsernamesToLikesDTO(post.getLikes())
     );
     }
     
@@ -193,7 +212,7 @@ public class PostsService {
                 p.getMusic(),
                 p.getComments(),
                 p.getTime(),
-                p.getLikes() == null ? List.of() : p.getLikes()
+                convertUsernamesToLikesDTO(p.getLikes())
             );
         }).toList();
     }
@@ -229,7 +248,7 @@ public class PostsService {
                 p.getMusic(),
                 p.getComments(),
                 p.getTime(),
-                p.getLikes() == null ? List.of() : p.getLikes()
+                convertUsernamesToLikesDTO(p.getLikes())
             );
         }).toList();
     
@@ -260,8 +279,75 @@ public class PostsService {
                 p.getMusic(),
                 p.getComments(),
                 p.getTime(),
-                p.getLikes() == null ? List.of() : p.getLikes()
+                convertUsernamesToLikesDTO(p.getLikes())
             );
         }).toList();
     }
-}
+
+    public Optional<Posts> addLike(String id, String userName){
+        Optional<Posts> post = postsRepository.findById(id);
+    if (post.isPresent()) {
+        Posts foundPost = post.get();
+        List<String> currentLikes = foundPost.getLikes();
+        
+        // Initialize likes list if it's null
+        if (currentLikes == null) {
+            currentLikes = new ArrayList<>();
+        }
+        
+        // Add the username if it's not already in the list
+        if (!currentLikes.contains(userName)) {
+            currentLikes.add(userName);
+            foundPost.setLikes(currentLikes);
+            
+            // Save the updated post
+            Posts savedPost = postsRepository.save(foundPost);
+            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            if(user.getLikedPosts() == null){
+                user.setLikedPosts(new ArrayList<>());
+            }
+            user.getLikedPosts().add(id);
+            userRepository.save(user);
+            return Optional.of(savedPost);
+        }else{
+            currentLikes.remove(userName);
+            foundPost.setLikes(currentLikes);
+            Posts savedPost = postsRepository.save(foundPost);
+            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            user.getLikedPosts().remove(id);
+            userRepository.save(user);
+            if(user.getLikedPosts() == null){
+                user.setLikedPosts(new ArrayList<>());
+            }
+            return Optional.of(savedPost);
+        }
+    }
+
+    return post; // Return original post if no changes made
+    }
+
+    public Optional<Posts> addComment(String id, String userName, String comment){
+        Optional<Posts> post = postsRepository.findById(id);
+        User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if(post.isPresent()){
+            Posts foundPost = post.get();
+            List<CommentDTO> currentComments = foundPost.getComments();
+            if(currentComments == null){
+                currentComments = new ArrayList<>();
+            }
+            currentComments.add(new CommentDTO(userName,user.getProfilePic(), comment, LocalDateTime.now()));
+            foundPost.setComments(currentComments);
+            Posts savedPost = postsRepository.save(foundPost);
+            if(user.getComments() == null){
+                user.setComments(new ArrayList<>());
+            }
+            user.getComments().add(new CommentedOnDTO(id, comment, LocalDateTime.now()));
+            userRepository.save(user);
+            return Optional.of(savedPost);
+        }
+        return post;
+
+        }
+    }
+
+

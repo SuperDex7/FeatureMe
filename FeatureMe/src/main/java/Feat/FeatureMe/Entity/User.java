@@ -12,6 +12,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import Feat.FeatureMe.Dto.CommentedOnDTO;
+
 @Document(collection = "user")
 public class User implements UserDetails{
 
@@ -39,10 +41,11 @@ public class User implements UserDetails{
     private List<String> followers;
     private List<String> following;
     private List<String> featuredOn;
+    private List<String> likedPosts;
     private List<String> posts;
+    private List<CommentedOnDTO> comments;
     @CreatedDate
     private LocalDateTime createdAt;
-//{"title":"Best Pop Song","description":"Song for my love", "features":["RezzyPhil","GioGuru"], "genre":["Pop"], "music":"", "comments": ["hellooooo","soo good twinnn","wwowowowow"]}
     public User() {}
 
     public User(String id,
@@ -62,7 +65,9 @@ public class User implements UserDetails{
                 List<String> followers,
                 List<String> following,
                 List<String> featuredOn,
+                List<String> likedPosts,
                 List<String> posts,
+                List<CommentedOnDTO> comments,
                 LocalDateTime createdAt) {
         this.id = id;
         this.userName = userName;
@@ -80,8 +85,10 @@ public class User implements UserDetails{
         this.friends = friends;
         this.followers = followers;
         this.following = following;
-        this.featuredOn = featuredOn;
+        this.featuredOn = featuredOn;   
+        this.likedPosts = likedPosts;
         this.posts = posts;
+        this.comments = comments;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -213,6 +220,14 @@ public class User implements UserDetails{
         this.featuredOn = featuredOn;
     }
 
+    public List<String> getLikedPosts() {
+        return likedPosts;
+    }
+
+    public void setLikedPosts(List<String> likedPosts) {
+        this.likedPosts = likedPosts;
+    }
+
     public List<String> getPosts() {
         return posts;
     }
@@ -235,6 +250,14 @@ public class User implements UserDetails{
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public List<CommentedOnDTO> getComments() {
+        return comments;
+    }
+
+    public void setComments(List<CommentedOnDTO> comments) {
+        this.comments = comments;
     }
 
     @Override

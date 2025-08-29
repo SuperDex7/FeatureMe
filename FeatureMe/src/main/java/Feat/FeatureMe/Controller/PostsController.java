@@ -3,8 +3,10 @@ package Feat.FeatureMe.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +24,10 @@ import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Service.PostsService;
 import Feat.FeatureMe.Service.S3Service;
+import Feat.FeatureMe.Service.JwtService;
+import Feat.FeatureMe.Repository.PostsRepository;
+
+
 
 
 @CrossOrigin("*")
@@ -30,11 +37,14 @@ public class PostsController {
     
     private final PostsService postsService;
     private final S3Service s3Service;
-
+    private final JwtService jwtService;
+    private final PostsRepository postsRepository;
     
-    public PostsController(PostsService postsService, S3Service s3Service) {
+    public PostsController(PostsService postsService, S3Service s3Service, JwtService jwtService, PostsRepository postsRepository) {
         this.postsService = postsService;
         this.s3Service = s3Service;
+        this.jwtService = jwtService;
+        this.postsRepository = postsRepository;
     }
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
@@ -103,7 +113,45 @@ public class PostsController {
     public List<PostsDTO> getAllFeatureOn(@PathVariable List<String> ids) {
         return postsService.getAllById(ids);
     }
+    @PostMapping("/add/like/{id}/{userName}")
+    public Optional<Posts> addLikes(@PathVariable String id, @PathVariable String userName){
+        return postsService.addLike(id, userName);
+    }
+    @PostMapping("/add/comment/{id}/{userName}")
+    public Optional<Posts> addComment(@PathVariable String id, @PathVariable String userName, @RequestBody String comment){
+        return postsService.addComment(id, userName, comment);
+    }
+    /* 
+    @DeleteMapping("/posts/{postId}/comments/{commentId}")
+public ResponseEntity<?> deleteComment(@PathVariable String postId, 
+                                     @PathVariable String commentId,
+                                     @RequestHeader("Authorization") String token) {
     
+    // 1. Extract user from JWT token
+    String currentUser = jwtService.extractUsername(token.replace("Bearer ", ""));
+    
+    // 2. Find the comment in the post
+    Posts post = postsRepository.findById(postId)
+        .orElseThrow(() -> new RuntimeException("Post not found"));
+    
+    Comment commentToDelete = post.getComments().stream()
+        .filter(c -> c.getId().equals(commentId))
+        .findFirst()
+        .orElseThrow(() -> new CommentNotFoundException(commentId));
+    
+    // 3. Check authorization (comment owner OR post owner)
+    if (!commentToDelete.getUserName().equals(currentUser) && 
+        !post.getAuthor().getUserName().equals(currentUser)) {
+        throw new UnauthorizedException("Cannot delete this comment");
+    }
+    
+    // 4. Delete the comment
+    post.getComments().removeIf(c -> c.getId().equals(commentId));
+    postsRepository.save(post);
+    
+    return ResponseEntity.ok().build();
+}
+    */
     
 
 }

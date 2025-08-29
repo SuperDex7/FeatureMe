@@ -8,7 +8,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
@@ -48,10 +47,12 @@ public class UserService {
             updatedUser.getBadges() != null && !updatedUser.getBadges().isEmpty() ? updatedUser.getBadges() : user.getBadges(),
             updatedUser.getDemo() != null && !updatedUser.getDemo().isEmpty() ? updatedUser.getDemo() : user.getDemo(),
             updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
-            updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),
+            updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),  
             updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing(),
             updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
+            updatedUser.getLikedPosts() != null && !updatedUser.getLikedPosts().isEmpty() ? updatedUser.getLikedPosts() : user.getLikedPosts(),
+            updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
         return userRepository.save(user);
@@ -71,10 +72,12 @@ public class UserService {
             u.getSocialMedia(),
             u.getBadges(),
             u.getFriends(),
-            u.getFollowers(),
+            u.getFollowers(),   
             u.getFollowing(),
             u.getFeaturedOn(),
-            u.getPosts()
+            u.getPosts(),
+            u.getLikedPosts(),
+            u.getComments()
         ))
         .toList();
     }
@@ -97,7 +100,9 @@ return new UserDTO(
  user.getFollowers(),
  user.getFollowing(),
  user.getFeaturedOn(),
- user.getPosts()
+ user.getPosts(),
+ user.getLikedPosts(),
+ user.getComments()
 );
 
     }
@@ -160,8 +165,12 @@ return new UserDTO(
  user.getFollowers(),
  user.getFollowing(),
  user.getFeaturedOn(),
- user.getPosts()
+ user.getPosts(),
+ user.getLikedPosts(),
+ user.getComments()
 );
 
     }
+
+    
 }

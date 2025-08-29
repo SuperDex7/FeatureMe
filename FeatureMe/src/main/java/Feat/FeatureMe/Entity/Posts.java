@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import Feat.FeatureMe.Dto.CommentDTO;
+
 @Document(collection = "posts")
 public class Posts {
 
@@ -23,13 +25,13 @@ public class Posts {
     private List<String> features;
     private List<String> genre;
     private String music;
-    private List<String> comments;
+    private List<CommentDTO> comments;
     private LocalDateTime time;
     private List<String> likes;
 
     public Posts() { }
 
-    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, List<String> comments, LocalDateTime time, List<String> likes) {
+    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, List<CommentDTO> comments, LocalDateTime time, List<String> likes) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -98,11 +100,11 @@ public class Posts {
         this.music = music;
     }
 
-    public List<String> getComments() {
+    public List<CommentDTO> getComments() {
         return comments;
     }
 
-    public void setComments(List<String> comments) {
+    public void setComments(List<CommentDTO> comments) {
         this.comments = comments;
     }
 
