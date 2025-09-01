@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import Spotlight from '../Components/Spotlight';
-import Notifications, { dummyNotifications } from '../Components/Notifications';
+import Notifications from '../Components/Notifications';
 import '../Styling/HomepageModern.css';
 import axios from 'axios';
 import api from '../services/AuthService';
@@ -28,9 +28,9 @@ function Homepage() {
   useEffect(() =>{
     
     setIsLoading(true);
-    axios.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
+    api.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
       setUser(response.data)
-      
+      console.log(response.data)
       //setLength(response.data.posts.length)
       const len = response.data.posts.length - 1
       //console.log(len)
@@ -198,8 +198,11 @@ function Homepage() {
         <div className="activity-latest-row">
           <section className="activity-card glass-card card-balanced" onClick={() => setActivityModalOpen(true)} style={{cursor: 'pointer'}}>
             <h3>Recent Activity</h3>
-            <Notifications notifications={dummyNotifications.slice(0, 3)} className="activity-list" />
+            {user.notifications !== null && user.notifications.length !==0 ?(
+            <Notifications notifications={user.notifications.slice(0,3)} className="activity-modal-list" />
+            ): "No Notifications Yet"}
             <button className="activity-viewall-btn" onClick={e => {e.stopPropagation(); setActivityModalOpen(true);}}>View All</button>
+            
           </section>
           <section className="latest-post-card glass-card card-balanced" onClick={() => setLatestModalOpen(true)} style={{cursor: 'pointer'}}>
             <h3>Your Latest Post</h3>
@@ -246,7 +249,7 @@ function Homepage() {
                   
                   <ul className="latest-post-comments-list">
                     { latestPost?.comments?.map((c, idx) => (
-                      <li key={idx}><span className="comment-user">user:</span> {c}</li>
+                      <li key={idx}><span className="comment-user">{c.userName}:</span> {c.comment}</li>
                     )) || "No Comments yet"}
                   </ul>
                 </div>
@@ -266,7 +269,9 @@ function Homepage() {
           <div className="modal-content activity-modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close-btn" onClick={handleModalClose}>&times;</button>
             <h3 className="activity-modal-title">All Notifications</h3>
-            <Notifications notifications={dummyNotifications} className="activity-modal-list" />
+            {user.notifications !== null && user.notifications.length !== 0 ?(
+            <Notifications notifications={user.notifications} className="activity-modal-list" />
+            ): "No Notifications Yet"}
           </div>
         </div>
       )}

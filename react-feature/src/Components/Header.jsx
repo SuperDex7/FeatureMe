@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
+import api from "../services/AuthService";
 import { logout } from "../services/AuthService";
 
 function Header() {
   const [displayNoti, setDisplayNoti] = useState(false);
+  const [noti, setNoti] = useState(null)
   const showNoti = () => setDisplayNoti((v) => !v);
   const userString = localStorage.getItem('user');
   const userrr = JSON.parse(userString);
@@ -12,7 +14,12 @@ function Header() {
   const handleLogout = () => {
     logout();
   };
-  
+  useEffect(()=>{
+    api.get(`user/get/notifications/${userrr.username}`).then(res =>{
+      setNoti(res.data)
+      //console.log(res)
+    })
+  },[])
   return (
     <header className="main-header">
       <div className="header-inner">
@@ -39,8 +46,14 @@ function Header() {
         {displayNoti && (
           <div className="noti-dropdown">
             <div className="noti-dropdown-title">Notifications</div>
-            <Notifications />
-            <button className="see-all-btn">See All</button>
+            {noti && Array.isArray(noti) && noti.length > 0 ? (
+              <div>
+                <Notifications notifications={noti} className="activity-modal-list"/>
+                <button className="see-all-btn">See All</button>
+              </div>
+            ) : (
+              "No Notifications Yet"
+            )}
           </div>
         )}
       </div>

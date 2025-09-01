@@ -13,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import Feat.FeatureMe.Dto.CommentedOnDTO;
+import Feat.FeatureMe.Dto.NotificationsDTO;
 
 @Document(collection = "user")
 public class User implements UserDetails{
@@ -43,6 +44,7 @@ public class User implements UserDetails{
     private List<String> featuredOn;
     private List<String> likedPosts;
     private List<String> posts;
+    private List<NotificationsDTO> notifications;
     private List<CommentedOnDTO> comments;
     @CreatedDate
     private LocalDateTime createdAt;
@@ -67,6 +69,7 @@ public class User implements UserDetails{
                 List<String> featuredOn,
                 List<String> likedPosts,
                 List<String> posts,
+                List<NotificationsDTO> notifications,
                 List<CommentedOnDTO> comments,
                 LocalDateTime createdAt) {
         this.id = id;
@@ -88,6 +91,7 @@ public class User implements UserDetails{
         this.featuredOn = featuredOn;   
         this.likedPosts = likedPosts;
         this.posts = posts;
+        this.notifications = notifications;
         this.comments = comments;
         this.createdAt = LocalDateTime.now();
     }
@@ -258,6 +262,14 @@ public class User implements UserDetails{
 
     public void setComments(List<CommentedOnDTO> comments) {
         this.comments = comments;
+    }
+
+    public List<NotificationsDTO> getNotifications() {
+        return notifications;
+    }
+
+    public void setNotifications(List<NotificationsDTO> notifications) {
+        this.notifications = notifications;
     }
 
     @Override

@@ -121,6 +121,11 @@ public class PostsController {
     public Optional<Posts> addComment(@PathVariable String id, @PathVariable String userName, @RequestBody String comment){
         return postsService.addComment(id, userName, comment);
     }
+    
+    @DeleteMapping("/delete/comment/{postId}/{userName}")
+    public Optional<Posts> deleteComment(@PathVariable String postId, @PathVariable String userName, @RequestBody String commentText){
+        return postsService.deleteComment(postId, userName, commentText);
+    }
     /* 
     @DeleteMapping("/posts/{postId}/comments/{commentId}")
 public ResponseEntity<?> deleteComment(@PathVariable String postId, 

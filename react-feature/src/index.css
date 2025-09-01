@@ -21,7 +21,7 @@ body{
 a {
   color: #ffffff;          /* Match your brand or theme color */
   text-decoration: none;   /* Remove default underline */
-  font-weight: 500;        /* Optional: make links slightly bolder */
+  
   transition: color 0.2s;  /* Smooth color transition on hover/focus */
 }
 

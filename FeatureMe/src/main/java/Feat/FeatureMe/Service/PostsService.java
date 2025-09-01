@@ -2,14 +2,19 @@ package Feat.FeatureMe.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentDTO;
 import Feat.FeatureMe.Dto.CommentedOnDTO;
 import Feat.FeatureMe.Dto.LikesDTO;
+import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Entity.Posts;
@@ -34,7 +39,11 @@ public class PostsService {
             return List.of();
         }
         
-        return usernames.stream()
+        // Create a copy and reverse to show newest likes first
+        List<String> reversedUsernames = new ArrayList<>(usernames);
+        Collections.reverse(reversedUsernames);
+        
+        return reversedUsernames.stream()
             .map(username -> {
                 User user = userRepository.findByUserName(username).orElse(null);
                 if (user != null) {
@@ -45,6 +54,18 @@ public class PostsService {
                 }
             })
             .toList();
+    }
+    
+    private List<CommentDTO> convertCommentsToSortedDTO(List<CommentDTO> comments) {
+        if (comments == null || comments.isEmpty()) {
+            return List.of();
+        }
+        
+        // Create a copy and reverse to show newest comments first
+        List<CommentDTO> reversedComments = new ArrayList<>(comments);
+        Collections.reverse(reversedComments);
+        
+        return reversedComments;
     }
         
     public Posts createPost(String authoruserName, Posts posts) {
@@ -97,7 +118,11 @@ public class PostsService {
             if(features.get(i).getFeaturedOn() == null){
                 features.get(i).setFeaturedOn(new ArrayList<>());
             }
+            if(features.get(i).getNotifications() == null){
+                features.get(i).setNotifications(new ArrayList<>());
+            }
             features.get(i).getFeaturedOn().add(postDto.id());
+            features.get(i).getNotifications().add(new NotificationsDTO(postDto.id(), author.getUserName(), "Posted with you as a feature!", LocalDateTime.now()));
             userRepository.save(features.get(i));
         }
         /* 
@@ -150,7 +175,7 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                p.getComments(),
+                convertCommentsToSortedDTO(p.getComments()),
                 p.getTime(),
                 convertUsernamesToLikesDTO(p.getLikes())
             );
@@ -179,7 +204,7 @@ public class PostsService {
         post.getFeatures(),
         post.getGenre(),
         post.getMusic(),
-        post.getComments(),
+        convertCommentsToSortedDTO(post.getComments()),
         post.getTime(),
         convertUsernamesToLikesDTO(post.getLikes())
     );
@@ -210,7 +235,7 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                p.getComments(),
+                convertCommentsToSortedDTO(p.getComments()),
                 p.getTime(),
                 convertUsernamesToLikesDTO(p.getLikes())
             );
@@ -246,7 +271,7 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                p.getComments(),
+                convertCommentsToSortedDTO(p.getComments()),
                 p.getTime(),
                 convertUsernamesToLikesDTO(p.getLikes())
             );
@@ -258,64 +283,93 @@ public class PostsService {
 
 
     public List<PostsDTO> getAllById(List<String> ids ) {
-       
-        return postsRepository.findAllById(ids).stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getGenre(),
-                p.getMusic(),
-                p.getComments(),
-                p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
-            );
-        }).toList();
+        // Fetch all posts by IDs
+        List<Posts> posts = postsRepository.findAllById(ids);
+        
+        // Create a map for quick lookup
+        Map<String, Posts> postsMap = posts.stream()
+            .collect(Collectors.toMap(Posts::getId, p -> p));
+        
+        // Return posts in the same order as the input IDs
+        return ids.stream()
+            .map(id -> postsMap.get(id))
+            .filter(Objects::nonNull) // Filter out any posts that weren't found
+            .map(p -> {
+                User u = p.getAuthor();
+                UserPostsDTO author = new UserPostsDTO(
+                    u.getId(),
+                    u.getUserName(),
+                    u.getProfilePic(),
+                    u.getBanner(),
+                    u.getBio(),
+                    u.getLocation()
+                );
+                return new PostsDTO(
+                    p.getId(),
+                    author,
+                    p.getTitle(),
+                    p.getDescription(),
+                    p.getFeatures(),
+                    p.getGenre(),
+                    p.getMusic(),
+                    convertCommentsToSortedDTO(p.getComments()),
+                    p.getTime(),
+                    convertUsernamesToLikesDTO(p.getLikes())
+                );
+            }).toList();
     }
 
     public Optional<Posts> addLike(String id, String userName){
         Optional<Posts> post = postsRepository.findById(id);
+        User author = post.get().getAuthor();
     if (post.isPresent()) {
         Posts foundPost = post.get();
         List<String> currentLikes = foundPost.getLikes();
+        List<NotificationsDTO> currentNoti = author.getNotifications();
         
         // Initialize likes list if it's null
         if (currentLikes == null) {
             currentLikes = new ArrayList<>();
         }
-        
+        if(author.getNotifications() == null){
+            author.setNotifications(new ArrayList<>());
+        }
+       
+        NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now());
         // Add the username if it's not already in the list
         if (!currentLikes.contains(userName)) {
             currentLikes.add(userName);
-            foundPost.setLikes(currentLikes);
-            
+           
             // Save the updated post
             Posts savedPost = postsRepository.save(foundPost);
-            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+             User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
             if(user.getLikedPosts() == null){
                 user.setLikedPosts(new ArrayList<>());
             }
+            
             user.getLikedPosts().add(id);
+            author.getNotifications().add(noti);
+            userRepository.save(author);
             userRepository.save(user);
             return Optional.of(savedPost);
         }else{
             currentLikes.remove(userName);
-            foundPost.setLikes(currentLikes);
+            // Remove the original notification that was created when the like was added
+            if(currentNoti != null){
+                currentNoti.removeIf(notification -> 
+                notification.id().equals(foundPost.getId()) && 
+                notification.userName().equals(userName) && 
+                notification.noti().equals("Liked Your Post!")
+            );
+            }else{
+                author.setNotifications(new ArrayList<>());
+            }
+            
             Posts savedPost = postsRepository.save(foundPost);
             User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
             user.getLikedPosts().remove(id);
             userRepository.save(user);
+            userRepository.save(author);
             if(user.getLikedPosts() == null){
                 user.setLikedPosts(new ArrayList<>());
             }
@@ -328,26 +382,84 @@ public class PostsService {
 
     public Optional<Posts> addComment(String id, String userName, String comment){
         Optional<Posts> post = postsRepository.findById(id);
+        User author = post.get().getAuthor();
         User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!",LocalDateTime.now());
         if(post.isPresent()){
             Posts foundPost = post.get();
             List<CommentDTO> currentComments = foundPost.getComments();
             if(currentComments == null){
                 currentComments = new ArrayList<>();
             }
+            if(author.getNotifications() == null){
+                author.setNotifications(new ArrayList<>());
+            }
+            if(user.getComments() == null){
+                        user.setComments(new ArrayList<>());
+                    }
             currentComments.add(new CommentDTO(userName,user.getProfilePic(), comment, LocalDateTime.now()));
+            
+            
             foundPost.setComments(currentComments);
             Posts savedPost = postsRepository.save(foundPost);
-            if(user.getComments() == null){
-                user.setComments(new ArrayList<>());
-            }
             user.getComments().add(new CommentedOnDTO(id, comment, LocalDateTime.now()));
+            author.getNotifications().add(noti);
+            userRepository.save(author);
             userRepository.save(user);
             return Optional.of(savedPost);
         }
         return post;
+    }
 
+    public Optional<Posts> deleteComment(String postId, String userName, String commentText){
+        Optional<Posts> post = postsRepository.findById(postId);
+        if(post.isPresent()){
+            Posts foundPost = post.get();
+            User author = foundPost.getAuthor();
+            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            
+            List<CommentDTO> currentComments = foundPost.getComments();
+            if(currentComments != null){
+                // Remove the comment by matching username and comment text
+                currentComments.removeIf(comment -> 
+                    comment.userName().equals(userName) && 
+                    comment.comment().equals(commentText)
+                );
+                foundPost.setComments(currentComments);
+            }
+            
+            // Remove the notification that was created when the comment was added
+            List<NotificationsDTO> currentNoti = author.getNotifications();
+            if(currentNoti != null){
+                currentNoti.removeIf(notification -> 
+                    notification.id().equals(postId) && 
+                    notification.userName().equals(userName) && 
+                    notification.noti().equals("Commented on Your Post!")
+                );
+            }else{
+                author.setNotifications(new ArrayList<>());
+            }
+            
+            // Remove the comment from user's comments list
+            List<CommentedOnDTO> userComments = user.getComments();
+            if(userComments != null){
+                userComments.removeIf(comment -> 
+                    comment.id() != null &&
+                    comment.id().equals(postId) && 
+                    comment.commented() != null &&
+                    comment.commented().equals(commentText)
+                );
+            }else{
+                user.setComments(new ArrayList<>());
+            }
+            
+            Posts savedPost = postsRepository.save(foundPost);
+            userRepository.save(author);
+            userRepository.save(user);
+            return Optional.of(savedPost);
         }
+        return post;
+    }
     }
 
 

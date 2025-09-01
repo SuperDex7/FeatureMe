@@ -19,7 +19,8 @@ public record UserDTO(
         List<String> featuredOn,
         List<String> posts,
         List<String> likedPosts,
-        List<CommentedOnDTO> comments
+        List<CommentedOnDTO> comments,
+        List<NotificationsDTO> notifications
         
 ) {
 

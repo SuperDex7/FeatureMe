@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import Feat.FeatureMe.Dto.LoginDTO;
+import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.JwtService;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 
@@ -119,5 +122,18 @@ public class UserController {
         }
         
     }
+
+    @GetMapping("/get/notifications/{userName}")
+    public List<NotificationsDTO> getMethodName(@PathVariable String userName) {
+        return userService.getNoti(userName);
+    }
+    @PostMapping("/follow/{follower}/{following}")
+    public String postMethodName(@PathVariable String follower, @PathVariable String following) {
+        
+        return userService.follow(follower, following);
+        
+    }
+    
+    
     
 }

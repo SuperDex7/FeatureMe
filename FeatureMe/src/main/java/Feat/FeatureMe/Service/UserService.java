@@ -1,6 +1,9 @@
 package Feat.FeatureMe.Service;
 
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,6 +11,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import Feat.FeatureMe.Dto.CommentedOnDTO;
+import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
@@ -50,8 +55,9 @@ public class UserService {
             updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),  
             updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing(),
             updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
-            updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
             updatedUser.getLikedPosts() != null && !updatedUser.getLikedPosts().isEmpty() ? updatedUser.getLikedPosts() : user.getLikedPosts(),
+            updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
+            updatedUser.getNotifications() != null && !updatedUser.getNotifications().isEmpty() ? updatedUser.getNotifications() : user.getNotifications(),
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
@@ -60,51 +66,127 @@ public class UserService {
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll()
         .stream()
-        .map(u -> new UserDTO(
-            u.getId(),
-            u.getUserName(),
-            u.getProfilePic(),
-            u.getBanner(),
-            u.getBio(),
-            u.getAbout(),
-            null,
-            u.getLocation(),
-            u.getSocialMedia(),
-            u.getBadges(),
-            u.getFriends(),
-            u.getFollowers(),   
-            u.getFollowing(),
-            u.getFeaturedOn(),
-            u.getPosts(),
-            u.getLikedPosts(),
-            u.getComments()
-        ))
+        .map(u -> {
+            // Sort notifications by time in descending order (newest first)
+            List<NotificationsDTO> sortedNotifications = u.getNotifications();
+            if (sortedNotifications != null) {
+                sortedNotifications = new ArrayList<>(sortedNotifications); // Create a copy to avoid modifying original
+                sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
+            }
+            
+            // Sort posts by ID (assuming newer posts have higher IDs)
+            List<String> sortedPosts = u.getPosts();
+            if (sortedPosts != null) {
+                sortedPosts = new ArrayList<>(sortedPosts);
+                Collections.reverse(sortedPosts);
+            }
+            
+            // Sort featuredOn by ID (assuming newer features have higher IDs)
+            List<String> sortedFeaturedOn = u.getFeaturedOn();
+            if (sortedFeaturedOn != null) {
+                sortedFeaturedOn = new ArrayList<>(sortedFeaturedOn);
+                Collections.reverse(sortedFeaturedOn);
+            }
+            
+            // Sort likedPosts by ID (assuming newer likes have higher IDs)
+            List<String> sortedLikedPosts = u.getLikedPosts();
+            if (sortedLikedPosts != null) {
+                sortedLikedPosts = new ArrayList<>(sortedLikedPosts);
+                Collections.reverse(sortedLikedPosts);
+            }
+            
+            // Sort comments by time in descending order (newest first)
+            List<CommentedOnDTO> sortedComments = u.getComments();
+            if (sortedComments != null) {
+                sortedComments = new ArrayList<>(sortedComments);
+                sortedComments.sort((c1, c2) -> c2.time().compareTo(c1.time()));
+            }
+            
+            return new UserDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getAbout(),
+                null,
+                u.getLocation(),
+                u.getSocialMedia(),
+                u.getBadges(),
+                u.getFriends(),
+                u.getFollowers(),   
+                u.getFollowing(),
+                sortedFeaturedOn,
+                sortedPosts,
+                sortedLikedPosts,
+                sortedComments,
+                sortedNotifications
+            );
+        })
         .toList();
     }
     
     public UserDTO getUserById(String id) {
         User user = userRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
-return new UserDTO(
- user.getId(),
- user.getUserName(),
- user.getProfilePic(),
- user.getBanner(),
- user.getBio(),
- user.getAbout(),
- null,
- user.getLocation(),
- user.getSocialMedia(),
- user.getBadges(),
- user.getFriends(),
- user.getFollowers(),
- user.getFollowing(),
- user.getFeaturedOn(),
- user.getPosts(),
- user.getLikedPosts(),
- user.getComments()
-);
-
+        
+        // Sort notifications by time in descending order (newest first)
+        List<NotificationsDTO> sortedNotifications = user.getNotifications();
+        if (sortedNotifications != null) {
+            sortedNotifications = new ArrayList<>(sortedNotifications);
+            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
+        }
+        
+        // Sort posts by ID (assuming newer posts have higher IDs or you can sort by creation time)
+        List<String> sortedPosts = user.getPosts();
+        if (sortedPosts != null) {
+            sortedPosts = new ArrayList<>(sortedPosts);
+            // Reverse to show newest posts first (assuming newer posts are added to the end)
+            Collections.reverse(sortedPosts);
+        }
+        
+        // Sort featuredOn by ID (assuming newer features have higher IDs)
+        List<String> sortedFeaturedOn = user.getFeaturedOn();
+        if (sortedFeaturedOn != null) {
+            sortedFeaturedOn = new ArrayList<>(sortedFeaturedOn);
+            // Reverse to show newest features first
+            Collections.reverse(sortedFeaturedOn);
+        }
+        
+        // Sort likedPosts by ID (assuming newer likes have higher IDs)
+        List<String> sortedLikedPosts = user.getLikedPosts();
+        if (sortedLikedPosts != null) {
+            sortedLikedPosts = new ArrayList<>(sortedLikedPosts);
+            Collections.reverse(sortedLikedPosts);
+        }
+        
+        // Sort comments by time in descending order (newest first)
+        List<CommentedOnDTO> sortedComments = user.getComments();
+        if (sortedComments != null) {
+            sortedComments = new ArrayList<>(sortedComments);
+            sortedComments.sort((c1, c2) -> c2.time().compareTo(c1.time()));
+        }
+        
+        return new UserDTO(
+            user.getId(),
+            user.getUserName(),
+            user.getProfilePic(),
+            user.getBanner(),
+            user.getBio(),
+            user.getAbout(),
+            null,
+            user.getLocation(),
+            user.getSocialMedia(),
+            user.getBadges(),
+            user.getFriends(),
+            user.getFollowers(),
+            user.getFollowing(),
+            sortedFeaturedOn,
+            sortedPosts,
+            sortedLikedPosts,
+            sortedComments,
+            sortedNotifications
+        );
     }
     public List<User> getUserByName(String userName) {
        
@@ -150,27 +232,114 @@ return new UserDTO(
     public UserDTO getAUser(String userName) {
         User user = userRepository.findByUserName(userName)
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
-return new UserDTO(
- user.getId(),
- user.getUserName(),
- user.getProfilePic(),
- user.getBanner(),
- user.getBio(),
- user.getAbout(),
- null,
- user.getLocation(),
- user.getSocialMedia(),
- user.getBadges(),
- user.getFriends(),
- user.getFollowers(),
- user.getFollowing(),
- user.getFeaturedOn(),
- user.getPosts(),
- user.getLikedPosts(),
- user.getComments()
-);
-
+        
+        // Sort notifications by time in descending order (newest first)
+        List<NotificationsDTO> sortedNotifications = user.getNotifications();
+        if (sortedNotifications != null) {
+            sortedNotifications = new ArrayList<>(sortedNotifications);
+            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
+        }
+        
+        // Sort posts by ID (assuming newer posts have higher IDs)
+        List<String> sortedPosts = user.getPosts();
+        if (sortedPosts != null) {
+            sortedPosts = new ArrayList<>(sortedPosts);
+            Collections.reverse(sortedPosts);
+        }
+        
+        // Sort featuredOn by ID (assuming newer features have higher IDs)
+        List<String> sortedFeaturedOn = user.getFeaturedOn();
+        if (sortedFeaturedOn != null) {
+            sortedFeaturedOn = new ArrayList<>(sortedFeaturedOn);
+            Collections.reverse(sortedFeaturedOn);
+        }
+        
+        // Sort likedPosts by ID (assuming newer likes have higher IDs)
+        List<String> sortedLikedPosts = user.getLikedPosts();
+        if (sortedLikedPosts != null) {
+            sortedLikedPosts = new ArrayList<>(sortedLikedPosts);
+            Collections.reverse(sortedLikedPosts);
+        }
+        
+        // Sort comments by time in descending order (newest first)
+        List<CommentedOnDTO> sortedComments = user.getComments();
+        if (sortedComments != null) {
+            sortedComments = new ArrayList<>(sortedComments);
+            sortedComments.sort((c1, c2) -> c2.time().compareTo(c1.time()));
+        }
+        
+        return new UserDTO(
+            user.getId(),
+            user.getUserName(),
+            user.getProfilePic(),
+            user.getBanner(), 
+            user.getBio(),
+            user.getAbout(),
+            null,
+            user.getLocation(),
+            user.getSocialMedia(),
+            user.getBadges(),
+            user.getFriends(),
+            user.getFollowers(),
+            user.getFollowing(),
+            sortedFeaturedOn,
+            sortedPosts,
+            sortedLikedPosts,
+            sortedComments,
+            sortedNotifications
+        );
     }
 
+    public List<NotificationsDTO> getNoti(String userName){
+        Optional<User> user = userRepository.findByUserName(userName);
+        List<NotificationsDTO> notifications = user.get().getNotifications();
+        
+        // Sort notifications by time in descending order (newest first)
+        if (notifications != null) {
+            notifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
+        }
+        
+        return notifications;
+    }
     
+    public String follow(String follower, String following){
+        Optional<User> user = userRepository.findByUserName(follower);
+        Optional<User> author = userRepository.findByUserName(following);
+
+        List<String> followingList = user.get().getFollowing();
+        List<String> followersList = author.get().getFollowers();
+        NotificationsDTO noti = new NotificationsDTO(null, user.get().getUserName(), "Started Following You!", LocalDateTime.now());
+
+        // Initialize likes list if it's null
+        if (followingList == null) {
+            followingList = new ArrayList<>();
+        }
+        if(followersList == null){
+            followersList = (new ArrayList<>());
+        }
+        if(author.get().getNotifications() == null){
+            author.get().setNotifications(new ArrayList<>());
+        }
+        if (!followingList.contains(following)) {
+            followingList.add(following);
+        followersList.add(follower);
+        author.get().getNotifications().add(noti);
+        userRepository.save(user.get());
+        userRepository.save(author.get());
+        return "followed";
+        
+        }else{
+            followingList.remove(following);
+            followersList.remove(follower);
+            // Remove the original notification that was created when the follow was added
+            author.get().getNotifications().removeIf(notification -> 
+                notification.userName().equals(follower) && 
+                notification.noti().equals("Started Following You!")
+            );
+            userRepository.save(user.get());
+        userRepository.save(author.get());
+            return "Unfollowed";
+        }
+        
+    }
 }
