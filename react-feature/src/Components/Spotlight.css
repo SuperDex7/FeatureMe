@@ -609,6 +609,7 @@
   transform: scale(1);
   pointer-events: auto;
   backface-visibility: hidden;
+  overflow: hidden;
 }
 
 .spotlight-modal.modal-closed {

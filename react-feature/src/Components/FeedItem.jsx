@@ -1,73 +1,18 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
-import api from "../services/AuthService"
+import CommentSection from "./CommentSection";
+import LikesSection from "./LikesSection";
 
 function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
   const [showComments, setShowComments] = useState(false);
   const [localLikes, setLocalLikes] = useState(likes || []);
-  
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
 
   if (!open) return null;
 
-  const handleComment = (e) => {
-    e.preventDefault();
-    
-    if (commentInput.trim()) {
-        const newComment = {
-            userName: userrr.username,
-            profilePic: userrr.profilePic,
-            comment: commentInput,
-            time: new Date().toISOString()
-        };
-        
-        // Call parent callback to update the feed item immediately
-        onAddComment(newComment);
-        
-        // Clear input
-        setCommentInput("");
-        
-        // Send to backend and then refresh comments from server
-        api.post(`/posts/add/comment/${id}/${userrr.username}`, commentInput, {
-            headers: {
-                'Content-Type': 'text/plain'
-            }
-        })
-        .then(res => {
-            // Fetch updated comments from server to get proper profile pics
-            return api.get(`/posts/get/id/${id}`);
-        })
-        .then(postRes => {
-            if (postRes.data && postRes.data.comments) {
-                // Update parent with server data (has proper profile pics)
-                onAddComment(postRes.data.comments);
-            }
-        })
-        .catch(err => {
-            console.error('Error posting comment:', err);
-            // Could add error handling here if needed
-        });
-    }
-  };
-
-  const handleLike = (e) => {
-    api.post(`/posts/add/like/${id}/${userrr.username}`)
-    .then(res => {
-      console.log(res);
-      // After successful like, fetch updated post
-      return api.get(`/posts/get/id/${id}`);
-    })
-    .then(postRes => {
-      console.log(postRes.data.likes);
-      setLocalLikes(postRes.data.likes);
-    })
-    .catch(err => {
-      console.error(err);
-    });
+  const handleLikeUpdate = (updatedLikes) => {
+    setLocalLikes(updatedLikes);
   };
 
   return (
@@ -128,54 +73,22 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               onClick={() => setShowComments(true)}
             >💬 {comments?.length || 0}</span>
           </div>
-          {!showComments ? (
-            <div className="feed-card-likes-section">
-              <div className="feed-card-comments-title">Likes</div>
-              <button onClick={handleLike}>Like</button>
-              <ul className="feed-card-likes-list">
-                {localLikes.length === 0 ? (
-                  <li style={{ color: '#aaa' }}>No likes yet.</li>
-                ) : (
-                  localLikes.map((like, idx) => (
-                    <li key={idx} className="feed-card-like-user">
-                      <img
-                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"}
-                        alt="profile"
-                        className="feed-card-like-profile-pic"
-                      />
-                      <a href={`/profile/${like.userName}`}><span className="feed-card-like-username">{like.userName|| 'User'}</span></a>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+                    {!showComments ? (
+            <LikesSection
+              postId={id}
+              likes={localLikes}
+              onLikeUpdate={handleLikeUpdate}
+              showLikes={!showComments}
+              setShowLikes={setShowComments}
+            />
           ) : (
-            <div className="feed-card-comments-section">
-              <div className="feed-card-comments-title">Comments</div>
-              <div className="comments-list">
-                                            {comments?.map((comment, index) => (
-                                                <div key={index} className="comment-item">
-                                                    <div ><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
-                                                    <div className="comment-content">
-                                                        <span className="comment-username">{comment.userName}</span>
-                                                        <p className="comment-text">{comment.comment}</p>
-                                                        <p className="comment-feed-time">{new Date(comment.time).toLocaleDateString()}</p>
-                                                    </div>
-                                                </div>
-                                            )) || "You will see comments here"}
-                                        </div>
-              <div className="feed-card-add-comment-row">
-                <input
-                  className="feed-card-add-comment-input"
-                  type="text"
-                  placeholder="Add a comment..."
-                  value={commentInput}
-                  onChange={e => setCommentInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleComment(); }}
-                />
-                <button className="feed-card-add-comment-btn" onClick={handleComment}>Post</button>
-              </div>
-            </div>
+            <CommentSection
+              postId={id}
+              comments={comments}
+              onAddComment={onAddComment}
+              showComments={showComments}
+              setShowComments={setShowComments}
+            />
           )}
           <div className="feed-card-actions-row">
             <a href={`/post/${id}`}><button className="feed-card-action-btn">Go To Post</button></a>
@@ -212,14 +125,13 @@ function FeedItem({ id, author, description, time, title, features, genre, music
     }
   };
   
-  const handleModalAddComment = (newComment) => {
-    // If it's a single comment object, add it to the array
-    if (typeof newComment === 'object' && newComment.comment) {
-      setAllComments(prev => [...(prev || []), newComment]);
-    } 
-    // If it's an array of comments (from server refresh), replace the entire array
-    else if (Array.isArray(newComment)) {
+  const handleModalAddComment = (newComment, isServerRefresh = false) => {
+    if (isServerRefresh && Array.isArray(newComment)) {
+      // Server refresh - replace all comments with server data
       setAllComments(newComment);
+    } else if (typeof newComment === 'object' && newComment.comment) {
+      // Single comment object - add to existing comments
+      setAllComments(prev => [...(prev || []), newComment]);
     }
   };
 

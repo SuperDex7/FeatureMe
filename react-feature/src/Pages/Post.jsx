@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/AuthService";
 import "./Post.css";
 import Header from "../Components/Header";
+import LikesSection from "../Components/LikesSection";
 
 function Post() {
     const { id } = useParams();
@@ -16,15 +17,19 @@ function Post() {
     const [isMuted, setIsMuted] = useState(false);
     const [commentInput, setCommentInput] = useState("");
     const [comments, setComments] = useState([]); 
+    const [localLikes, setLocalLikes] = useState([]);
+    
     const audioRef = useRef(null);
     const progressRef = useRef(null);
     const userString = localStorage.getItem('user');
     const userrr = JSON.parse(userString);
+
     useEffect(() => {
         api.get(`http://localhost:8080/api/posts/get/id/${id}`)
             .then(res => {
                 setPost(res.data);
-                setComments(res.data.comments);
+                setComments(Array.isArray(res.data.comments) ? res.data.comments : []);
+                setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
                 console.log(res.data)
             }).catch(err => {
                 console.error("Error fetching post:", err);
@@ -49,7 +54,10 @@ function Post() {
             };
             
             // Optimistically add comment to UI immediately
-            setComments(prevComments => [...prevComments, newComment]);
+            setComments(prevComments => {
+                const currentComments = Array.isArray(prevComments) ? prevComments : [];
+                return [...currentComments, newComment];
+            });
             
             // Clear input immediately
             setCommentInput("");
@@ -74,9 +82,10 @@ function Post() {
             .catch(err => {
                 console.error(err);
                 // Remove the optimistic comment on error
-                setComments(prevComments => 
-                    prevComments.filter(c => c.comment !== newComment.comment)
-                );
+                setComments(prevComments => {
+                    const currentComments = Array.isArray(prevComments) ? prevComments : [];
+                    return currentComments.filter(c => c.comment !== newComment.comment);
+                });
                 // Restore the input
                 setCommentInput(newComment.comment);
             });
@@ -146,6 +155,9 @@ function Post() {
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+    const handleLikeUpdate = (updatedLikes) => {
+        setLocalLikes(updatedLikes);
     };
 
     if (!post) {
@@ -260,11 +272,11 @@ function Post() {
                             </div>
                             <div className="artist-stats">
                                 <div className="stat-item">
-                                    <span className="stat-number">{post?.likes?.length || 0}</span>
+                                    <span className="stat-number">{localLikes?.length || 0}</span>
                                     <span className="stat-label">Likes</span>
                                 </div>
                                 <div className="stat-item">
-                                    <span className="stat-number">{post?.comments?.length || 0}</span>
+                                    <span className="stat-number">{comments?.length || 0}</span>
                                     <span className="stat-label">Comments</span>
                                 </div>
                                 <div className="stat-item">
@@ -443,25 +455,15 @@ function Post() {
                             <div className="tab-content">
                                 <div className="community-section">
                                     <h2 className="section-title">Community</h2>
-                                    <div className="spotlight-modal-likes-section">
-              <div className="spotlight-modal-comments-title">Likes</div>
-              <ul className="spotlight-modal-likes-list">
-                {post.likes.length === 0 ? (
-                  <li style={{ color: '#aaa' }}>No likes yet.</li>
-                ) : (
-                    post.likes.map((like, idx) => (
-                    <li key={idx} className="spotlight-modal-like-user">
-                      <img
-                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"}
-                        alt="profile"
-                        className="spotlight-modal-like-profile-pic"
-                      />
-                      <a href={`/profile/${like.userName}`}><span className="spotlight-modal-like-username">{like.userName|| 'User'}</span></a>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+                                    
+                                    <LikesSection
+                                        postId={id}
+                                        likes={localLikes}
+                                        onLikeUpdate={handleLikeUpdate}
+                                    />
+
+                                    
+                                    
                                     <div className="comments-section">
                                         <h3 className="subsection-title">Comments ({comments?.length || 0})</h3>
                                         <div className="comments-list">

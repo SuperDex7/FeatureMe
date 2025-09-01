@@ -1,21 +1,17 @@
 import React, { useState } from "react";
 import AudioPlayer from "./AudioPlayer";
+import CommentSection from "./CommentSection";
+import LikesSection from "./LikesSection";
 
 function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
   const [showComments, setShowComments] = useState(false);
-  const safeComments = Array.isArray(comments) ? comments : [];
-  const safeLikes = Array.isArray(likes) ? likes : [];
+  const [localLikes, setLocalLikes] = useState(likes || []);
 
   if (!open) return null;
-  
-  const handleAddComment = () => {
-    if (commentInput.trim()) {
-      onAddComment(commentInput.trim());
-      setCommentInput("");
-    }
+  const handleLikeUpdate = (updatedLikes) => {
+    setLocalLikes(updatedLikes);
   };
 
   return (
@@ -64,64 +60,40 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               ))}
             </div>
           )}
-          
+          {showAudioPlayer && (
+            <div onClick={e => e.stopPropagation()}>
+              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+            </div>
+          )}
           <div className="spotlight-modal-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
             <span
               className={`spotlight-modal-likes${!showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(false)}
-            >❤️ {safeLikes.length}</span>
+            >❤️ {localLikes.length}</span>
             <span
               className={`spotlight-modal-comments${showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
-            >💬 {safeComments.length}</span>
+            >💬 {comments?.length || 0}</span>
           </div>
           
           {!showComments ? (
-            <div className="spotlight-modal-likes-section">
-              <div className="spotlight-modal-comments-title">Likes</div>
-              <ul className="spotlight-modal-likes-list">
-                {safeLikes.length === 0 ? (
-                  <li style={{ color: '#aaa' }}>No likes yet.</li>
-                ) : (
-                  safeLikes.map((like, idx) => (
-                    <li key={idx} className="spotlight-modal-like-user">
-                      <img
-                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"}
-                        alt="profile"
-                        className="spotlight-modal-like-profile-pic"
-                      />
-                      <a href={`/profile/${like.userName}`}><span className="spotlight-modal-like-username">{like.userName|| 'User'}</span></a>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+            <LikesSection
+              postId={id}
+              likes={localLikes}
+              onLikeUpdate={handleLikeUpdate}
+              showLikes={!showComments}
+              setShowLikes={setShowComments}
+            />
           ) : (
-            <div className="spotlight-modal-comments-section">
-              <div className="spotlight-modal-comments-title">Comments</div>
-              <ul className="spotlight-modal-comments-list">
-                {safeComments.length === 0 ? (
-                  <li style={{ color: '#aaa' }}>No comments yet.</li>
-                ) : (
-                  safeComments.map((c, idx) => (
-                    <li key={idx}>{c}</li>
-                  ))
-                )}
-              </ul>
-              <div className="spotlight-modal-add-comment-row">
-                <input
-                  className="spotlight-modal-add-comment-input"
-                  type="text"
-                  placeholder="Add a comment..."
-                  value={commentInput}
-                  onChange={e => setCommentInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddComment(); }}
-                />
-                <button className="spotlight-modal-add-comment-btn" onClick={handleAddComment}>Post</button>
-              </div>
-            </div>
+            <CommentSection
+              postId={id}
+              comments={comments}
+              onAddComment={onAddComment}
+              showComments={showComments}
+              setShowComments={setShowComments}
+            />
           )}
           
           <div className="spotlight-modal-actions-row">
@@ -129,11 +101,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
           
-          {showAudioPlayer && (
-            <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
-            </div>
-          )}
+          
         </div>
       </div>
     </div>
@@ -159,8 +127,14 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     }
   };
 
-  const handleModalAddComment = (comment) => {
-    setAllComments([...allComments, comment]);
+  const handleModalAddComment = (comment, isServerRefresh = false) => {
+    if (isServerRefresh && Array.isArray(comment)) {
+      // Server refresh - replace all comments with server data
+      setAllComments(comment);
+    } else if (typeof comment === 'object' && comment.comment) {
+      // Single comment object - add to existing comments
+      setAllComments(prev => [...(prev || []), comment]);
+    }
   };
 
   return (

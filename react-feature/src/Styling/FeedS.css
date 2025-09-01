@@ -47,10 +47,6 @@
     background: rgba(79, 140, 255, 0.15);
   }
 
-  .feed-tab span {
-    font-size: 1.3rem;
-  }
-
   .feed-tab-content {
     flex: 1;
     overflow-y: hidden;

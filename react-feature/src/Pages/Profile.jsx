@@ -20,6 +20,8 @@ function Profile() {
   const [count, setCount] = useState(null)
   const [co, setCo] = useState(0)
   const [co2, setCo2] = useState(0)
+  const [isFollowing, setIsFollowing] = useState(false);
+  
   const userString = localStorage.getItem('user');
   const userrr = JSON.parse(userString);
   
@@ -35,6 +37,35 @@ function Profile() {
       setIsLoading(false);
     })
   }, [username])
+
+  // Check if current user is following this profile
+  useEffect(() => {
+    if (user && userrr) {
+      const following = user.followers && user.followers.includes(userrr.username);
+      setIsFollowing(following);
+    }
+  }, [user, userrr]);
+
+  // Load posts when activeTab changes
+  useEffect(() => {
+    if (activeTab === "posts" && user && co === 0) {
+      api.get(`posts/get/all/id/${user.posts}`).then(res => {
+        setPosts(res.data)
+        setCo(co + 1)
+      })
+    }
+  }, [activeTab, user, co]);
+
+  // Load featuredOn when activeTab changes
+  useEffect(() => {
+    if (activeTab === "friends" && user && co2 === 0) {
+      api.get(`posts/get/all/featuredOn/${user.featuredOn}`).then(res => {
+        setFeatureOn(res.data)
+        console.log(res.data)
+        setCo2(co2 + 1)
+      })
+    }
+  }, [activeTab, user, co2]);
    
   if (isLoading) {
     return (
@@ -46,35 +77,21 @@ function Profile() {
       </div>
     );
   }
-  // Placeholder user data
-  const userr = {
-    username: "SuperDex",
-    bio: "FL Studio Producer | Musician | Content Creator",
-    location: "Toronto, Canada",
-    avatar: "dpp.jpg",
-    banner: "pb.jpg",
-    stats: { posts: 256, followers: "1.2k", following: 300 },
-         badges: ["TOP_CREATOR", "VERIFIED", "EARLY_ADOPTER", "100_POSTS", "FIRST_100"]
+
+  const follow = () => {
+    api.post(`user/follow/${userrr.username}/${username}`).then(res => {
+      console.log(res);
+      // Toggle the following state
+      setIsFollowing(!isFollowing);
+      // Refresh user data to get updated followers count
+      api.get(`/user/get/${username}`).then(response => {
+        setUser(response.data);
+      });
+    }).catch(err => {
+      console.log(err);
+    });
   };
   
-  if(activeTab == "posts" && co == 0){
-    api.get(`posts/get/all/id/${user.posts}`).then(res=>{
-    setPosts(res.data)
-    //console.log(res.data)
-      setCo(co +1)
-    })
-    
-  }
-
-  if(activeTab == "friends" && co2 == 0){
-    api.get(`posts/get/all/featuredOn/${user.featuredOn}`).then(res=>{
-    setFeatureOn(res.data)
-    //console.log(res.data)
-      setCo2(co2 +1)
-    })
-    
-  }
-  console.log(featuredOn)
   return (
     <div className="profile-glass-root">
       <Header />
@@ -86,7 +103,16 @@ function Profile() {
         </div>
       </div>
       <div className="profile-glass-info-card overlap-margin">
-        {userrr.username === username && <button className="profile-glass-edit">Edit Profile</button> || <button className="profile-glass-edit">Follow</button>}
+        {userrr.username === username ? (
+          <button className="profile-glass-edit">Edit Profile</button>
+        ) : (
+          <button 
+            className={`profile-glass-edit ${isFollowing ? 'following' : ''}`} 
+            onClick={follow}
+          >
+            {isFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        )}
         <h2 className="profile-glass-username">{user.userName}</h2>
                  <div className="profile-glass-badges-row">
            {user?.badges?.map((badge, i) => {

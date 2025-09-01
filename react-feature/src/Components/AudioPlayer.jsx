@@ -15,6 +15,8 @@ function AudioPlayer({ src, onClose, title }) {
   const [duration, setDuration] = useState(0);
   const [fadeIn, setFadeIn] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(1);
 
   useEffect(() => {
     setFadeIn(true);
@@ -23,6 +25,7 @@ function AudioPlayer({ src, onClose, title }) {
       audio.play().then(() => {
         setPlaying(true);
       }).catch((err) => console.error("Playback error:", err));
+      
       const updateTime = () => setCurrentTime(audio.currentTime);
       const setAudioDuration = () => setDuration(audio.duration);
 
@@ -51,6 +54,7 @@ function AudioPlayer({ src, onClose, title }) {
     const vol = e.target.value;
     audioRef.current.volume = vol;
     setVolume(vol);
+    setIsMuted(false); // Unmute when volume is changed manually
   };
 
   const handleSeek = (e) => {
@@ -59,25 +63,49 @@ function AudioPlayer({ src, onClose, title }) {
     setCurrentTime(time);
   };
 
+  const toggleMute = () => {
+    const audio = audioRef.current;
+    if (isMuted) {
+      // Unmute: restore previous volume
+      audio.volume = previousVolume;
+      setVolume(previousVolume);
+      setIsMuted(false);
+    } else {
+      // Mute: store current volume and set to 0
+      setPreviousVolume(volume);
+      audio.volume = 0;
+      setVolume(0);
+      setIsMuted(true);
+    }
+  };
+
   const handleClose = (e) => {
-    e.stopPropagation(); // Prevent bubbling to parent
+    e.stopPropagation();
     setFadeOut(true);
     setTimeout(() => {
       onClose();
-    }, 350); // match CSS animation duration
+    }, 350);
   };
 
   return (
     <div className={`audio-player-card glassy${fadeIn ? ' audio-fade-in' : ''}${fadeOut ? ' audio-fade-out' : ''}`}>
+      {/* Compact Header Row */}
       <div className="audio-player-top-row">
-        <button className="audio-play-btn" onClick={togglePlay} title={playing ? "Pause" : "Play"}>
-          {playing ? <span>&#10073;&#10073;</span> : <span>&#9654;</span>}
-        </button>
-        <span className="audio-song-title">{title}</span>
+        <div className="audio-player-left">
+          <button className="audio-play-btn" onClick={togglePlay} title={playing ? "Pause" : "Play"}>
+            {playing ? <span className="pause-icon">⏸</span> : <span className="play-icon">▶</span>}
+          </button>
+          <div className="audio-info">
+            <span className="audio-song-title">{title}</span>
+            <div className="audio-time-compact">{formatTime(currentTime)} / {formatTime(duration)}</div>
+          </div>
+        </div>
         <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
       </div>
+      
+      {/* Compact Controls Row */}
       <div className="audio-player-bottom-row">
-        <div className="audio-player-progress">
+        <div className="audio-progress-compact">
           <input
             type="range"
             min="0"
@@ -85,11 +113,19 @@ function AudioPlayer({ src, onClose, title }) {
             value={currentTime}
             onChange={handleSeek}
             className="audio-progress-bar"
+            title="Seek to position"
           />
-          <span className="audio-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
-        <div className="audio-player-volume">
-          <span role="img" aria-label="Volume">🔊</span>
+        <div className="audio-volume-compact">
+          <span 
+            className="volume-icon" 
+            role="img" 
+            aria-label={isMuted ? "Unmute" : "Mute"}
+            onClick={toggleMute}
+            title={isMuted ? "Click to unmute" : "Click to mute"}
+          >
+            {isMuted ? '🔇' : volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
+          </span>
           <input
             type="range"
             min="0"
@@ -98,6 +134,7 @@ function AudioPlayer({ src, onClose, title }) {
             value={volume}
             onChange={handleVolumeChange}
             className="audio-volume-bar"
+            title="Adjust volume"
           />
         </div>
       </div>
