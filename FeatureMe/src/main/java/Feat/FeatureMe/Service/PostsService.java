@@ -357,6 +357,7 @@ public class PostsService {
             // Remove the original notification that was created when the like was added
             if(currentNoti != null){
                 currentNoti.removeIf(notification -> 
+                notification.id() != null && 
                 notification.id().equals(foundPost.getId()) && 
                 notification.userName().equals(userName) && 
                 notification.noti().equals("Liked Your Post!")
