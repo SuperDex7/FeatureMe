@@ -1,55 +1,13 @@
-import axios from "axios"; 
-const REST_API_GET_URL = "http://localhost:8080/api/posts/get"
-
-export const getAuthHeaders = () => {
-    const token = localStorage.getItem('jwtToken');
-    if (!token) {
-      console.warn('No JWT token found in localStorage');
-      return {};
-    }
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
-  
-  
+import api from './AuthService';
 
 export const listPosts = () => {
-    return axios.get(REST_API_GET_URL, { 
-        headers: getAuthHeaders() 
-      }).catch(error => {
-        if (error.response && error.response.status === 401) {
-          // Clear invalid token and redirect to login
-          localStorage.removeItem('jwtToken');
-          window.location.href = '/login';
-        }
-        throw error;
-      });
-}
-export function listPostsDesc(){
-    return axios.get("http://localhost:8080/api/posts/get/likesdesc", { 
-        headers: getAuthHeaders() 
-      }).catch(error => {
-        if (error.response && error.response.status === 401) {
-          // Clear invalid token and redirect to login
-          localStorage.removeItem('jwtToken');
-          window.location.href = '/login';
-        }
-        throw error;
-      });
-}
-export const getPostById = (id) => {
-  return axios.get(`http://localhost:8080/api/posts/get/id/${id}`, { 
-      headers: getAuthHeaders() 
-    }).catch(error => {
-      if (error.response && error.response.status === 401) {
-        // Clear invalid token and redirect to login
-        localStorage.removeItem('jwtToken');
-        window.location.href = '/login';
-      }
-      throw error;
-    });
+    return api.get('/posts/get');
 }
 
-//export const listPosts = () => axios.get(REST_API_GET_URL);
+export function listPostsDesc(){
+    return api.get('/posts/get/likesdesc');
+}
+
+export const getPostById = (id) => {
+  return api.get(`/posts/get/id/${id}`);
+}

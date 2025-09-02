@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import api from "../services/AuthService";
+import React, { useState, useEffect } from "react";
+import api, { getCurrentUser } from "../services/AuthService";
 import "./CommentSection.css";
 
 function CommentSection({ 
@@ -12,16 +12,23 @@ function CommentSection({
   placeholder = "Add a comment..." // Configurable placeholder text
 }) {
   const [commentInput, setCommentInput] = useState("");
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   const handleComment = (e) => {
     e.preventDefault();
     
-    if (commentInput.trim()) {
+    if (commentInput.trim() && currentUser) {
         const newComment = {
-            userName: userrr.username,
-            profilePic: userrr.profilePic,
+            userName: currentUser.userName,
+            profilePic: currentUser.profilePic,
             comment: commentInput,
             time: new Date().toISOString()
         };
@@ -33,7 +40,7 @@ function CommentSection({
         setCommentInput("");
         
         // Send to backend and then refresh comments from server
-        api.post(`/posts/add/comment/${postId}/${userrr.username}`, commentInput, {
+        api.post(`/posts/add/comment/${postId}`, commentInput, {
             headers: {
                 'Content-Type': 'text/plain'
             }

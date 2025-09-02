@@ -4,15 +4,13 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   timeout: 60000, // Increased to 60 seconds for file uploads
+  withCredentials: true, // Enable cookies for all requests
 });
 
-// Request interceptor to add JWT token to all requests
+// Request interceptor - no need to manually add JWT token since it's in cookies
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('jwtToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Cookies are automatically sent with requests when withCredentials: true
     return config;
   },
   (error) => {
@@ -31,10 +29,6 @@ api.interceptors.response.use(
       if (error.response.status === 401) {
         console.log('JWT token expired or invalid, redirecting to login...');
         
-        // Clear the expired token
-        localStorage.removeItem('jwtToken');
-        localStorage.removeItem('user');
-        
         // Redirect to login page
         window.location.href = '/login';
         return Promise.reject(error);
@@ -43,8 +37,6 @@ api.interceptors.response.use(
       // Handle 403 Forbidden
       if (error.response.status === 403) {
         console.log('Access forbidden, redirecting to login...');
-        localStorage.removeItem('jwtToken');
-        localStorage.removeItem('user');
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -61,10 +53,6 @@ api.interceptors.response.use(
         )) {
           console.log('JWT-related 500 error detected, redirecting to login...');
           
-          // Clear the expired token
-          localStorage.removeItem('jwtToken');
-          localStorage.removeItem('user');
-          
           // Redirect to login page
           window.location.href = '/login';
           return Promise.reject(error);
@@ -77,51 +65,36 @@ api.interceptors.response.use(
 );
 
 // Helper functions
-export const isAuthenticated = () => {
-  const token = localStorage.getItem('jwtToken');
-  if (!token) return false;
-  
-  // Check if token is expired
-  if (isTokenExpired(token)) {
-    console.log('Token is expired, logging out...');
-    logout();
+export const isAuthenticated = async () => {
+  try {
+    // Make a request to /me endpoint to check if user is authenticated
+    const response = await api.get('/user/me');
+    return response.status === 200;
+  } catch (error) {
     return false;
   }
-  
-  return true;
 };
 
-export const isTokenExpired = (token) => {
+export const logout = async () => {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Date.now() / 1000;
-    return payload.exp < currentTime;
+    // Call logout endpoint to clear server-side cookies
+    await api.post('/user/auth/logout');
   } catch (error) {
-    console.error('Error parsing JWT token:', error);
-    return true; // Consider invalid tokens as expired
+    console.error('Error during logout:', error);
+  } finally {
+    // Redirect to login page
+    window.location.href = '/login';
   }
 };
 
-// Start periodic token validation
-export const startTokenValidation = () => {
-  // Check token every 5 minutes
-  setInterval(() => {
-    const token = localStorage.getItem('jwtToken');
-    if (token && isTokenExpired(token)) {
-      console.log('Periodic check: Token expired, logging out...');
-      logout();
-    }
-  }, 5 * 60 * 1000); // 5 minutes
-};
-
-export const logout = () => {
-  localStorage.removeItem('jwtToken');
-  localStorage.removeItem('user');
-  window.location.href = '/login';
-};
-
-export const getToken = () => {
-  return localStorage.getItem('jwtToken');
+export const getCurrentUser = async () => {
+  try {
+    const response = await api.get('/user/me');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
 };
 
 export default api;

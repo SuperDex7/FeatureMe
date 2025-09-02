@@ -1,8 +1,8 @@
 import "../Styling/CreatePost.css"
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Header from "../Components/Header";
 import { useNavigate } from "react-router-dom";
-import api from "../services/AuthService";
+import api, { getCurrentUser } from "../services/AuthService";
 const GENRES = [
   "Song","Beat","Loop","Instrument","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
   'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
@@ -18,8 +18,7 @@ function CreatePost(){
   const [genres, setGenres] = useState([]);
   const [ddOpen, setDdOpen] = useState(false);
   const [errors, setErrors] = useState({});
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
+  const [currentUser, setCurrentUser] = useState(null);
   
   const [post, setPost] = useState({
     title: "",
@@ -30,7 +29,15 @@ function CreatePost(){
   })
 
   const navigate = useNavigate();
-  const ddRef = useRef(null); 
+  const ddRef = useRef(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []); 
 
   const handleFeatureKeyDown = (e) => {
     if (e.key === 'Enter' && featureInput.trim()) {
@@ -129,7 +136,7 @@ function CreatePost(){
     }
 
     console.log('Posting…', Object.fromEntries(formData));
-    api.post(`/posts/create/${userrr.username}`, formData, {
+    api.post(`/posts/create`, formData, {
       headers:{"Content-Type": "multipart/form-data"}
     }).then(res => {
       console.log('Upload successful:', res.data);
@@ -358,7 +365,7 @@ function CreatePost(){
             <div className="preview-profile">
               <div className="preview-avatar">👤</div>
               <div className="preview-user-info">
-                <span className="preview-username">{userrr.username}</span>
+                <span className="preview-username">{currentUser?.userName || 'User'}</span>
                 <span className="preview-time">Just now</span>
               </div>
             </div>

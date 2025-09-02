@@ -4,7 +4,7 @@ import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "../Styling/Profile.css";
 import { getUserInfo } from "../services/UserService";
-import api from "../services/AuthService";
+import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
 import ProfilePosts from "../Components/ProfilePosts";
@@ -21,30 +21,35 @@ function Profile() {
   const [co, setCo] = useState(0)
   const [co2, setCo2] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false);
-  
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
+  const [currentUser, setCurrentUser] = useState(null);
   
   useEffect(() => {
-    setIsLoading(true);
-    api.get(`/user/get/${username}`).then(response => {
-      setUser(response.data)
-      console.log(response.data)
-      setCount(response.data.posts.length)
-      setIsLoading(false);
-    }).catch((err)=>{
-      console.error(err)
-      setIsLoading(false);
-    })
-  }, [username])
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const currentUserData = await getCurrentUser();
+        setCurrentUser(currentUserData);
+        
+        const response = await api.get(`/user/get/${username}`);
+        setUser(response.data);
+        console.log(response.data);
+        setCount(response.data.posts.length);
+        setIsLoading(false);
+      } catch (err) {
+        console.error(err);
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [username]);
 
   // Check if current user is following this profile
   useEffect(() => {
-    if (user && userrr) {
-      const following = user.followers && user.followers.includes(userrr.username);
+    if (user && currentUser) {
+      const following = user.followers && user.followers.includes(currentUser.userName);
       setIsFollowing(following);
     }
-  }, [user, userrr]);
+  }, [user, currentUser]);
 
   // Load posts when activeTab changes
   useEffect(() => {
@@ -79,7 +84,9 @@ function Profile() {
   }
 
   const follow = () => {
-    api.post(`user/follow/${userrr.username}/${username}`).then(res => {
+    if (!currentUser) return;
+    
+    api.post(`user/follow/${currentUser.userName}/${username}`).then(res => {
       console.log(res);
       // Toggle the following state
       setIsFollowing(!isFollowing);
@@ -103,7 +110,7 @@ function Profile() {
         </div>
       </div>
       <div className="profile-glass-info-card overlap-margin">
-        {userrr.username === username ? (
+        {currentUser?.userName === username ? (
           <button className="profile-glass-edit">Edit Profile</button>
         ) : (
           <button 

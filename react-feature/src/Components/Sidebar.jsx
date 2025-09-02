@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "./Sidebar.css";
+import { getCurrentUser } from "../services/AuthService";
 
 const playlists = [
   { name: "Liked Songs", icon: "💜" },
@@ -14,18 +15,25 @@ const playlists = [
 ];
 
 function Sidebar() {
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
   return (
     <aside className="sidebar sidebar-dark">
       <div className="sidebar__logo">
         <a href="/home" className="sidebar__logo-link">FeatureMe</a>
-        <div className="sidebar__username"><a href={`/profile/${userrr.username}`}>{userrr.username}</a></div>
+        <div className="sidebar__username"><a href={`/profile/${currentUser?.userName || ''}`}>{currentUser?.userName || 'User'}</a></div>
       </div>
       <nav className="sidebar__nav">
         <ul>
           <li><a href="/home">Home</a></li>
-          <li><a href={`/profile/${userrr.username}`}>Profile</a></li>
+          <li><a href={`/profile/${currentUser?.userName || ''}`}>Profile</a></li>
           <li><a href="/messages">Messages</a></li>
           <li><a href="/notifications">Notifications</a></li>
         </ul>

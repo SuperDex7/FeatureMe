@@ -15,20 +15,11 @@ function Homepage() {
   const [isLoading, setIsLoading] = useState(true);
   const [latestPost, setLatestPostt] = useState(null)
   const [length, setLength] = useState(0);
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
-  //console.log(userrr)
-// Add null check for user
-  if (!userrr || !userrr.username) {
-    console.error('No user data found');
-    setIsLoading(false);
-    window.location.href = '/login';
-    return;
-  }
+
   useEffect(() =>{
-    
     setIsLoading(true);
-    api.get(`http://localhost:8080/api/user/get/${userrr.username}`, {withCredentials:true}).then(response=> {
+    // Use the new /me endpoint to get current user info
+    api.get('/user/me').then(response=> {
       setUser(response.data)
       console.log(response.data)
       //setLength(response.data.posts.length)
@@ -36,15 +27,18 @@ function Homepage() {
       //console.log(len)
       //setLatestPostt(response.data.posts[0])
       //console.log(response.data.posts.length)
-  api.get(`http://localhost:8080/api/posts/get/id/${response.data.posts[len]}`).then(res=>{
-  //console.log(res.data)
-  setLatestPostt(res.data)
-})
-
+      if (response.data.posts && response.data.posts.length > 0) {
+        api.get(`/posts/get/id/${response.data.posts[len]}`).then(res=>{
+          //console.log(res.data)
+          setLatestPostt(res.data)
+        })
+      }
       setIsLoading(false);
     }).catch((err)=>{
       console.error(err)
       setIsLoading(false);
+      // If authentication fails, redirect to login
+      window.location.href = '/login';
     })
   }, [])
   if (isLoading) {
