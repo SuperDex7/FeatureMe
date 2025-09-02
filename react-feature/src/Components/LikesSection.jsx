@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import api from "../services/AuthService";
+import React, { useState, useEffect } from "react";
+import api, { getCurrentUser } from "../services/AuthService";
 import "./LikesSection.css";
 
 function LikesSection({ 
@@ -11,24 +11,33 @@ function LikesSection({
   // Removed maxHeight prop to use CSS-controlled height
 }) {
   const [localLikes, setLocalLikes] = useState(likes || []);
-  const userString = localStorage.getItem('user');
-  const userrr = JSON.parse(userString);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   const handleLike = (e) => {
     e.preventDefault();
     
+    if (!currentUser) return;
+    
     // Optimistically update UI
-    const isLiked = localLikes.some(like => like.userName === userrr.username);
+    const isLiked = localLikes.some(like => like.userName === currentUser.userName);
     let updatedLikes;
     
     if (isLiked) {
       // Unlike - remove user from likes
-      updatedLikes = localLikes.filter(like => like.userName !== userrr.username);
+      updatedLikes = localLikes.filter(like => like.userName !== currentUser.userName);
     } else {
       // Like - add user to likes
       const newLike = {
-        userName: userrr.username,
-        profilePic: userrr.profilePic
+        userName: currentUser.userName,
+        profilePic: currentUser.profilePic
       };
       updatedLikes = [...localLikes, newLike];
     }
@@ -42,7 +51,7 @@ function LikesSection({
     }
     
     // Send to backend
-    api.post(`/posts/add/like/${postId}/${userrr.username}`)
+    api.post(`/posts/add/like/${postId}`)
     .then(res => {
       // Fetch updated post from server to get accurate data
       return api.get(`/posts/get/id/${postId}`);
@@ -66,7 +75,7 @@ function LikesSection({
     });
   };
 
-  const isUserLiked = localLikes.some(like => like.userName === userrr.username);
+  const isUserLiked = currentUser ? localLikes.some(like => like.userName === currentUser.userName) : false;
 
   return (
     <div className="likes-section-container">

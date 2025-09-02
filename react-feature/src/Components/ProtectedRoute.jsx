@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { isAuthenticated, startTokenValidation } from '../services/AuthService';
+import { isAuthenticated } from '../services/AuthService';
 
 const ProtectedRoute = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -8,15 +8,10 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    const checkAuth = () => {
-      const authenticated = isAuthenticated();
+    const checkAuth = async () => {
+      const authenticated = await isAuthenticated();
       setIsAuth(authenticated);
       setIsLoading(false);
-      
-      // Start periodic token validation if authenticated
-      if (authenticated) {
-        startTokenValidation();
-      }
     };
 
     checkAuth();

@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import api from "../services/AuthService";
+import api, { getCurrentUser } from "../services/AuthService";
 import "./Post.css";
 import Header from "../Components/Header";
 import LikesSection from "../Components/LikesSection";
@@ -18,22 +18,27 @@ function Post() {
     const [commentInput, setCommentInput] = useState("");
     const [comments, setComments] = useState([]); 
     const [localLikes, setLocalLikes] = useState([]);
+    const [currentUser, setCurrentUser] = useState(null);
     
     const audioRef = useRef(null);
     const progressRef = useRef(null);
-    const userString = localStorage.getItem('user');
-    const userrr = JSON.parse(userString);
 
     useEffect(() => {
-        api.get(`http://localhost:8080/api/posts/get/id/${id}`)
-            .then(res => {
+        const fetchData = async () => {
+            try {
+                const user = await getCurrentUser();
+                setCurrentUser(user);
+                
+                const res = await api.get(`/posts/get/id/${id}`);
                 setPost(res.data);
                 setComments(Array.isArray(res.data.comments) ? res.data.comments : []);
                 setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
-                console.log(res.data)
-            }).catch(err => {
-                console.error("Error fetching post:", err);
-            });
+                console.log(res.data);
+            } catch (err) {
+                console.error("Error fetching data:", err);
+            }
+        };
+        fetchData();
     }, [id]);
 
     useEffect(() => {
@@ -45,11 +50,11 @@ function Post() {
     const handleComment = (e) => {
         e.preventDefault();
         
-        if (commentInput.trim()) {
+        if (commentInput.trim() && currentUser) {
             // Create the new comment object
             const newComment = {
-                userName: userrr.username,
-                profilePic: userrr.profilePic,
+                userName: currentUser.userName,
+                profilePic: currentUser.profilePic,
                 comment: commentInput
             };
             
@@ -63,7 +68,7 @@ function Post() {
             setCommentInput("");
             
             // Send to backend
-            api.post(`/posts/add/comment/${id}/${userrr.username}`, commentInput, {
+            api.post(`/posts/add/comment/${id}`, commentInput, {
                 headers: {
                     'Content-Type': 'text/plain'  // Since you're sending just text
                 }
@@ -469,9 +474,9 @@ function Post() {
                                         <div className="comments-list">
                                             {comments?.map((comment, index) => (
                                                 <div key={index} className="comment-item">
-                                                    <div ><img className="comment-avatar" src={comment.profilePic} alt="" /></div>
+                                                    <div ><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
                                                     <div className="comment-content">
-                                                        <span className="comment-username">{comment.userName}</span>
+                                                    <a href={`/profile/${comment.userName}`}><span className="comment-username">{comment.userName}</span></a>
                                                         <p className="comment-text">{comment.comment}</p>
                                                         <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
                                                     </div>

@@ -42,15 +42,12 @@ function LoginPage() {
       const response = await axios.post('http://localhost:8080/api/user/auth/login', {
         username: formData.email,
         password: formData.password
+      }, {
+        withCredentials: true // Enable cookies
       });
       
       if (response.status === 200) {
         const data = response.data;
-        localStorage.setItem('jwtToken', data.token);
-        localStorage.setItem('user', JSON.stringify({
-          username: data.username,
-          email: formData.email
-        }));
         console.log('Login successful:', data);
         
         // Redirect to the page user was trying to access, or home if none
