@@ -1,17 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AudioPlayer from "./AudioPlayer";
 import CommentSection from "./CommentSection";
 import LikesSection from "./LikesSection";
+import { deletePost } from "../services/PostsService";
+import { getCurrentUser } from "../services/AuthService";
 
-function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [localLikes, setLocalLikes] = useState(likes || []);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!open) return null;
   const handleLikeUpdate = (updatedLikes) => {
     setLocalLikes(updatedLikes);
+  };
+
+  const handleDeletePost = async () => {
+    if (!currentUser || !window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      await deletePost(id);
+      console.log('Post deleted successfully');
+      // Close modal and reload page
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -100,6 +124,16 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           <div className="spotlight-modal-actions-row">
           <a href={`/post/${id}`}><button className="spotlight-modal-action-btn">Go To Post</button></a>
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
+            {currentUser && currentUser.userName === userName && (
+              <button 
+                className="spotlight-modal-action-btn delete-btn" 
+                onClick={handleDeletePost}
+                disabled={isDeleting}
+                title="Delete post"
+              >
+                {isDeleting ? 'Deleting...' : '🗑️ Delete'}
+              </button>
+            )}
           </div>
           
           
@@ -115,6 +149,17 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
   const [modalOpen, setModalOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [allComments, setAllComments] = useState(comments);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Get current user on component mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   const openAudioPlayer = (e) => {
     e.stopPropagation();
@@ -135,6 +180,27 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     } else if (typeof comment === 'object' && comment.comment) {
       // Single comment object - add to existing comments
       setAllComments(prev => [...(prev || []), comment]);
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!currentUser || !window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      await deletePost(id);
+      console.log('Post deleted successfully');
+      // You might want to call a callback to remove this post from the parent component's list
+      // For now, we'll just reload the page
+      window.location.reload();
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -207,6 +273,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
         comments={allComments}
         likes={likes}
         onAddComment={handleModalAddComment}
+        currentUser={currentUser}
       />
     </>
   );

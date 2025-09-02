@@ -104,6 +104,27 @@ public class PostsController {
     
     @DeleteMapping("/delete/{id}")
     public void deletePost(@PathVariable String id) {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Get the post to check if user is the author
+        PostsDTO post = postsService.getPostById(id);
+        if (post == null) {
+            throw new RuntimeException("Post not found");
+        }
+        
+        // Check if the authenticated user is the author of the post
+        if (!post.author().userName().equals(user.getUserName())) {
+            throw new RuntimeException("You can only delete your own posts");
+        }
+        
         postsService.deletePost(id);
     }
     
@@ -164,37 +185,7 @@ public class PostsController {
         
         return postsService.deleteComment(postId, user.getUserName(), commentText);
     }
-    /* 
-    @DeleteMapping("/posts/{postId}/comments/{commentId}")
-public ResponseEntity<?> deleteComment(@PathVariable String postId, 
-                                     @PathVariable String commentId,
-                                     @RequestHeader("Authorization") String token) {
     
-    // 1. Extract user from JWT token
-    String currentUser = jwtService.extractUsername(token.replace("Bearer ", ""));
-    
-    // 2. Find the comment in the post
-    Posts post = postsRepository.findById(postId)
-        .orElseThrow(() -> new RuntimeException("Post not found"));
-    
-    Comment commentToDelete = post.getComments().stream()
-        .filter(c -> c.getId().equals(commentId))
-        .findFirst()
-        .orElseThrow(() -> new CommentNotFoundException(commentId));
-    
-    // 3. Check authorization (comment owner OR post owner)
-    if (!commentToDelete.getUserName().equals(currentUser) && 
-        !post.getAuthor().getUserName().equals(currentUser)) {
-        throw new UnauthorizedException("Cannot delete this comment");
-    }
-    
-    // 4. Delete the comment
-    post.getComments().removeIf(c -> c.getId().equals(commentId));
-    postsRepository.save(post);
-    
-    return ResponseEntity.ok().build();
-}
-    */
     
 
 }

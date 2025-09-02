@@ -655,9 +655,51 @@
 }
 
 .delete-comment-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Delete Post Button */
+.hero-delete-btn {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border: none;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 100px;
+}
+
+.hero-delete-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+  background: linear-gradient(135deg, #ff7a7a 0%, #f06a62 100%);
+}
+
+.hero-delete-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.hero-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.delete-icon {
+  font-size: 1rem;
+}
+
+.delete-text {
+  font-size: 0.9rem;
 }
 
 .add-comment {

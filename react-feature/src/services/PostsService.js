@@ -20,3 +20,7 @@ export const deleteComment = (postId, commentText) => {
     }
   });
 }
+
+export const deletePost = (postId) => {
+  return api.delete(`/posts/delete/${postId}`);
+}

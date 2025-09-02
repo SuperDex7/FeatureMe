@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
-import { deleteComment } from "../services/PostsService";
+import { deleteComment, deletePost } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
 import LikesSection from "../Components/LikesSection";
@@ -21,6 +21,7 @@ function Post() {
     const [localLikes, setLocalLikes] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [deletingComment, setDeletingComment] = useState(null);
+    const [isDeletingPost, setIsDeletingPost] = useState(false);
     
     const audioRef = useRef(null);
     const progressRef = useRef(null);
@@ -189,6 +190,26 @@ function Post() {
         setLocalLikes(updatedLikes);
     };
 
+    const handleDeletePost = async () => {
+        if (!currentUser || !window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+            return;
+        }
+
+        setIsDeletingPost(true);
+        
+        try {
+            await deletePost(id);
+            console.log('Post deleted successfully');
+            // Redirect to home page after successful deletion
+            window.location.href = '/';
+        } catch (err) {
+            console.error('Error deleting post:', err);
+            alert('Failed to delete post. Please try again.');
+        } finally {
+            setIsDeletingPost(false);
+        }
+    };
+
     if (!post) {
         return (
             <div className="post-loading">
@@ -224,6 +245,17 @@ function Post() {
                                     <span className="download-icon">⬇️</span>
                                     View Profile
                                 </button></a>
+                                {currentUser && currentUser.userName === post.author.userName && (
+                                    <button 
+                                        className="hero-delete-btn"
+                                        onClick={handleDeletePost}
+                                        disabled={isDeletingPost}
+                                        title="Delete post"
+                                    >
+                                        <span className="delete-icon">🗑️</span>
+                                        <span className="delete-text">{isDeletingPost ? 'Deleting...' : 'Delete'}</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

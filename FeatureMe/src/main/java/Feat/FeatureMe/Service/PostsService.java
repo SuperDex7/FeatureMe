@@ -244,12 +244,34 @@ public class PostsService {
     
     
     public void deletePost(String id) {
-        // Check if the post exists before attempting to delete it
         if (!postsRepository.existsById(id)) {
             throw new IllegalArgumentException("Post with id " + id + " does not exist.");
         }
-        // Delete the post by its ID
-      postsRepository.deleteById(id);
+        
+        Posts post = postsRepository.findById(id).get();
+        List<String> featureList = post.getFeatures();
+        User author = userRepository.findById(post.getAuthor().getId()).get();
+        
+        author.getPosts().remove(id);
+        List<String> currentPosts = author.getPosts(); 
+        if (currentPosts == null) {
+            currentPosts = new ArrayList<>();
+        }
+        userRepository.save(author);
+
+        if (featureList != null && !featureList.isEmpty()) {
+            List<User> features = userRepository.findByUserNameIn(featureList);
+            
+
+            for(int i = 0; i < featureList.size(); i++){
+                User featureUser = features.get(i);
+                if (featureUser != null && featureUser.getFeaturedOn() != null) {
+                    featureUser.getFeaturedOn().remove(id);
+                    userRepository.save(featureUser);
+                }
+            }
+        }
+        postsRepository.deleteById(id);
     }
 
     public List<PostsDTO> getFeaturedOn(String userName){
