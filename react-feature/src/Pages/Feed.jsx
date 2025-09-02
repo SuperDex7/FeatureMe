@@ -5,6 +5,8 @@ import Feedf from "../Components/Feedf";
 import Footer from "../Components/Footer";
 import "../Styling/FeedS.css"; 
 import Spotlight from "../Components/Spotlight";
+import LikedPosts from "../Components/LikedPosts";
+import MyPosts from "../Components/MyPosts";
 
 function Feed() {
   const [activeTab, setActiveTab] = useState('spotlight');
@@ -35,6 +37,20 @@ function Feed() {
                 <span role="img" aria-label="feed">📰</span>
                 Feed
               </button>
+              <button 
+                className={`feed-tab ${activeTab === 'liked' ? 'active' : ''}`}
+                onClick={() => setActiveTab('liked')}
+              >
+                <span role="img" aria-label="liked">❤️</span>
+                Liked Posts
+              </button>
+              <button 
+                className={`feed-tab ${activeTab === 'myPosts' ? 'active' : ''}`}
+                onClick={() => setActiveTab('myPosts')}
+              >
+                <span role="img" aria-label="my posts">📝</span>
+                My Posts
+              </button>
             </div>
 
             {/* Tab Content */}
@@ -48,6 +64,18 @@ function Feed() {
               {activeTab === 'feed' && (
                 <div className="feed-tab">
                   <Feedf />
+                </div>
+              )}
+              
+              {activeTab === 'liked' && (
+                <div className="liked-posts-tab">
+                  <LikedPosts />
+                </div>
+              )}
+              
+              {activeTab === 'myPosts' && (
+                <div className="my-posts-tab">
+                  <MyPosts />
                 </div>
               )}
             </div>

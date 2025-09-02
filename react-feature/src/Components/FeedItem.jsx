@@ -59,7 +59,11 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             </div>
           )}
           
-          
+          {showAudioPlayer && (
+            <div onClick={e => e.stopPropagation()}>
+              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+            </div>
+          )}
           
           <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
             <span
@@ -94,11 +98,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             <a href={`/post/${id}`}><button className="feed-card-action-btn">Go To Post</button></a>
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
           </div>
-          {showAudioPlayer && (
-            <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
-            </div>
-          )}
+          
         </div>
       </div>
     </div>
@@ -173,16 +173,16 @@ function FeedItem({ id, author, description, time, title, features, genre, music
               ))}
             </div>
           )}
-          
-          <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
-            <span className="feed-card-likes">❤️ {likes.length}</span>
-            <span className="feed-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
-          </div>
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
               <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
             </div>
           )}
+          <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
+            <span className="feed-card-likes">❤️ {likes.length}</span>
+            <span className="feed-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
+          </div>
+          
         </div>
       </div>
       <FeedItemModal
