@@ -18,7 +18,7 @@ function LikedPosts(){
     return(
         <div className="spotlight-cards-grid">
               {likedPosts?.map((item) => (
-                <SpotlightItem key={item} {...item} />
+                <SpotlightItem key={item.id} {...item} />
               ))|| "No Liked Posts Yet"}
             </div>
     )
