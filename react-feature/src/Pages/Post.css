@@ -591,6 +591,31 @@
     flex: 1;
 }
 
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.comment-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.comment-username {
+    color: #00d4ff;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.comment-username:hover {
+    color: #33e0ff;
+    text-decoration: underline;
+}
+
 .comment-text {
     margin: 0 0 5px 0;
     color: #ffffff;
@@ -600,6 +625,39 @@
 .comment-time {
     font-size: 12px;
     color: #b8b8b8;
+}
+
+/* Delete Comment Button */
+.delete-comment-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+}
+
+.delete-comment-btn:hover:not(:disabled) {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    transform: scale(1.1);
+}
+
+.delete-comment-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.delete-comment-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .add-comment {

@@ -93,6 +93,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               onAddComment={onAddComment}
               showComments={showComments}
               setShowComments={setShowComments}
+              postAuthor={author}
             />
           )}
           

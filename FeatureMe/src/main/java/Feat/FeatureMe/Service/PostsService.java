@@ -319,6 +319,19 @@ public class PostsService {
             }).toList();
     }
 
+    /**
+     * Ensures notifications list doesn't exceed 30 items by removing oldest ones
+     */
+    private void cleanupNotifications(User user) {
+        List<NotificationsDTO> notifications = user.getNotifications();
+        if (notifications != null && notifications.size() > 30) {
+            // Sort by time (oldest first) and keep only the 30 most recent
+            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
+            // Remove oldest notifications, keeping only the 30 newest
+            notifications.subList(0, notifications.size() - 30).clear();
+        }
+    }
+
     public Optional<Posts> addLike(String id, String userName){
         Optional<Posts> post = postsRepository.findById(id);
         User author = post.get().getAuthor();
@@ -349,6 +362,10 @@ public class PostsService {
             
             user.getLikedPosts().add(id);
             author.getNotifications().add(noti);
+            
+            // Clean up notifications if they exceed 30
+            cleanupNotifications(author);
+            
             userRepository.save(author);
             userRepository.save(user);
             return Optional.of(savedPost);
@@ -405,6 +422,10 @@ public class PostsService {
             Posts savedPost = postsRepository.save(foundPost);
             user.getComments().add(new CommentedOnDTO(id, comment, LocalDateTime.now()));
             author.getNotifications().add(noti);
+            
+            // Clean up notifications if they exceed 30
+            cleanupNotifications(author);
+            
             userRepository.save(author);
             userRepository.save(user);
             return Optional.of(savedPost);
@@ -423,7 +444,9 @@ public class PostsService {
             if(currentComments != null){
                 // Remove the comment by matching username and comment text
                 currentComments.removeIf(comment -> 
+                    comment.userName() != null &&
                     comment.userName().equals(userName) && 
+                    comment.comment() != null &&
                     comment.comment().equals(commentText)
                 );
                 foundPost.setComments(currentComments);
@@ -433,8 +456,11 @@ public class PostsService {
             List<NotificationsDTO> currentNoti = author.getNotifications();
             if(currentNoti != null){
                 currentNoti.removeIf(notification -> 
+                    notification.id() != null &&
                     notification.id().equals(postId) && 
+                    notification.userName() != null &&
                     notification.userName().equals(userName) && 
+                    notification.noti() != null &&
                     notification.noti().equals("Commented on Your Post!")
                 );
             }else{

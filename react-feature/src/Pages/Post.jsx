@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
+import { deleteComment } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
 import LikesSection from "../Components/LikesSection";
@@ -19,6 +20,7 @@ function Post() {
     const [comments, setComments] = useState([]); 
     const [localLikes, setLocalLikes] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
+    const [deletingComment, setDeletingComment] = useState(null);
     
     const audioRef = useRef(null);
     const progressRef = useRef(null);
@@ -96,6 +98,28 @@ function Post() {
             });
         }
     };
+
+    const handleDeleteComment = async (commentText) => {
+        if (!currentUser) return;
+        
+        setDeletingComment(commentText);
+        
+        try {
+            await deleteComment(id, commentText);
+            
+            // Fetch updated comments from server
+            const postRes = await api.get(`/posts/get/id/${id}`);
+            if (postRes.data && postRes.data.comments) {
+                setComments(postRes.data.comments);
+            }
+        } catch (err) {
+            console.error('Error deleting comment:', err);
+            // Could add error handling here if needed
+        } finally {
+            setDeletingComment(null);
+        }
+    };
+
     const handlePlayPause = () => {
         if (!audioRef.current) {
             const newAudio = new Audio(post.music);
@@ -476,9 +500,23 @@ function Post() {
                                                 <div key={index} className="comment-item">
                                                     <div ><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
                                                     <div className="comment-content">
-                                                    <a href={`/profile/${comment.userName}`}><span className="comment-username">{comment.userName}</span></a>
+                                                        <div className="comment-header">
+                                                            <a href={`/profile/${comment.userName}`}><span className="comment-username">{comment.userName}</span></a>
+                                                            <div className="comment-header-right">
+                                                                <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
+                                                                {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
+                                                                    <button
+                                                                        className="delete-comment-btn"
+                                                                        onClick={() => handleDeleteComment(comment.comment)}
+                                                                        disabled={deletingComment === comment.comment}
+                                                                        title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
+                                                                    >
+                                                                        {deletingComment === comment.comment ? '...' : '🗑️'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                         <p className="comment-text">{comment.comment}</p>
-                                                        <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
                                             )) || "You will see comments here"}

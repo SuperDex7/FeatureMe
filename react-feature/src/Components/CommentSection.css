@@ -129,6 +129,12 @@
   margin-bottom: 0.25rem;
 }
 
+.comment-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .comment-username {
   color: #667eea;
   font-weight: 600;
@@ -154,6 +160,39 @@
   line-height: 1.4;
   word-wrap: break-word;
   font-size: 0.9rem;
+}
+
+/* Delete Comment Button */
+.delete-comment-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+}
+
+.delete-comment-btn:hover:not(:disabled) {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  transform: scale(1.1);
+}
+
+.delete-comment-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.delete-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* No Comments State */
@@ -280,6 +319,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
+  }
+  
+  .comment-header-right {
+    align-self: flex-end;
   }
   
   .comment-time {

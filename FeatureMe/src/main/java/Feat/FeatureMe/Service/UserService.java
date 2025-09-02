@@ -302,6 +302,19 @@ public class UserService {
         return notifications;
     }
     
+    /**
+     * Ensures notifications list doesn't exceed 30 items by removing oldest ones
+     */
+    private void cleanupNotifications(User user) {
+        List<NotificationsDTO> notifications = user.getNotifications();
+        if (notifications != null && notifications.size() > 30) {
+            // Sort by time (oldest first) and keep only the 30 most recent
+            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
+            // Remove oldest notifications, keeping only the 30 newest
+            notifications.subList(0, notifications.size() - 30).clear();
+        }
+    }
+
     public String follow(String follower, String following){
         Optional<User> user = userRepository.findByUserName(follower);
         Optional<User> author = userRepository.findByUserName(following);
@@ -324,6 +337,10 @@ public class UserService {
             followingList.add(following);
         followersList.add(follower);
         author.get().getNotifications().add(noti);
+        
+        // Clean up notifications if they exceed 30
+        cleanupNotifications(author.get());
+        
         userRepository.save(user.get());
         userRepository.save(author.get());
         return "followed";

@@ -92,6 +92,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               onAddComment={onAddComment}
               showComments={showComments}
               setShowComments={setShowComments}
+              postAuthor={author}
             />
           )}
           <div className="feed-card-actions-row">

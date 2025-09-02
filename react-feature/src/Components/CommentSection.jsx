@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
+import { deleteComment } from "../services/PostsService";
 import "./CommentSection.css";
 
 function CommentSection({ 
@@ -8,11 +9,13 @@ function CommentSection({
   onAddComment, 
   showComments, 
   setShowComments,
+  postAuthor = null, // Post author information
   maxHeight = "300px", // Configurable max height for comments list
   placeholder = "Add a comment..." // Configurable placeholder text
 }) {
   const [commentInput, setCommentInput] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
+  const [deletingComment, setDeletingComment] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -63,6 +66,28 @@ function CommentSection({
     }
   };
 
+  const handleDeleteComment = async (commentText) => {
+    if (!currentUser) return;
+    
+    setDeletingComment(commentText);
+    
+    try {
+      await deleteComment(postId, commentText);
+      
+      // Fetch updated comments from server
+      const postRes = await api.get(`/posts/get/id/${postId}`);
+      if (postRes.data && postRes.data.comments) {
+        // Update parent with server data
+        onAddComment(postRes.data.comments, true);
+      }
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      // Could add error handling here if needed
+    } finally {
+      setDeletingComment(null);
+    }
+  };
+
   return (
     <div className="comment-section-container">
       <div className="comment-section-header">
@@ -91,9 +116,21 @@ function CommentSection({
                       <a href={`/profile/${comment.userName}`} className="comment-username">
                         {comment.userName}
                       </a>
-                      <span className="comment-time">
-                        {comment.time ? new Date(comment.time).toLocaleDateString() : 'Just now'}
-                      </span>
+                      <div className="comment-header-right">
+                        <span className="comment-time">
+                          {comment.time ? new Date(comment.time).toLocaleDateString() : 'Just now'}
+                        </span>
+                        {currentUser && (currentUser.userName === comment.userName || (postAuthor && currentUser.userName === postAuthor.userName)) && (
+                          <button
+                            className="delete-comment-btn"
+                            onClick={() => handleDeleteComment(comment.comment)}
+                            disabled={deletingComment === comment.comment}
+                            title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
+                          >
+                            {deletingComment === comment.comment ? '...' : '🗑️'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p className="comment-text">{comment.comment}</p>
                   </div>
