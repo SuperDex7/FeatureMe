@@ -9,6 +9,7 @@ import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
 import ProfilePosts from "../Components/ProfilePosts";
 import ProfilePosts2 from "../Components/ProfilePosts2";
+import ShowFollow from "../Components/ShowFollow";
 
 function Profile() {
   const [activeTab, setActiveTab] = useState("posts");
@@ -22,6 +23,8 @@ function Profile() {
   const [co2, setCo2] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showFollow, setShowFollow] = useState(false)
+  const [followPopupType, setFollowPopupType] = useState('followers')
   
   useEffect(() => {
     const fetchData = async () => {
@@ -71,7 +74,7 @@ function Profile() {
       })
     }
   }, [activeTab, user, co2]);
-   
+   console.log(user)
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -81,6 +84,14 @@ function Profile() {
         </div>
       </div>
     );
+  }
+  const showTheFollow = (type) => {
+    setFollowPopupType(type)
+    setShowFollow(true)
+  }
+
+  const closeFollowPopup = () => {
+    setShowFollow(false)
   }
 
   const follow = () => {
@@ -140,10 +151,20 @@ function Profile() {
         <p className="profile-glass-location">{user.location}</p>
         <div className="profile-glass-stats">
           <div className="profile-glass-stat"><span className="stat-icon">📝</span><span className="stat-value">{user?.posts?.length || 0}</span><span className="stat-label">Posts</span></div>
-          <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{user?.followers?.length || 0}</span><span className="stat-label">Followers</span></div>
-          <div className="profile-glass-stat"><span className="stat-icon">➡️</span><span className="stat-value">{user?.following?.length || 0}</span><span className="stat-label">Following</span></div>
+          <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{user?.followers?.length || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('followers')}>Followers</span></div>
+          <div className="profile-glass-stat"><span className="stat-icon">➡️</span><span className="stat-value">{user?.following?.length || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('following')}>Following</span></div>
         </div>
+        
+        <ShowFollow 
+          followers={user?.followers} 
+          following={user?.following}
+          isOpen={showFollow}
+          onClose={closeFollowPopup}
+          type={followPopupType}
+        />
+        
       </div>
+      
       <div className="profile-glass-tabs">
         <button className={`profile-glass-tab${activeTab === "posts" ? " active" : ""}`} onClick={() => setActiveTab("posts")}>Posts</button>
         <button className={`profile-glass-tab${activeTab === "about" ? " active" : ""}`} onClick={() => setActiveTab("about")}>About</button>

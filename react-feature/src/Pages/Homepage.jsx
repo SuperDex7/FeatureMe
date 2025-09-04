@@ -3,6 +3,7 @@ import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import Spotlight from '../Components/Spotlight';
 import Notifications from '../Components/Notifications';
+import ShowFollow from '../Components/ShowFollow';
 import '../Styling/HomepageModern.css';
 import axios from 'axios';
 import api from '../services/AuthService';
@@ -15,6 +16,8 @@ function Homepage() {
   const [isLoading, setIsLoading] = useState(true);
   const [latestPost, setLatestPostt] = useState(null)
   const [length, setLength] = useState(0);
+  const [showFollow, setShowFollow] = useState(false)
+  const [followPopupType, setFollowPopupType] = useState('followers')
 
   useEffect(() =>{
     setIsLoading(true);
@@ -108,6 +111,15 @@ function Homepage() {
     }
   };
 
+  const showTheFollow = (type) => {
+    setFollowPopupType(type)
+    setShowFollow(true)
+  }
+
+  const closeFollowPopup = () => {
+    setShowFollow(false)
+  }
+
   return (
     <div className={`homepage-modern-root${latestModalOpen ? ' modal-open' : ''}`}>
       <Header />
@@ -129,18 +141,37 @@ function Homepage() {
           </div>
           <div className="hero-stats-row">
             <div className="hero-stat"><span>{user?.posts?.length || 0}</span><label>Posts</label></div>
-            <div className="hero-stat"><span>{user?.followers?.length || 0}</span><label>Followers</label></div>
-            <div className="hero-stat"><span>{user?.following?.length || 0}</span><label>Following</label></div>
-            <div className="hero-progress">
-              <label>Profile</label>
-              <div className="hero-progress-bar">
-                <div className="hero-progress-bar-fill" style={{width: user.profileCompletion + '%'}}></div>
-              </div>
-              <span className="hero-progress-label">{userr.profileCompletion}%</span>
-            </div>
+            <div className="hero-stat"><span>{user?.followers?.length || 0}</span><label className="clickable" onClick={() => showTheFollow('followers')}>Followers</label></div>
+            <div className="hero-stat"><span>{user?.following?.length || 0}</span><label className="clickable" onClick={() => showTheFollow('following')}>Following</label></div>
+           
           </div>
         </section>
-
+{/* Activity & Latest Post */}
+        <div className="activity-latest-row">
+          <section className="activity-card glass-card card-balanced" onClick={() => setActivityModalOpen(true)} style={{cursor: 'pointer'}}>
+            <h3>Recent Activity</h3>
+            {user.notifications !== null && user.notifications.length !==0 ?(
+            <Notifications notifications={user.notifications.slice(0,3)} className="activity-modal-list" />
+            ): "No Notifications Yet"}
+            <button className="activity-viewall-btn" onClick={e => {e.stopPropagation(); setActivityModalOpen(true);}}>View All</button>
+            
+          </section>
+          <section className="latest-post-card glass-card card-balanced" onClick={() => setLatestModalOpen(true)} style={{cursor: 'pointer'}}>
+            <h3>Your Latest Post</h3>
+            {latestPost && (
+              <>
+            <div className="latest-post-title">{latestPost.title}</div>
+            <div className="latest-post-date">{new Date(latestPost.time).toLocaleDateString()}</div>
+            <div className="latest-post-desc">{latestPost.description}</div>
+            <div className="latest-post-stats">
+              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost?.likes?.length || 0}</span>
+              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0}</span>
+            </div>
+            <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
+            </>
+            ) || "No posts yet"}
+          </section>
+        </div>
         {/* Community Trends/Spotlight Tabbed Card */}
         <section className="trends-card glass-card">
           <h2 className="trends-title">Community Trends</h2>
@@ -149,7 +180,11 @@ function Homepage() {
             <button className={`trends-tab${trendsTab === 'spotlight' ? ' trends-tab-active' : ''}`} onClick={() => setTrendsTab('spotlight')}>Spotlight</button>
           </div>
           <div className="trends-tab-content">
-            {trendsTab === 'trends' && (
+            { trendsTab === 'trends' && (
+              <h1 id='underCon'>Under Construction</h1>
+            ) }
+            
+            {/* trendsTab === 'trends' && (
               <div className="trends-section">
                 <div className="trending-posts">
                   <h3>Trending Posts</h3>
@@ -179,7 +214,7 @@ function Homepage() {
                   </div>
                 </div>
               </div>
-            )}
+            ) */}
             {trendsTab === 'spotlight' && (
               <div className="spotlight-tab-content">
                 <Spotlight />
@@ -188,32 +223,15 @@ function Homepage() {
           </div>
         </section>
 
-        {/* Activity & Latest Post */}
-        <div className="activity-latest-row">
-          <section className="activity-card glass-card card-balanced" onClick={() => setActivityModalOpen(true)} style={{cursor: 'pointer'}}>
-            <h3>Recent Activity</h3>
-            {user.notifications !== null && user.notifications.length !==0 ?(
-            <Notifications notifications={user.notifications.slice(0,3)} className="activity-modal-list" />
-            ): "No Notifications Yet"}
-            <button className="activity-viewall-btn" onClick={e => {e.stopPropagation(); setActivityModalOpen(true);}}>View All</button>
-            
-          </section>
-          <section className="latest-post-card glass-card card-balanced" onClick={() => setLatestModalOpen(true)} style={{cursor: 'pointer'}}>
-            <h3>Your Latest Post</h3>
-            {latestPost && (
-              <>
-            <div className="latest-post-title">{latestPost.title}</div>
-            <div className="latest-post-date">{new Date(latestPost.time).toLocaleDateString()}</div>
-            <div className="latest-post-desc">{latestPost.description}</div>
-            <div className="latest-post-stats">
-              <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost?.likes?.length || 0}</span>
-              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0}</span>
-            </div>
-            <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
-            </>
-            ) || "No posts yet"}
-          </section>
-        </div>
+        
+        <ShowFollow 
+          followers={user?.followers} 
+          following={user?.following}
+          isOpen={showFollow}
+          onClose={closeFollowPopup}
+          type={followPopupType}
+        />
+        
       </main>
       <Footer />
       {/* Modal Popup for Latest Post */}
@@ -247,7 +265,6 @@ function Homepage() {
                     )) || "No Comments yet"}
                   </ul>
                 </div>
-                <div className="latest-post-comments-placeholder">Add your comment feature coming soon...</div>
               </div>
               <a href={`/post/${latestPost.id}`}><button className="latest-post-btn" style={{marginTop: '1.5rem'}} >Go to Post</button></a>
             </div>

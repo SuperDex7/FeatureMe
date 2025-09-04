@@ -135,8 +135,8 @@
   display: flex;
   gap: 2.5rem;
   width: 100%;
-  justify-content: space-between;
-  align-items: flex-end;
+  justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
 }
 .hero-stat {
@@ -155,6 +155,19 @@
   font-size: 0.95rem;
   color: #bfc9d1;
   margin-top: 0.1rem;
+}
+
+.hero-stat label.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.hero-stat label.clickable:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
 }
 .hero-progress {
   display: flex;
@@ -913,4 +926,8 @@
 .error-screen h2 {
   margin-bottom: 20px;
   font-size: 2rem;
+}
+#underCon{
+  justify-self: center;
+  text-shadow: #181a20;
 }

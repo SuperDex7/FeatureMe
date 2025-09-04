@@ -114,6 +114,19 @@
     font-size: 1rem;
     color: #e0e0e0;
   }
+  
+  .stat-label.clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  
+  .stat-label.clickable:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+  }
   .profile-glass-tabs {
     display: flex;
     justify-content: center;

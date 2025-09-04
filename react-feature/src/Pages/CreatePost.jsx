@@ -4,7 +4,7 @@ import Header from "../Components/Header";
 import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
 const GENRES = [
-  "Song","Beat","Loop","Instrument","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
+  "Song","Beat","Loop","Instrument","Open","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
   'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
 ];
 
@@ -17,6 +17,7 @@ function CreatePost(){
   const [file, setFile] = useState(null);
   const [genres, setGenres] = useState([]);
   const [ddOpen, setDdOpen] = useState(false);
+  const [genrePopupOpen, setGenrePopupOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -68,6 +69,33 @@ function CreatePost(){
     setGenres(newGenres);
     setPost({ ...post, genre: newGenres });
   };
+
+  const handleGenrePopupClose = () => {
+    setGenrePopupOpen(false);
+  };
+
+  const handleGenrePopupOpen = () => {
+    setGenrePopupOpen(true);
+  };
+
+  // Handle escape key to close popup
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && genrePopupOpen) {
+        handleGenrePopupClose();
+      }
+    };
+
+    if (genrePopupOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [genrePopupOpen]);
 
   const genreLabel =
     genres.length === 0 ? 'Select genres…' : genres.join(', ');
@@ -216,48 +244,32 @@ function CreatePost(){
 
       <div className="input-group">
         <label className="input-label">Genre</label>
-        <div
-          className={`dropdown${ddOpen ? ' open' : ''}`}
-          tabIndex={0}
-          onBlur={() => setDdOpen(false)}
-          ref={ddRef}
+        <button
+          type="button"
+          className="genre-selector-button"
+          onClick={handleGenrePopupOpen}
         >
-          <div
-            className="dropdown-toggle"
-            onClick={() => {
-              setDdOpen((o) => !o);
-              setTimeout(() => ddRef.current?.focus(), 0);
-            }}
-          >
-            {genreLabel}
-          </div>
-
-          <div className="dropdown-menu">
-            <h3>Category:</h3>
-            {GENRES.slice(0, 6).map((g) => (
-              <label key={g} className="dropdown-item">
-                <input
-                  name="genre"
-                  type="checkbox"
-                  checked={genres.includes(g)}
-                  onChange={() => toggleGenre(g)}
-                />
-                {g}
-              </label>
-            ))}
-            <h3>Genres:</h3>
-            {GENRES.slice(6).map((g) => (
-              <label key={g} className="dropdown-item">
-                <input
-                  type="checkbox"
-                  checked={genres.includes(g)}
-                  onChange={() => toggleGenre(g)}
-                />
-                {g}
-              </label>
+          <span className="genre-button-text">
+            {genres.length === 0 ? 'Select genres…' : `${genres.length} genre${genres.length > 1 ? 's' : ''} selected`}
+          </span>
+          <span className="genre-button-icon">🎵</span>
+        </button>
+        {genres.length > 0 && (
+          <div className="selected-genres-preview">
+            {genres.map((genre, index) => (
+              <span key={index} className="selected-genre-tag">
+                {genre}
+                <button
+                  type="button"
+                  className="remove-genre-btn"
+                  onClick={() => toggleGenre(genre)}
+                >
+                  ×
+                </button>
+              </span>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -420,50 +432,118 @@ function CreatePost(){
     }
   };
 
-  return (
-    <div className="page-wrapper">
-      <Header />
-      <div className="create-post-container">
-        <div className="create-post-card">
-          <h2 className="card-heading">Create New Post</h2>
-          
-          {renderStepIndicator()}
-          
-          <form onSubmit={handleSubmit}>
-            {renderCurrentStep()}
-            
-            <div className="step-navigation">
-              {currentStep > 1 && (
-                <button 
-                  type="button" 
-                  className="nav-button prev-button"
-                  onClick={prevStep}
-                >
-                  ← Previous
-                </button>
-              )}
-              
-              {currentStep < 4 ? (
-                <button 
-                  type="button" 
-                  className={`nav-button next-button ${(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
-                  onClick={(e) => nextStep(e)}
-                  disabled={(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file)}
-                >
-                  Next →
-                </button>
-              ) : (
-                <button 
-                  type="submit" 
-                  className="submit-button"
-                >
-                  Publish Post
-                </button>
-              )}
+  const renderGenrePopup = () => (
+    <div className={`create-post-genre-popup-overlay ${genrePopupOpen ? 'open' : ''}`} onClick={handleGenrePopupClose}>
+      <div className="create-post-genre-popup" onClick={(e) => e.stopPropagation()}>
+        <div className="create-post-genre-popup-header">
+          <h3 className="create-post-genre-popup-title">Select Genres</h3>
+          <button 
+            type="button" 
+            className="create-post-genre-popup-close"
+            onClick={handleGenrePopupClose}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div className="create-post-genre-popup-content">
+          <div className="create-post-genre-category">
+            <h4 className="create-post-genre-category-title">Category</h4>
+            <div className="create-post-genre-options">
+              {GENRES.slice(0, 7).map((g) => (
+                <label key={g} className="create-post-genre-option">
+                  <input
+                    type="checkbox"
+                    checked={genres.includes(g)}
+                    onChange={() => toggleGenre(g)}
+                  />
+                  <span className="create-post-genre-option-text">{g}</span>
+                </label>
+              ))}
             </div>
-          </form>
+          </div>
+          
+          <div className="create-post-genre-category">
+            <h4 className="create-post-genre-category-title">Music Genres</h4>
+            <div className="create-post-genre-options">
+              {GENRES.slice(7).map((g) => (
+                <label key={g} className="create-post-genre-option">
+                  <input
+                    type="checkbox"
+                    checked={genres.includes(g)}
+                    onChange={() => toggleGenre(g)}
+                  />
+                  <span className="create-post-genre-option-text">{g}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="create-post-genre-popup-footer">
+          <button 
+            type="button" 
+            className="create-post-genre-popup-done"
+            onClick={handleGenrePopupClose}
+          >
+            Done ({genres.length} selected)
+          </button>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="create-post-page">
+      <Header />
+      <div className="create-post-main">
+        <div className="create-post-container">
+          <div className="create-post-header">
+            <h1 className="create-post-title">Create New Post</h1>
+            <p className="create-post-subtitle">Share your music with the world</p>
+          </div>
+          
+          <div className="create-post-card">
+            {renderStepIndicator()}
+            
+            <form onSubmit={handleSubmit} className="create-post-form">
+              {renderCurrentStep()}
+              
+              <div className="step-navigation">
+                {currentStep > 1 && (
+                  <button 
+                    type="button" 
+                    className="nav-button prev-button"
+                    onClick={prevStep}
+                  >
+                    ← Previous
+                  </button>
+                )}
+                
+                {currentStep < 4 ? (
+                  <button 
+                    type="button" 
+                    className={`nav-button next-button ${(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
+                    onClick={(e) => nextStep(e)}
+                    disabled={(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file)}
+                  >
+                    Next →
+                  </button>
+                ) : (
+                  <button 
+                    type="submit" 
+                    className="submit-button"
+                  >
+                    Publish Post
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+      {renderGenrePopup()}
     </div>
   );
 }
