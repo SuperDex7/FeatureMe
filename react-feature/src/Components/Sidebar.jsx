@@ -40,6 +40,7 @@ function Sidebar() {
       </nav>
       <div className="sidebar__library">
         <div className="sidebar__library-title">Your Library</div>
+        <span>Coming Soon</span>
         <div className="sidebar__playlists-scroll">
           <ul className="sidebar__playlists">
             {playlists.map((pl, idx) => (

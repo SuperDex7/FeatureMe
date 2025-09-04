@@ -6,13 +6,13 @@ function Header2(){
        <header className="main-header">
       <div className="header-inner">
         <div className="header-logo">
-          <a href="/home" className="gradient-logo">FeatureMe</a>
+          <a href="/" className="gradient-logo">FeatureMe</a>
         </div>
         <nav className="header-nav">
           
         </nav>
         <div className="header-actions">
-          <button className="noti-btn"  aria-label="Show notifications">
+          <button className="noti-btn">
             
             <a href='/login' className="noti-label">Log In</a>
           </button>
