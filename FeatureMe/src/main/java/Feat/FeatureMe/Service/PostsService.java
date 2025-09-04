@@ -9,6 +9,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentDTO;
@@ -216,31 +221,7 @@ public class PostsService {
     }
     
     
-    public List<PostsDTO> findByLikesDesc(Posts posts){
-        return postsRepository.findAllByOrderByLikesDesc().stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getGenre(),
-                p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
-                p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
-            );
-        }).toList();
-    }
+    
     
     
     public void deletePost(String id) {
@@ -304,41 +285,36 @@ public class PostsService {
 
 
 
-    public List<PostsDTO> getAllById(List<String> ids ) {
-        // Fetch all posts by IDs
-        List<Posts> posts = postsRepository.findAllById(ids);
+    public PagedModel<PostsDTO> getAllById(List<String> ids, int page, int size ) {
         
-        // Create a map for quick lookup
-        Map<String, Posts> postsMap = posts.stream()
-            .collect(Collectors.toMap(Posts::getId, p -> p));
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Posts> posts = postsRepository.findAllByIdIn(ids, pageable);
         
-        // Return posts in the same order as the input IDs
-        return ids.stream()
-            .map(id -> postsMap.get(id))
-            .filter(Objects::nonNull) // Filter out any posts that weren't found
-            .map(p -> {
-                User u = p.getAuthor();
-                UserPostsDTO author = new UserPostsDTO(
-                    u.getId(),
-                    u.getUserName(),
-                    u.getProfilePic(),
-                    u.getBanner(),
-                    u.getBio(),
-                    u.getLocation()
-                );
-                return new PostsDTO(
-                    p.getId(),
-                    author,
-                    p.getTitle(),
-                    p.getDescription(),
-                    p.getFeatures(),
-                    p.getGenre(),
-                    p.getMusic(),
-                    convertCommentsToSortedDTO(p.getComments()),
-                    p.getTime(),
-                    convertUsernamesToLikesDTO(p.getLikes())
-                );
-            }).toList();
+        Page<PostsDTO> postsDTOPage = posts.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                convertCommentsToSortedDTO(p.getComments()),
+                p.getTime(),
+                convertUsernamesToLikesDTO(p.getLikes())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
     }
 
     /**
@@ -362,7 +338,6 @@ public class PostsService {
         List<String> currentLikes = foundPost.getLikes();
         List<NotificationsDTO> currentNoti = author.getNotifications();
         
-        // Initialize likes list if it's null
         if (currentLikes == null) {
             currentLikes = new ArrayList<>();
         }
@@ -508,6 +483,169 @@ public class PostsService {
             return Optional.of(savedPost);
         }
         return post;
+    }
+
+
+    public PagedModel<PostsDTO> getAllPagedPosts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Posts> postsPage = postsRepository.findAllByOrderByTimeDesc(pageable);
+        
+        // Convert Page<Posts> to Page<PostsDTO>
+        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                convertCommentsToSortedDTO(p.getComments()),
+                p.getTime(),
+                convertUsernamesToLikesDTO(p.getLikes())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
+    }
+
+
+    public PagedModel<PostsDTO> findByLikesDesc(int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Posts> postsPage = postsRepository.findAllByOrderByTimeDesc(pageable);
+
+        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                convertCommentsToSortedDTO(p.getComments()),
+                p.getTime(),
+                convertUsernamesToLikesDTO(p.getLikes())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
+    }
+
+
+    public PagedModel<PostsDTO> getSearchedPost(int page, int size, String search) {
+        Pageable pageable = PageRequest.of(page, size);
+        
+        Page<Posts> postsSearchedPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCase(search, pageable);
+        
+        Page<PostsDTO> postsDTOSearchedPage = postsSearchedPage.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                convertCommentsToSortedDTO(p.getComments()),
+                p.getTime(),
+                convertUsernamesToLikesDTO(p.getLikes())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOSearchedPage);
+    }
+    
+    // Comprehensive search method with multiple filters and sorting options
+    public PagedModel<PostsDTO> searchPosts(String searchTerm, List<String> genres, String sortBy, int page, int size) {
+        Pageable pageable;
+        
+        // Set up sorting
+        if ("likes".equalsIgnoreCase(sortBy)) {
+            pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("likes").descending());
+        } else {
+            // Default to time (most recent)
+            pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("time").descending());
+        }
+        
+        Page<Posts> postsPage;
+        
+        // Determine which search method to use based on provided parameters
+        if (searchTerm != null && !searchTerm.trim().isEmpty() && genres != null && !genres.isEmpty()) {
+            // Both search term and genres provided - use AND logic (both must match)
+            postsPage = postsRepository.findByTitleOrDescriptionAndGenreIn(searchTerm.trim(), genres, pageable);
+        } else if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            // Only search term provided
+            postsPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCase(searchTerm.trim(), pageable);
+        } else if (genres != null && !genres.isEmpty()) {
+            // Only genres provided
+            if ("likes".equalsIgnoreCase(sortBy)) {
+                postsPage = postsRepository.findMostLikedPostsByGenre(genres, pageable);
+            } else {
+                postsPage = postsRepository.findMostRecentPostsByGenre(genres, pageable);
+            }
+        } else {
+            // No filters provided - return all posts with sorting
+            if ("likes".equalsIgnoreCase(sortBy)) {
+                postsPage = postsRepository.findMostLikedPosts(pageable);
+            } else {
+                postsPage = postsRepository.findMostRecentPosts(pageable);
+            }
+        }
+        
+        // Convert to DTOs
+        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getGenre(),
+                p.getMusic(),
+                convertCommentsToSortedDTO(p.getComments()),
+                p.getTime(),
+                convertUsernamesToLikesDTO(p.getLikes())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
     }
     }
 

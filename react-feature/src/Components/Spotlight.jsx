@@ -2,6 +2,7 @@ import "./Spotlight.css";
 import { useState, useEffect } from "react";
 import SpotlightItem from "./SpotlightItem";
 import { listPostsDesc } from "../services/PostsService";
+import api from "../services/AuthService";
 
 // Genre to icon mapping
 const GENRE_ICONS = {
@@ -21,22 +22,33 @@ function Spotlight() {
   const [spotlightPosts, setSpotlightPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState('all');
+  const [size, setSize] = useState(6)
+  const [totalPages, setTotalPages] = useState()
+  const [page, setPage] = useState(0)
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [size, page]);
 
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await listPostsDesc(0, 50); // Get more posts to organize by genre
-      const posts = response.data || [];
+      const response = await api.get(`/posts/get/likesdesc?page=${page}&size=${size}`) // Get more posts to organize by genre
+      const posts = response.data.content || [];
       setSpotlightPosts(posts);
+      setTotalPages(response.data.page.totalPages -1)
     } catch (error) {
       console.error('Error fetching spotlight posts:', error);
     }
     setLoading(false);
   };
+
+  const nextPage = () =>{
+    setPage(page+1)
+  }
+  const prevPage = () =>{
+    setPage(page-1)
+  }
 
   // Group posts by genre and get top liked posts for each
   const getPostsByGenre = () => {
@@ -122,6 +134,10 @@ function Spotlight() {
                 <SpotlightItem key={item.id + '-' + item.title} {...item} />
               ))}
             </div>
+            <div id="pageButtons">
+        <button className="section-more-btn" onClick={prevPage} disabled={page == 0? true: false}>Previous Page</button>
+        <button className="section-more-btn" onClick={nextPage } disabled={page == totalPages? true: false}>Next Page</button>
+        </div>
           </div>
         ) : (
           <div className="spotlight-section">
@@ -138,6 +154,7 @@ function Spotlight() {
               ))}
             </div>
           </div>
+          
         )}
       </div>
     </div>

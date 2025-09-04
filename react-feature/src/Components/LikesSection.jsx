@@ -100,7 +100,6 @@ function LikesSection({
         <div className="likes-list">
           {localLikes && localLikes.length > 0 ? (
             localLikes.map((like, index) => (
-              // Only render like if it has required fields
               like && like.userName ? (
                 <div key={index} className="like-item">
                   <div className="like-avatar-container">

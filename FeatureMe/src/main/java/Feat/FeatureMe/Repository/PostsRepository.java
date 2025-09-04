@@ -6,8 +6,10 @@ import Feat.FeatureMe.Entity.Posts;
 
 import java.util.List;
 
-
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 
 
@@ -17,6 +19,45 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     List<Posts>  findByFeatures(String features);
     List<Posts>  findByGenre(String genre);
     List<Posts> findByAuthorStartingWithIgnoreCase(String author);
-    List<Posts> findAllByOrderByLikesDesc();
+    Page<Posts> findAllByOrderByLikesDesc(Pageable pageable);
     List<Posts> findAllByFeatures(String features);
+    Page<Posts> findAllByOrderByTimeDesc(Pageable pageable);
+    Page<Posts> findAllById(Pageable pageable);
+    Page<Posts> findAllByIdIn(List<String> ids, Pageable pageable);
+
+    // Flexible search methods with multiple filters and sorting options
+    
+    // 1. Search by text (title/description) only
+    @Query("{ $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] }")
+    Page<Posts> findByTitleOrDescriptionContainingIgnoreCase(String searchTerm, Pageable pageable);
+    
+    // 2. Search by genres only
+    @Query("{ 'genre': { $in: ?0 } }")
+    Page<Posts> findByGenreIn(List<String> genres, Pageable pageable);
+    
+    // 3. Search by text AND genres (both must match, ALL genres required)
+    @Query("{ $and: [ { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] }, { 'genre': { $all: ?1 } } ] }")
+    Page<Posts> findByTitleOrDescriptionAndGenreIn(String searchTerm, List<String> genres, Pageable pageable);
+    
+    // 4. Search by text OR genres (either can match)
+    @Query("{ $or: [ { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] }, { 'genre': { $in: ?1 } } ] }")
+    Page<Posts> findByTitleOrDescriptionOrGenreIn(String searchTerm, List<String> genres, Pageable pageable);
+    
+    // 5. Most liked posts (sorted by likes count)
+    @Query("{ $expr: { $gt: [ { $size: { $ifNull: [ '$likes', [] ] } }, 0 ] } }")
+    Page<Posts> findMostLikedPosts(Pageable pageable);
+    
+    // 6. Most recent posts (sorted by time)
+    @Query("{}")
+    Page<Posts> findMostRecentPosts(Pageable pageable);
+    
+    // 7. Most liked posts with genre filter (ALL genres must match)
+    @Query("{ $and: [ { 'genre': { $all: ?0 } }, { $expr: { $gt: [ { $size: { $ifNull: [ '$likes', [] ] } }, 0 ] } } ] }")
+    Page<Posts> findMostLikedPostsByGenre(List<String> genres, Pageable pageable);
+    
+    // 8. Most recent posts with genre filter (ALL genres must match)
+    @Query("{ 'genre': { $all: ?0 } }")
+    Page<Posts> findMostRecentPostsByGenre(List<String> genres, Pageable pageable);
+    
 }
+

@@ -34,6 +34,7 @@
     align-items: center;
     gap: 0.7rem;
     letter-spacing: 0.5px;
+    cursor:pointer;
   }
 
   .feed-tab:hover {
@@ -68,6 +69,7 @@
     flex-direction: column;
     gap: 2.5rem;
     padding: 0;
+    width: 100%;
   }
 
   .feed-section {
@@ -202,11 +204,12 @@
   }
 
   .feed-genre-filter {
-    min-width: 180px;
+    min-width: 200px;
+    max-width: 250px;
+    position: relative;
   }
 
   .feed-genre-select {
-    width: 100%;
     padding: 1rem 1.2rem;
     background: rgba(34, 40, 49, 0.88);
     border: 2px solid rgba(79, 140, 255, 0.18);
@@ -271,6 +274,79 @@
     background: rgba(34, 40, 49, 0.95);
     color: #fff;
     padding: 0.5rem;
+  }
+
+  /* Custom Multi-Select Genre Filter Styles */
+  .custom-genre-select {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .genre-display {
+    flex: 1;
+    text-align: left;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-arrow {
+    margin-left: 0.5rem;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+  }
+
+  .custom-genre-select:hover .dropdown-arrow {
+    transform: rotate(180deg);
+  }
+
+  .custom-genre-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(34, 40, 49, 0.95);
+    border: 2px solid rgba(79, 140, 255, 0.18);
+    border-top: none;
+    border-radius: 0 0 1rem 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 16px rgba(79, 140, 255, 0.1);
+  }
+
+  .genre-option {
+    padding: 0.8rem 1.2rem;
+    cursor: pointer;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(79, 140, 255, 0.1);
+  }
+
+  .genre-option:last-child {
+    border-bottom: none;
+  }
+
+  .genre-option:hover {
+    background: rgba(79, 140, 255, 0.1);
+    color: #4f8cff;
+  }
+
+  .genre-option.selected {
+    background: rgba(79, 140, 255, 0.2);
+    color: #4f8cff;
+    font-weight: 700;
+  }
+
+  .genre-option.selected:hover {
+    background: rgba(79, 140, 255, 0.3);
   }
 
   /* Responsive adjustments for search and filter */
@@ -735,6 +811,7 @@
     overflow: hidden;
     margin: 0;
     min-width: 340px;
+    min-height: 446px;
     max-width: 420px;
     width: 100%;
     display: flex;
@@ -1150,6 +1227,284 @@
   .feed-search-input-wrapper .feed-search-clear {
     right: 5rem;
   }
+
+  /* Feed Genre Popup Styles */
+  .feed-genre-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(24, 26, 32, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .feed-genre-popup-content {
+    background: rgba(34, 40, 49, 0.98);
+    border-radius: 2rem;
+    box-shadow: 0 8px 32px rgba(79, 140, 255, 0.3);
+    border: 2px solid rgba(79, 140, 255, 0.2);
+    max-width: 800px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .feed-genre-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 2px solid rgba(79, 140, 255, 0.2);
+    background: rgba(30, 34, 45, 0.8);
+    
+  }
+
+  .feed-genre-popup-title {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #4f8cff;
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .feed-genre-popup-close {
+    background: none;
+    border: none;
+    color: #bfc9d1;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .feed-genre-popup-close:hover {
+    color: #4f8cff;
+    background: rgba(79, 140, 255, 0.1);
+    transform: scale(1.1);
+  }
+
+  .feed-genre-popup-body {
+    padding: 2rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .feed-genre-popup-section {
+    margin-bottom: 2rem;
+  }
+
+  .feed-genre-popup-section:last-of-type {
+    margin-bottom: 1rem;
+  }
+
+  .feed-genre-popup-section-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #4f8cff;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(79, 140, 255, 0.3);
+    letter-spacing: 0.5px;
+  }
+
+  .feed-genre-popup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .feed-genre-popup-item {
+    cursor: pointer;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 3px solid transparent;
+  }
+
+  .feed-genre-popup-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(79, 140, 255, 0.3);
+  }
+
+  .feed-genre-popup-item.selected {
+    border-color: #4f8cff;
+    box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.3);
+  }
+
+  .feed-genre-popup-banner {
+    position: relative;
+    height: 120px;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .feed-genre-popup-overlay-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);
+    z-index: 1;
+  }
+
+  .feed-genre-popup-icon {
+    font-size: 2.5rem;
+    z-index: 2;
+    position: relative;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+
+  .feed-genre-popup-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #fff;
+    z-index: 2;
+    position: relative;
+    text-align: center;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    letter-spacing: 0.5px;
+  }
+
+  .feed-genre-popup-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+    border-top: 2px solid rgba(79, 140, 255, 0.2);
+  }
+
+  .feed-genre-popup-clear-btn {
+    background: rgba(34, 40, 49, 0.8);
+    color: #bfc9d1;
+    border: 2px solid rgba(79, 140, 255, 0.3);
+    border-radius: 1rem;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .feed-genre-popup-clear-btn:hover {
+    background: rgba(79, 140, 255, 0.1);
+    color: #4f8cff;
+    border-color: #4f8cff;
+  }
+
+  .feed-genre-popup-apply-btn {
+    background: linear-gradient(135deg, #1db954 0%, #4f8cff 100%);
+    color: #fff;
+    border: none;
+    border-radius: 1rem;
+    padding: 0.8rem 2rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(79, 140, 255, 0.3);
+  }
+
+  .feed-genre-popup-apply-btn:hover {
+    background: linear-gradient(135deg, #4f8cff 0%, #1db954 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Responsive adjustments for feed genre popup */
+  @media (max-width: 768px) {
+    .feed-genre-popup-overlay {
+      padding: 1rem;
+    }
+
+    .feed-genre-popup-content {
+      max-height: 90vh;
+    }
+
+    .feed-genre-popup-header {
+      padding: 1rem 1.5rem;
+    }
+
+    .feed-genre-popup-title {
+      font-size: 1.3rem;
+    }
+
+    .feed-genre-popup-body {
+      padding: 1.5rem;
+    }
+
+    .feed-genre-popup-grid {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+
+    .feed-genre-popup-banner {
+      height: 100px;
+    }
+
+    .feed-genre-popup-icon {
+      font-size: 2rem;
+    }
+
+    .feed-genre-popup-name {
+      font-size: 1rem;
+    }
+
+    .feed-genre-popup-actions {
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .feed-genre-popup-clear-btn,
+    .feed-genre-popup-apply-btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
   .comment-feed-time {
     font-size: 12px;
     color: #b8b8b8;
@@ -1158,5 +1513,14 @@
     margin-bottom: -12px;
     
    
+}
+#pageButtons{
+  margin-top: 50px;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(79, 140, 255, 0.3);
 }
   

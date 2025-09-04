@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -14,8 +15,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.Arrays;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -81,12 +84,51 @@ public class PostsController {
     public Posts updatePost(@PathVariable String id, @RequestBody Posts posts) {
         return postsService.updatePost(id, posts);
     }
-    
+    /* 
     @GetMapping("/get")
     public List<PostsDTO> getAllPosts() {
         return postsService.getAllPosts();
     }
+
+    @GetMapping("/get/likesdesc")
+    public List<PostsDTO> getPostsByLikesDesc(Posts post) {
+        return postsService.findByLikesDesc(post);
+        
+    }
+    */
+    @GetMapping("/get")
+    public PagedModel<PostsDTO> getAllPosts(@RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "6") int size) {
+
+        return postsService.getAllPagedPosts(page, size);
+    }
+
+    @GetMapping("/get/search")
+    public PagedModel<PostsDTO> getSearchedPosts(@RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "6") int size, @RequestParam String search) {
+
+        return postsService.getSearchedPost(page, size, search);
+    }
     
+    // Comprehensive search endpoint with multiple filters and sorting
+    @GetMapping("/get/advanced-search")
+    public PagedModel<PostsDTO> advancedSearch(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "6") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String genres,
+            @RequestParam(defaultValue = "time") String sortBy) {
+        
+        // Parse genres from comma-separated string
+        List<String> genreList = null;
+        if (genres != null && !genres.trim().isEmpty()) {
+            genreList = Arrays.asList(genres.split(","));
+        }
+        
+        return postsService.searchPosts(search, genreList, sortBy, page, size);
+    }
+    
+
     @GetMapping("/get/id/{id}")
     public PostsDTO getPostById(@PathVariable String id, Posts posts) {
         return postsService.getPostById(id);
@@ -98,8 +140,9 @@ public class PostsController {
     }
     
     @GetMapping("/get/likesdesc")
-    public List<PostsDTO> getPostsByLikesDesc(Posts post) {
-        return postsService.findByLikesDesc(post);
+    public PagedModel<PostsDTO> getPostsByLikesDesc(@RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "5") int size) {
+        return postsService.findByLikesDesc(page,size);
     }
     
     @DeleteMapping("/delete/{id}")
@@ -134,12 +177,15 @@ public class PostsController {
     }
 
     @GetMapping("/get/all/id/{ids}")
-    public List<PostsDTO> getAllById(@PathVariable List<String> ids) {
-        return postsService.getAllById(ids);
+    public PagedModel<PostsDTO> getAllById(@PathVariable List<String> ids, @RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "5") int size) {
+        
+        return postsService.getAllById(ids, page, size);
     }
     @GetMapping("get/all/featuredOn/{ids}")
-    public List<PostsDTO> getAllFeatureOn(@PathVariable List<String> ids) {
-        return postsService.getAllById(ids);
+    public PagedModel<PostsDTO> getAllFeatureOn(@PathVariable List<String> ids, @RequestParam int page,
+    @RequestParam int size) {
+        return postsService.getAllById(ids, page, size);
     }
     @PostMapping("/add/like/{id}")
     public Optional<Posts> addLikes(@PathVariable String id){
