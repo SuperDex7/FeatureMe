@@ -19,7 +19,8 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     List<Posts>  findByFeatures(String features);
     List<Posts>  findByGenre(String genre);
     List<Posts> findByAuthorStartingWithIgnoreCase(String author);
-    Page<Posts> findAllByOrderByLikesDesc(Pageable pageable);
+    // Removed: Can't sort by likes since they're now in separate collection
+    // Use PostLikeService to get like counts and sort in service layer
     List<Posts> findAllByFeatures(String features);
     Page<Posts> findAllByOrderByTimeDesc(Pageable pageable);
     Page<Posts> findAllById(Pageable pageable);
@@ -43,17 +44,16 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     @Query("{ $or: [ { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] }, { 'genre': { $in: ?1 } } ] }")
     Page<Posts> findByTitleOrDescriptionOrGenreIn(String searchTerm, List<String> genres, Pageable pageable);
     
-    // 5. Most liked posts (sorted by likes count)
-    @Query("{ $expr: { $gt: [ { $size: { $ifNull: [ '$likes', [] ] } }, 0 ] } }")
-    Page<Posts> findMostLikedPosts(Pageable pageable);
+    // 5. Most liked posts (now using cached totalLikes field for efficient sorting)
+    Page<Posts> findAllByOrderByTotalLikesDescTimeDesc(Pageable pageable);
     
     // 6. Most recent posts (sorted by time)
     @Query("{}")
     Page<Posts> findMostRecentPosts(Pageable pageable);
     
-    // 7. Most liked posts with genre filter (ALL genres must match)
-    @Query("{ $and: [ { 'genre': { $all: ?0 } }, { $expr: { $gt: [ { $size: { $ifNull: [ '$likes', [] ] } }, 0 ] } } ] }")
-    Page<Posts> findMostLikedPostsByGenre(List<String> genres, Pageable pageable);
+    // 7. Most liked posts with genre filter (ALL genres must match) - sorting handled by Pageable
+    @Query("{ 'genre': { $all: ?0 } }")
+    Page<Posts> findByGenreAllOrderByTotalLikesDescTimeDesc(List<String> genres, Pageable pageable);
     
     // 8. Most recent posts with genre filter (ALL genres must match)
     @Query("{ 'genre': { $all: ?0 } }")

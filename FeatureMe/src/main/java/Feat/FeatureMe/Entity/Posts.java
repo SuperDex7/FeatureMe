@@ -8,7 +8,6 @@ import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import Feat.FeatureMe.Dto.CommentDTO;
 
 @Document(collection = "posts")
 public class Posts {
@@ -25,13 +24,18 @@ public class Posts {
     private List<String> features;
     private List<String> genre;
     private String music;
-    private List<CommentDTO> comments;
+    // Comments are now stored in separate PostComment collection
     private LocalDateTime time;
-    private List<String> likes;
+    // Likes are now stored in separate PostLike collection
+    // Views are now stored in separate PostView collection
+    // Keep totalViews as cached field for performance (will be calculated from PostView collection)
+    private int totalViews = 0;
+    // Keep totalLikes as cached field for performance (will be calculated from PostLike collection)
+    private int totalLikes = 0;
 
     public Posts() { }
 
-    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, List<CommentDTO> comments, LocalDateTime time, List<String> likes) {
+    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -39,9 +43,22 @@ public class Posts {
         this.features = features;
         this.genre = genre;
         this.music = music;
-        this.comments = comments;
         this.time = time;
-        this.likes = likes;
+        this.totalViews = totalViews;
+        this.totalLikes = 0; // Initialize with 0 likes
+    }
+    
+    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews, int totalLikes) {
+        this.id = id;
+        this.author = author;
+        this.title = title;
+        this.description = description;
+        this.features = features;
+        this.genre = genre;
+        this.music = music;
+        this.time = time;
+        this.totalViews = totalViews;
+        this.totalLikes = totalLikes;
     }
 
     public String getId() {
@@ -100,13 +117,6 @@ public class Posts {
         this.music = music;
     }
 
-    public List<CommentDTO> getComments() {
-        return comments;
-    }
-
-    public void setComments(List<CommentDTO> comments) {
-        this.comments = comments;
-    }
 
     public LocalDateTime getTime() {
         return time;
@@ -116,11 +126,21 @@ public class Posts {
         this.time = time;
     }
 
-    public List<String> getLikes() {
-        return likes;
+
+
+    public int getTotalViews() {
+        return totalViews;
     }
 
-    public void setLikes(List<String> likes) {
-        this.likes = likes;
+    public void setTotalViews(int totalViews) {
+        this.totalViews = totalViews;
+    }
+    
+    public int getTotalLikes() {
+        return totalLikes;
+    }
+
+    public void setTotalLikes(int totalLikes) {
+        this.totalLikes = totalLikes;
     }
 }

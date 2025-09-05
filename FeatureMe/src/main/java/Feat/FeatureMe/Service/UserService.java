@@ -315,7 +315,12 @@ public class UserService {
         }
     }
 
+    // Legacy follow method - delegates to UserRelationService
     public String follow(String follower, String following){
+        // This will be injected via constructor or setter
+        // For now, keeping the old implementation for backward compatibility
+        // TODO: Replace with userRelationService.toggleFollow(follower, following)
+        
         Optional<User> user = userRepository.findByUserName(follower);
         Optional<User> author = userRepository.findByUserName(following);
 

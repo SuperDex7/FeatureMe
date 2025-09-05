@@ -13,7 +13,9 @@ public record PostsDTO(
         String music,
         List<CommentDTO> comments,
         LocalDateTime time,
-        List<LikesDTO> likes
+        List<LikesDTO> likes,
+        List<ViewsDTO> views,
+        int totalViews
         
 ) {
 

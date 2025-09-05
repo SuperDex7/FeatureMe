@@ -1,10 +1,11 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
-import { deleteComment, deletePost } from "../services/PostsService";
+import { deleteComment, deletePost, addView } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
 import LikesSection from "../Components/LikesSection";
+import ViewsAnalytics from "../Components/ViewsAnalytics";
 
 function Post() {
     const { id } = useParams();
@@ -22,6 +23,7 @@ function Post() {
     const [currentUser, setCurrentUser] = useState(null);
     const [deletingComment, setDeletingComment] = useState(null);
     const [isDeletingPost, setIsDeletingPost] = useState(false);
+    const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
     
     const audioRef = useRef(null);
     const progressRef = useRef(null);
@@ -121,7 +123,34 @@ function Post() {
         }
     };
 
-    const handlePlayPause = () => {
+    const handlePlayPause = async () => {
+        // Add view tracking when playing
+        if (!isPlaying && currentUser) {
+            const cooldownKey = `view_${id}_${currentUser?.userName}`;
+            const lastViewTime = localStorage.getItem(cooldownKey);
+            const now = Date.now();
+            const oneMinute = 60 * 1000; // 1 minute in milliseconds
+            
+            let shouldAddView = true;
+            if (lastViewTime) {
+                const timeSinceLastView = now - parseInt(lastViewTime);
+                if (timeSinceLastView < oneMinute) {
+                    shouldAddView = false;
+                    console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
+                }
+            }
+            
+            if (shouldAddView) {
+                try {
+                    await addView(id);
+                    localStorage.setItem(cooldownKey, now.toString());
+                    console.log("View added for post:", id);
+                } catch (error) {
+                    console.error("Error adding view:", error);
+                }
+            }
+        }
+
         if (!audioRef.current) {
             const newAudio = new Audio(post.music);
             newAudio.addEventListener('loadedmetadata', () => {
@@ -246,15 +275,25 @@ function Post() {
                                     View Profile
                                 </button></a>
                                 {currentUser && currentUser.userName === post.author.userName && (
-                                    <button 
-                                        className="hero-delete-btn"
-                                        onClick={handleDeletePost}
-                                        disabled={isDeletingPost}
-                                        title="Delete post"
-                                    >
-                                        <span className="delete-icon">🗑️</span>
-                                        <span className="delete-text">{isDeletingPost ? 'Deleting...' : 'Delete'}</span>
-                                    </button>
+                                    <>
+                                        <button 
+                                            className="hero-analytics-btn"
+                                            onClick={() => setShowViewsAnalytics(true)}
+                                            title="View Analytics (Premium Feature)"
+                                        >
+                                            <span className="analytics-icon">📊</span>
+                                            <span className="analytics-text">Analytics</span>
+                                        </button>
+                                        <button 
+                                            className="hero-delete-btn"
+                                            onClick={handleDeletePost}
+                                            disabled={isDeletingPost}
+                                            title="Delete post"
+                                        >
+                                            <span className="delete-icon">🗑️</span>
+                                            <span className="delete-text">{isDeletingPost ? 'Deleting...' : 'Delete'}</span>
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -339,6 +378,10 @@ function Post() {
                                 <div className="stat-item">
                                     <span className="stat-number">{comments?.length || 0}</span>
                                     <span className="stat-label">Comments</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-number">{post.totalViews || 0}</span>
+                                    <span className="stat-label">Views</span>
                                 </div>
                                 <div className="stat-item">
                                     <span className="stat-number">
@@ -570,6 +613,14 @@ function Post() {
                     </div>
                 </div>
             </div>
+            
+            <ViewsAnalytics
+                postId={id}
+                isOpen={showViewsAnalytics}
+                onClose={() => setShowViewsAnalytics(false)}
+                currentUser={currentUser}
+                postAuthor={post.author}
+            />
         </div>
     );
 }

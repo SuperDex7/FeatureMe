@@ -1189,6 +1189,49 @@
     text-shadow: 0 2px 8px #1db95433;
   }
 
+  /* Premium Analytics Views Button */
+  .feed-card-views {
+    color: #ffa726;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, rgba(255, 167, 38, 0.1), rgba(255, 107, 107, 0.1));
+    border: 1px solid rgba(255, 167, 38, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feed-card-views::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 167, 38, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .feed-card-views:hover::before {
+    left: 100%;
+  }
+
+  .feed-card-views:hover {
+    color: #ff9800;
+    background: linear-gradient(135deg, rgba(255, 167, 38, 0.2), rgba(255, 107, 107, 0.2));
+    border-color: rgba(255, 167, 38, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 167, 38, 0.3);
+  }
+
+  .feed-card-views.active {
+    background: linear-gradient(135deg, rgba(255, 167, 38, 0.25), rgba(255, 107, 107, 0.25));
+    color: #ff8f00;
+    border-color: rgba(255, 167, 38, 0.6);
+  }
+
   .feed-search-btn {
     position: absolute;
     right: 1rem;
@@ -1514,13 +1557,29 @@
     
    
 }
-#pageButtons{
-  margin-top: 50px;
-  display:flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid rgba(79, 140, 255, 0.3);
-}
+  #pageButtons{
+    margin-top: 50px;
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid rgba(79, 140, 255, 0.3);
+  }
+
+  /* Analytics Tab Styles */
+  .analytics-tab {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .analytics-tab .feed-section {
+    margin-bottom: 0;
+  }
+
+  .analytics-tab .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
   

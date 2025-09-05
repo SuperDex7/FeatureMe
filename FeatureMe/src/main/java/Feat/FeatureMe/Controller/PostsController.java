@@ -24,9 +24,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import Feat.FeatureMe.Dto.PostsDTO;
+import Feat.FeatureMe.Dto.ViewsDTO;
+import Feat.FeatureMe.Dto.CommentDTO;
+import Feat.FeatureMe.Dto.LikesDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.PostsService;
+import Feat.FeatureMe.Service.PostViewService;
+import Feat.FeatureMe.Service.PostCommentService;
+import Feat.FeatureMe.Service.PostLikeService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 
@@ -84,18 +90,69 @@ public class PostsController {
     public Posts updatePost(@PathVariable String id, @RequestBody Posts posts) {
         return postsService.updatePost(id, posts);
     }
-    /* 
-    @GetMapping("/get")
-    public List<PostsDTO> getAllPosts() {
-        return postsService.getAllPosts();
-    }
-
-    @GetMapping("/get/likesdesc")
-    public List<PostsDTO> getPostsByLikesDesc(Posts post) {
-        return postsService.findByLikesDesc(post);
+    @PostMapping("view/{id}")
+    public void AddView(@PathVariable String id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
         
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        postsService.addView(id, user.getUserName());
     }
-    */
+    
+    @GetMapping("/views/{id}")
+    public List<ViewsDTO> getPostViews(@PathVariable String id) {
+        return postsService.getPostViews(id);
+    }
+    
+    @GetMapping("/views/{id}/paginated")
+    public PagedModel<ViewsDTO> getPostViewsPaginated(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return postsService.getPostViewsPaginated(id, page, size);
+    }
+    
+    @GetMapping("/views/{id}/summary")
+    public PostViewService.PostViewSummary getPostViewSummary(@PathVariable String id) {
+        return postsService.getPostViewSummary(id);
+    }
+    
+    @GetMapping("/comments/{id}/paginated")
+    public PagedModel<CommentDTO> getPostCommentsPaginated(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return postsService.getPostCommentsPaginated(id, page, size);
+    }
+    
+    @GetMapping("/comments/{id}/summary")
+    public PostCommentService.PostCommentSummary getPostCommentSummary(@PathVariable String id) {
+        return postsService.getPostCommentSummary(id);
+    }
+    
+    @GetMapping("/likes/{id}/paginated")
+    public PagedModel<LikesDTO> getPostLikesPaginated(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return postsService.getPostLikesPaginated(id, page, size);
+    }
+    
+    @GetMapping("/likes/{id}/summary")
+    public PostLikeService.PostLikeSummary getPostLikeSummary(@PathVariable String id) {
+        return postsService.getPostLikeSummary(id);
+    }
+    
+    @GetMapping("/likes/{id}/check/{userName}")
+    public boolean hasUserLikedPost(@PathVariable String id, @PathVariable String userName) {
+        return postsService.hasUserLikedPost(id, userName);
+    }
+    
+    
     @GetMapping("/get")
     public PagedModel<PostsDTO> getAllPosts(@RequestParam( defaultValue = "0") int page,
     @RequestParam( defaultValue = "6") int size) {

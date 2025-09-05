@@ -4,6 +4,9 @@ import Footer from '../Components/Footer';
 import Spotlight from '../Components/Spotlight';
 import Notifications from '../Components/Notifications';
 import ShowFollow from '../Components/ShowFollow';
+import ViewsAnalyticsCard from '../Components/ViewsAnalyticsCard';
+import FriendSuggestions from '../Components/FriendSuggestions';
+import { UserRelationsService } from '../services/UserService';
 import '../Styling/HomepageModern.css';
 import axios from 'axios';
 import api from '../services/AuthService';
@@ -18,31 +21,40 @@ function Homepage() {
   const [length, setLength] = useState(0);
   const [showFollow, setShowFollow] = useState(false)
   const [followPopupType, setFollowPopupType] = useState('followers')
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false)
+  const [relationshipSummary, setRelationshipSummary] = useState(null)
 
   useEffect(() =>{
-    setIsLoading(true);
-    // Use the new /me endpoint to get current user info
-    api.get('/user/me').then(response=> {
-      setUser(response.data)
-      console.log(response.data)
-      //setLength(response.data.posts.length)
-      const len = response.data.posts.length - 1
-      //console.log(len)
-      //setLatestPostt(response.data.posts[0])
-      //console.log(response.data.posts.length)
-      if (response.data.posts && response.data.posts.length > 0) {
-        api.get(`/posts/get/id/${response.data.posts[len]}`).then(res=>{
-          //console.log(res.data)
-          setLatestPostt(res.data)
-        })
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Use the new /me endpoint to get current user info
+        const response = await api.get('/user/me');
+        setUser(response.data);
+        console.log(response.data);
+        
+        // Get relationship summary for current user
+        const relationshipResponse = await UserRelationsService.getRelationshipSummary(response.data.userName);
+        setRelationshipSummary(relationshipResponse.data);
+        console.log('Relationship summary:', relationshipResponse.data);
+        
+        // Get latest post if user has posts
+        if (response.data.posts && response.data.posts.length > 0) {
+          const len = response.data.posts.length - 1;
+          const postResponse = await api.get(`/posts/get/id/${response.data.posts[len]}`);
+          setLatestPostt(postResponse.data);
+        }
+        
+        setIsLoading(false);
+      } catch (err) {
+        console.error(err);
+        setIsLoading(false);
+        // If authentication fails, redirect to login
+        window.location.href = '/login';
       }
-      setIsLoading(false);
-    }).catch((err)=>{
-      console.error(err)
-      setIsLoading(false);
-      // If authentication fails, redirect to login
-      window.location.href = '/login';
-    })
+    };
+    
+    fetchData();
   }, [])
   if (isLoading) {
     return (
@@ -108,6 +120,7 @@ function Homepage() {
     if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close-btn')) {
       setLatestModalOpen(false);
       setActivityModalOpen(false);
+      setAnalyticsModalOpen(false);
     }
   };
 
@@ -141,11 +154,12 @@ function Homepage() {
           </div>
           <div className="hero-stats-row">
             <div className="hero-stat"><span>{user?.posts?.length || 0}</span><label>Posts</label></div>
-            <div className="hero-stat"><span>{user?.followers?.length || 0}</span><label className="clickable" onClick={() => showTheFollow('followers')}>Followers</label></div>
-            <div className="hero-stat"><span>{user?.following?.length || 0}</span><label className="clickable" onClick={() => showTheFollow('following')}>Following</label></div>
+            <div className="hero-stat"><span>{relationshipSummary?.followersCount || 0}</span><label className="clickable" onClick={() => showTheFollow('followers')}>Followers</label></div>
+            <div className="hero-stat"><span>{relationshipSummary?.followingCount || 0}</span><label className="clickable" onClick={() => showTheFollow('following')}>Following</label></div>
            
           </div>
         </section>
+        
 {/* Activity & Latest Post */}
         <div className="activity-latest-row">
           <section className="activity-card glass-card card-balanced" onClick={() => setActivityModalOpen(true)} style={{cursor: 'pointer'}}>
@@ -172,6 +186,27 @@ function Homepage() {
             ) || "No posts yet"}
           </section>
         </div>
+
+        {/* View Analytics Card */}
+        <section className="analytics-preview-card glass-card" onClick={() => setAnalyticsModalOpen(true)} style={{cursor: 'pointer'}}>
+          <div className="analytics-preview-content">
+            <div className="analytics-preview-icon">📊</div>
+            <div className="analytics-preview-text">
+              <h3>View Analytics</h3>
+              <p>Track your posts performance and engagement</p>
+              <div className="analytics-preview-stats">
+                <span>{user?.posts?.length || 0} Posts</span>
+                <span>•</span>
+                <span>Premium Feature</span>
+              </div>
+            </div>
+            <div className="analytics-preview-arrow">→</div>
+          </div>
+        </section>
+
+        {/* Friend Suggestions */}
+        <FriendSuggestions limit={5} />
+
         {/* Community Trends/Spotlight Tabbed Card */}
         <section className="trends-card glass-card">
           <h2 className="trends-title">Community Trends</h2>
@@ -225,8 +260,7 @@ function Homepage() {
 
         
         <ShowFollow 
-          followers={user?.followers} 
-          following={user?.following}
+          userName={user?.userName}
           isOpen={showFollow}
           onClose={closeFollowPopup}
           type={followPopupType}
@@ -283,6 +317,22 @@ function Homepage() {
             {user.notifications !== null && user.notifications.length !== 0 ?(
             <Notifications notifications={user.notifications} className="activity-modal-list" />
             ): "No Notifications Yet"}
+          </div>
+        </div>
+        )}
+
+      {/* Analytics Modal */}
+      {analyticsModalOpen && (
+        <div className="modal-overlay" onClick={handleModalClose}>
+          <div className="modal-content analytics-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={handleModalClose}>&times;</button>
+            <div className="analytics-modal-header">
+              <h3>📊 View Analytics</h3>
+              <p>Track your posts performance and engagement</p>
+            </div>
+            <div className="analytics-modal-body">
+              <ViewsAnalyticsCard />
+            </div>
           </div>
         </div>
       )}

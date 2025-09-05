@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "../Styling/Profile.css";
-import { getUserInfo } from "../services/UserService";
+import { getUserInfo, UserRelationsService } from "../services/UserService";
 import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
@@ -25,6 +25,15 @@ function Profile() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showFollow, setShowFollow] = useState(false)
   const [followPopupType, setFollowPopupType] = useState('followers')
+  const [relationshipSummary, setRelationshipSummary] = useState(null)
+
+  const [size, setSize] = useState(6)
+    const [page, setPage] = useState(0)
+    const [totalPages, setTotalPages] = useState(0)
+
+    const [featSize, setFeatSize] = useState(6)
+    const [featPage, setFeatPage] = useState(0)
+    const [featTotalPages, setFeatTotalPages] = useState(0)
   
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +46,13 @@ function Profile() {
         setUser(response.data);
         console.log(response.data);
         setCount(response.data.posts.length);
+        
+        // Get relationship summary using new endpoint
+        const relationshipResponse = await UserRelationsService.getRelationshipSummary(username);
+        setRelationshipSummary(relationshipResponse.data);
+        setIsFollowing(relationshipResponse.data.isFollowing);
+        console.log('Relationship summary:', relationshipResponse.data);
+        
         setIsLoading(false);
       } catch (err) {
         console.error(err);
@@ -46,19 +62,27 @@ function Profile() {
     fetchData();
   }, [username]);
 
-  // Check if current user is following this profile
-  useEffect(() => {
-    if (user && currentUser) {
-      const following = user.followers && user.followers.includes(currentUser.userName);
-      setIsFollowing(following);
-    }
-  }, [user, currentUser]);
+  // Note: isFollowing is now set directly from relationship summary
 
+  const nextPage = () =>{
+    setPage(page+1)
+  }
+  const prevPage = () =>{
+    setPage(page-1)
+  }
+  const nextFeatPage = () =>{
+    setFeatPage(featPage+1)
+  }
+  const prevFeatPage = () =>{
+    setFeatPage(featPage-1)
+  }
   // Load posts when activeTab changes
   useEffect(() => {
     if (activeTab === "posts" && user && co === 0) {
-      api.get(`posts/get/all/id/${user.posts}`).then(res => {
-        setPosts(res.data)
+      api.get(`posts/get/all/id/${user.posts}?page=${page}&size=${size}`).then(res => {
+        setTotalPages(res.data.page.totalPages)
+        setPosts(res.data.content)
+        console.log(res.data)
         setCo(co + 1)
       })
     }
@@ -67,14 +91,15 @@ function Profile() {
   // Load featuredOn when activeTab changes
   useEffect(() => {
     if (activeTab === "friends" && user && co2 === 0) {
-      api.get(`posts/get/all/featuredOn/${user.featuredOn}`).then(res => {
-        setFeatureOn(res.data)
+      api.get(`posts/get/all/featuredOn/${user.featuredOn}?page=${featPage}&size=${featSize}`).then(res => {
+        setFeatTotalPages(res.data.page.totalPages)
+        setFeatureOn(res.data.content)
         console.log(res.data)
         setCo2(co2 + 1)
       })
     }
   }, [activeTab, user, co2]);
-   console.log(user)
+
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -94,20 +119,23 @@ function Profile() {
     setShowFollow(false)
   }
 
-  const follow = () => {
+  const follow = async () => {
     if (!currentUser) return;
     
-    api.post(`user/follow/${currentUser.userName}/${username}`).then(res => {
-      console.log(res);
+    try {
+      const response = await UserRelationsService.toggleFollow(username);
+      console.log('Follow response:', response.data);
+      
       // Toggle the following state
       setIsFollowing(!isFollowing);
-      // Refresh user data to get updated followers count
-      api.get(`/user/get/${username}`).then(response => {
-        setUser(response.data);
-      });
-    }).catch(err => {
-      console.log(err);
-    });
+      
+      // Refresh relationship summary to get updated counts
+      const relationshipResponse = await UserRelationsService.getRelationshipSummary(username);
+      setRelationshipSummary(relationshipResponse.data);
+      
+    } catch (err) {
+      console.error('Error following/unfollowing user:', err);
+    }
   };
   
   return (
@@ -151,13 +179,12 @@ function Profile() {
         <p className="profile-glass-location">{user.location}</p>
         <div className="profile-glass-stats">
           <div className="profile-glass-stat"><span className="stat-icon">📝</span><span className="stat-value">{user?.posts?.length || 0}</span><span className="stat-label">Posts</span></div>
-          <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{user?.followers?.length || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('followers')}>Followers</span></div>
-          <div className="profile-glass-stat"><span className="stat-icon">➡️</span><span className="stat-value">{user?.following?.length || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('following')}>Following</span></div>
+          <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{relationshipSummary?.followersCount || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('followers')}>Followers</span></div>
+          <div className="profile-glass-stat"><span className="stat-icon">➡️</span><span className="stat-value">{relationshipSummary?.followingCount || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('following')}>Following</span></div>
         </div>
         
         <ShowFollow 
-          followers={user?.followers} 
-          following={user?.following}
+          userName={username}
           isOpen={showFollow}
           onClose={closeFollowPopup}
           type={followPopupType}
@@ -180,6 +207,10 @@ function Profile() {
              <ProfilePosts2 key={item.id} {...item} />
            ))}
          </div>
+         <div id="pageButtons">
+        <button className="section-more-btn" onClick={prevPage} hidden={totalPages < 2 ? true:false} disabled={page == 0 || page == null? true: false}>Previous Page</button>
+        <button className="section-more-btn" onClick={nextPage} hidden={totalPages < 2 ? true:false}  disabled={page == totalPages-1 || page == null? true: false}>Next Page</button>
+        </div>
           </div>
         )}
         {activeTab === "about" && (
@@ -197,6 +228,10 @@ function Profile() {
              <ProfilePosts key={item.id} {...item} />
            ))}
          </div>
+         <div id="pageButtons">
+        <button className="section-more-btn" onClick={prevFeatPage} hidden={featTotalPages < 2 ? true:false} disabled={featPage == 0 || featPage == null? true: false}>Previous Page</button>
+        <button className="section-more-btn" onClick={nextFeatPage} hidden={featTotalPages < 2 ? true:false}  disabled={featPage == featTotalPages-1 || featPage == null? true: false}>Next Page</button>
+        </div>
          </div>
           /*
           <div>

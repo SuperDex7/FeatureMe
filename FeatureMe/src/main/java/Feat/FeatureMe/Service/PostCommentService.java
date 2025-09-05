@@ -1,0 +1,137 @@
+package Feat.FeatureMe.Service;
+
+import Feat.FeatureMe.Dto.CommentDTO;
+import Feat.FeatureMe.Entity.PostComment;
+import Feat.FeatureMe.Entity.User;
+import Feat.FeatureMe.Repository.PostCommentRepository;
+import Feat.FeatureMe.Repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class PostCommentService {
+    
+    private final PostCommentRepository postCommentRepository;
+    private final UserRepository userRepository;
+    
+    public PostCommentService(PostCommentRepository postCommentRepository, UserRepository userRepository) {
+        this.postCommentRepository = postCommentRepository;
+        this.userRepository = userRepository;
+    }
+    
+    /**
+     * Add a comment to a post
+     */
+    public PostComment addComment(String postId, String userName, String commentText) {
+        User user = userRepository.findByUserName(userName)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        LocalDateTime now = LocalDateTime.now();
+        
+        PostComment newComment = new PostComment(
+            postId,
+            userName,
+            user.getProfilePic(),
+            commentText,
+            now
+        );
+        
+        return postCommentRepository.save(newComment);
+    }
+    
+    /**
+     * Get paginated comments for a specific post
+     */
+    public Page<CommentDTO> getPostComments(String postId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostComment> commentsPage = postCommentRepository.findByPostIdOrderByTimeDesc(postId, pageable);
+        
+        return commentsPage.map(this::convertToCommentDTO);
+    }
+    
+    /**
+     * Get total comment count for a post
+     */
+    public long getTotalComments(String postId) {
+        return postCommentRepository.countByPostId(postId);
+    }
+    
+    /**
+     * Get recent comments for a post (for post DTOs)
+     */
+    public List<CommentDTO> getRecentComments(String postId, int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        Page<PostComment> commentsPage = postCommentRepository.findByPostIdOrderByTimeDesc(postId, pageable);
+        
+        return commentsPage.getContent()
+                .stream()
+                .map(this::convertToCommentDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Delete a specific comment
+     */
+    public void deleteComment(String postId, String userName, LocalDateTime time) {
+        postCommentRepository.deleteByPostIdAndUserNameAndTime(postId, userName, time);
+    }
+    
+    /**
+     * Delete all comments for a post (when post is deleted)
+     */
+    public void deleteCommentsForPost(String postId) {
+        postCommentRepository.deleteByPostId(postId);
+    }
+    
+    /**
+     * Get comments by a specific user (for user analytics)
+     */
+    public Page<CommentDTO> getUserComments(String userName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostComment> commentsPage = postCommentRepository.findByUserNameOrderByTimeDesc(userName, pageable);
+        
+        return commentsPage.map(this::convertToCommentDTO);
+    }
+    
+    /**
+     * Convert PostComment entity to CommentDTO
+     */
+    private CommentDTO convertToCommentDTO(PostComment postComment) {
+        return new CommentDTO(
+            postComment.getUserName(),
+            postComment.getProfilePic(),
+            postComment.getComment(),
+            postComment.getTime()
+        );
+    }
+    
+    /**
+     * Get comments summary for a post
+     */
+    public PostCommentSummary getCommentSummary(String postId) {
+        long totalComments = getTotalComments(postId);
+        
+        return new PostCommentSummary(totalComments);
+    }
+    
+    /**
+     * Inner class for comment summary data
+     */
+    public static class PostCommentSummary {
+        private final long totalComments;
+        
+        public PostCommentSummary(long totalComments) {
+            this.totalComments = totalComments;
+        }
+        
+        public long getTotalComments() { 
+            return totalComments; 
+        }
+    }
+}

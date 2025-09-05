@@ -2,17 +2,50 @@ import React, { useState, useEffect } from "react";
 import AudioPlayer from "./AudioPlayer";
 import CommentSection from "./CommentSection";
 import LikesSection from "./LikesSection";
-import { deletePost } from "../services/PostsService";
+import ViewsAnalytics from "./ViewsAnalytics";
+import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [localLikes, setLocalLikes] = useState(likes || []);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
 
   if (!open) return null;
+
+  const handlePlayClick = async (e) => {
+    e.stopPropagation();
+    
+    // Check cooldown before adding view
+    const cooldownKey = `view_${id}_${currentUser?.userName}`;
+    const lastViewTime = localStorage.getItem(cooldownKey);
+    const now = Date.now();
+    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    
+    let shouldAddView = true;
+    if (lastViewTime) {
+      const timeSinceLastView = now - parseInt(lastViewTime);
+      if (timeSinceLastView < oneMinute) {
+        shouldAddView = false;
+        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
+      }
+    }
+    
+    if (shouldAddView && currentUser) {
+      try {
+        await addView(id);
+        localStorage.setItem(cooldownKey, now.toString());
+        console.log("View added for post:", id);
+      } catch (error) {
+        console.error("Error adding view:", error);
+      }
+    }
+    
+    setShowAudioPlayer(true);
+  };
   const handleLikeUpdate = (updatedLikes) => {
     setLocalLikes(updatedLikes);
   };
@@ -69,9 +102,11 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           
           <div className="spotlight-modal-title-row">
             <h2 className="spotlight-modal-title">{title}</h2>
-            <button className="spotlight-modal-play-btn" onClick={e => { e.stopPropagation(); setShowAudioPlayer(true); }} title="Play">
-              <span>&#9654;</span>
-            </button>
+            {!showAudioPlayer && (
+              <button className="spotlight-modal-play-btn" onClick={handlePlayClick} title="Play">
+                <span>&#9654;</span>
+              </button>
+            )}
           </div>
           
           <div className="spotlight-modal-desc">{description}</div>
@@ -100,6 +135,15 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
             >💬 {comments?.length || 0}</span>
+            <span className="spotlight-modal-views-count">👁️ {totalViews || 0}</span>
+            {currentUser && currentUser.userName === userName && (
+              <span
+                className="spotlight-modal-views"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setShowViewsAnalytics(true)}
+                title="View Analytics (Premium Feature)"
+              >📊 Analytics</span>
+            )}
           </div>
           
           {!showComments ? (
@@ -136,6 +180,13 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
             )}
           </div>
           
+          <ViewsAnalytics
+            postId={id}
+            isOpen={showViewsAnalytics}
+            onClose={() => setShowViewsAnalytics(false)}
+            currentUser={currentUser}
+            postAuthor={author}
+          />
           
         </div>
       </div>
@@ -143,7 +194,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
   );
 }
 
-function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [] }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -161,8 +212,34 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     fetchUser();
   }, []);
 
-  const openAudioPlayer = (e) => {
+  const openAudioPlayer = async (e) => {
     e.stopPropagation();
+    
+    // Check cooldown before adding view
+    const cooldownKey = `view_${id}_${currentUser?.userName}`;
+    const lastViewTime = localStorage.getItem(cooldownKey);
+    const now = Date.now();
+    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    
+    let shouldAddView = true;
+    if (lastViewTime) {
+      const timeSinceLastView = now - parseInt(lastViewTime);
+      if (timeSinceLastView < oneMinute) {
+        shouldAddView = false;
+        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
+      }
+    }
+    
+    if (shouldAddView && currentUser) {
+      try {
+        await addView(id);
+        localStorage.setItem(cooldownKey, now.toString());
+        console.log("View added for post:", id);
+      } catch (error) {
+        console.error("Error adding view:", error);
+      }
+    }
+    
     setShowAudioPlayer(true);
   };
 
@@ -204,6 +281,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     }
   };
 
+
   return (
     <>
       <div
@@ -230,9 +308,11 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
           
           <div className="spotlight-card-title-row">
             <h2 className="spotlight-card-title">{title}</h2>
-            <button className="spotlight-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }} title="Play">
-              <span>&#9654;</span>
-            </button>
+            {!showAudioPlayer && (
+              <button className="spotlight-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }} title="Play">
+                <span>&#9654;</span>
+              </button>
+            )}
           </div>
           
           <div className="spotlight-card-desc">{description}</div>
@@ -249,6 +329,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
           <div className="spotlight-card-stats-row">
             <span className="spotlight-card-likes">❤️ {likes.length}</span>
             <span className="spotlight-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
+            <span className="spotlight-card-views-count">👁️ {totalViews || 0}</span>
           </div>
           
           {showAudioPlayer && (
@@ -274,6 +355,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
         likes={likes}
         onAddComment={handleModalAddComment}
         currentUser={currentUser}
+        totalViews={totalViews}
       />
     </>
   );

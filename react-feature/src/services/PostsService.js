@@ -24,3 +24,7 @@ export const deleteComment = (postId, commentText) => {
 export const deletePost = (postId) => {
   return api.delete(`/posts/delete/${postId}`);
 }
+
+export const addView = (id) => {
+  return api.post(`/posts/view/${id}`);
+}

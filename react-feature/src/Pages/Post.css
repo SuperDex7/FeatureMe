@@ -694,6 +694,58 @@
   box-shadow: none;
 }
 
+/* Premium Analytics Button */
+.hero-analytics-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #ff6b6b, #ffa726);
+  border: none;
+  border-radius: 30px;
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.hero-analytics-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.hero-analytics-btn:hover::before {
+  left: 100%;
+}
+
+.hero-analytics-btn:hover {
+  background: linear-gradient(135deg, #ff5252, #ff9800);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 107, 107, 0.4);
+}
+
+.hero-analytics-btn:active {
+  transform: translateY(0);
+}
+
+.analytics-icon {
+  font-size: 18px;
+}
+
+.analytics-text {
+  font-weight: 600;
+}
+
 .delete-icon {
   font-size: 1rem;
 }

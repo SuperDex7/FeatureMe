@@ -808,6 +808,73 @@
   text-shadow: 0 2px 8px #1db95433;
 }
 
+/* Premium Analytics Views Button */
+.spotlight-modal-views {
+  color: #ffa726;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: 15px;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(255, 167, 38, 0.1), rgba(255, 107, 107, 0.1));
+  border: 1px solid rgba(255, 167, 38, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-modal-views::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 167, 38, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.spotlight-modal-views:hover::before {
+  left: 100%;
+}
+
+.spotlight-modal-views:hover {
+  color: #ff9800;
+  background: linear-gradient(135deg, rgba(255, 167, 38, 0.2), rgba(255, 107, 107, 0.2));
+  border-color: rgba(255, 167, 38, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 167, 38, 0.3);
+}
+
+  .spotlight-modal-views.active {
+    background: linear-gradient(135deg, rgba(255, 167, 38, 0.25), rgba(255, 107, 107, 0.25));
+    color: #ff8f00;
+    border-color: rgba(255, 167, 38, 0.6);
+  }
+
+  /* View Counter Display */
+  .spotlight-modal-views-count {
+    color: #9ca3af;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.2rem 0;
+    transition: color 0.2s ease;
+  }
+
+  .spotlight-modal-views-count:hover {
+    color: #d1d5db;
+  }
+
+  .spotlight-card-views-count {
+    color: #9ca3af;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .spotlight-card-views-count:hover {
+    color: #d1d5db;
+  }
+
 .spotlight-modal-likes-section {
   background: rgba(36, 36, 46, 0.82);
   border-radius: 1.1rem;

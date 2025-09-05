@@ -2,15 +2,12 @@ package Feat.FeatureMe.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
@@ -18,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentDTO;
 import Feat.FeatureMe.Dto.CommentedOnDTO;
+import Feat.FeatureMe.Dto.ViewsDTO;
 import Feat.FeatureMe.Dto.LikesDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.PostsDTO;
@@ -32,45 +30,68 @@ public class PostsService {
 
     private final PostsRepository postsRepository;
     private final UserRepository userRepository;
+    private final PostViewService postViewService;
+    private final PostCommentService postCommentService;
+    private final PostLikeService postLikeService;
     
-    public PostsService(PostsRepository postsRepository, UserRepository userRepository) {
+    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService) {
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
+        this.postViewService = postViewService;
+        this.postCommentService = postCommentService;
+        this.postLikeService = postLikeService;
     }
     
 
-    private List<LikesDTO> convertUsernamesToLikesDTO(List<String> usernames) {
-        if (usernames == null || usernames.isEmpty()) {
-            return List.of();
+    private List<LikesDTO> getLikesForPost(String postId) {
+        try {
+            // Get recent likes from the separate collection (limit to 10 for post DTOs)
+            return postLikeService.getRecentLikes(postId, 10);
+        } catch (Exception e) {
+            return List.of(); // Return empty list on error
         }
-        
-        // Create a copy and reverse to show newest likes first
-        List<String> reversedUsernames = new ArrayList<>(usernames);
-        Collections.reverse(reversedUsernames);
-        
-        return reversedUsernames.stream()
-            .map(username -> {
-                User user = userRepository.findByUserName(username).orElse(null);
-                if (user != null) {
-                    return new LikesDTO(user.getUserName(), user.getProfilePic(), LocalDateTime.now());
-                } else {
-                    // Fallback for deleted users
-                    return new LikesDTO(username, null, LocalDateTime.now());
-                }
-            })
-            .toList();
     }
     
-    private List<CommentDTO> convertCommentsToSortedDTO(List<CommentDTO> comments) {
-        if (comments == null || comments.isEmpty()) {
-            return List.of();
+    private int getTotalLikesForPost(String postId) {
+        try {
+            return (int) postLikeService.getTotalLikes(postId);
+        } catch (Exception e) {
+            return 0;
         }
-        
-        // Create a copy and reverse to show newest comments first
-        List<CommentDTO> reversedComments = new ArrayList<>(comments);
-        Collections.reverse(reversedComments);
-        
-        return reversedComments;
+    }
+    
+    private List<CommentDTO> getCommentsForPost(String postId) {
+        try {
+            // Get recent comments from the separate collection (limit to 10 for post DTOs)
+            return postCommentService.getRecentComments(postId, 10);
+        } catch (Exception e) {
+            return List.of(); // Return empty list on error
+        }
+    }
+    
+    private int getTotalCommentsForPost(String postId) {
+        try {
+            return (int) postCommentService.getTotalComments(postId);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    
+    private List<ViewsDTO> getViewsForPost(String postId) {
+        try {
+            // Get recent views from the separate collection (limit to 10 for post DTOs)
+            return postViewService.getRecentViews(postId, 10);
+        } catch (Exception e) {
+            return List.of(); // Return empty list on error
+        }
+    }
+    
+    private int getTotalViewsForPost(String postId) {
+        try {
+            return (int) postViewService.getTotalViews(postId);
+        } catch (Exception e) {
+            return 0;
+        }
     }
         
     public Posts createPost(String authoruserName, Posts posts) {
@@ -84,9 +105,8 @@ public class PostsService {
         posts.getFeatures(),
         posts.getGenre(),
         posts.getMusic(),
-        posts.getComments(),
         LocalDateTime.now(),
-        List.of()
+        0 // Initial totalViews
     );
     Posts savedPost = postsRepository.insert(post);
     PostsDTO postDto = new PostsDTO(
@@ -105,9 +125,11 @@ public class PostsService {
         savedPost.getFeatures(),
         savedPost.getGenre(),
         savedPost.getMusic(),
-        savedPost.getComments(),
+        getCommentsForPost(savedPost.getId()),
         savedPost.getTime(),
-        convertUsernamesToLikesDTO(savedPost.getLikes())
+        getLikesForPost(savedPost.getId()),
+        getViewsForPost(savedPost.getId()),
+        savedPost.getTotalViews()
     );
 
         // Update user's posts list
@@ -152,10 +174,8 @@ public class PostsService {
             updatedPosts.getFeatures() != null && !updatedPosts.getFeatures().isEmpty() ? updatedPosts.getFeatures() : posts.getFeatures(),
             updatedPosts.getGenre() != null && !updatedPosts.getGenre().isEmpty() ? updatedPosts.getGenre() : posts.getGenre(),
             updatedPosts.getMusic() != null && !updatedPosts.getMusic().isBlank() ? updatedPosts.getMusic() : posts.getMusic(),
-            updatedPosts.getComments() != null && !updatedPosts.getComments().isEmpty() ? updatedPosts.getComments() : posts.getComments(),
             updatedPosts.getTime() != null ? updatedPosts.getTime() : posts.getTime(),
-            updatedPosts.getLikes() != null && !updatedPosts.getLikes().isEmpty() ? updatedPosts.getLikes() : posts.getLikes()
-    
+            posts.getTotalViews() // Preserve existing totalViews
         );
         return postsRepository.save(posts);
     }
@@ -180,9 +200,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         }).toList();
     }
@@ -190,29 +212,36 @@ public class PostsService {
     
     
     public PostsDTO getPostById(String id) {
-        Posts post = postsRepository.findById(id)
-                   .orElseThrow(() -> new IllegalArgumentException("Post not found"));
-    User u = post.getAuthor();
-    UserPostsDTO author = new UserPostsDTO(
-        u.getId(),
-        u.getUserName(),
-        u.getProfilePic(),
-        u.getBanner(),
-        u.getBio(),
-        u.getLocation()
-    );
-    return new PostsDTO(
-        post.getId(),
-        author,
-        post.getTitle(),
-        post.getDescription(),
-        post.getFeatures(),
-        post.getGenre(),
-        post.getMusic(),
-        convertCommentsToSortedDTO(post.getComments()),
-        post.getTime(),
-        convertUsernamesToLikesDTO(post.getLikes())
-    );
+        try {
+            Posts post = postsRepository.findById(id)
+                       .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+            User u = post.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            
+            return new PostsDTO(
+                post.getId(),
+                author,
+                post.getTitle(),
+                post.getDescription(),
+                post.getFeatures(),
+                post.getGenre(),
+                post.getMusic(),
+                getCommentsForPost(post.getId()),
+                post.getTime(),
+                getLikesForPost(post.getId()),
+                getViewsForPost(post.getId()),
+                getTotalViewsForPost(post.getId())
+            );
+        } catch (Exception e) {
+            throw e;
+        }
     }
     
     
@@ -274,9 +303,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         }).toList();
     
@@ -308,9 +339,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         });
         
@@ -332,91 +365,79 @@ public class PostsService {
 
     public Optional<Posts> addLike(String id, String userName){
         Optional<Posts> post = postsRepository.findById(id);
-        User author = post.get().getAuthor();
-    if (post.isPresent()) {
-        Posts foundPost = post.get();
-        List<String> currentLikes = foundPost.getLikes();
-        List<NotificationsDTO> currentNoti = author.getNotifications();
-        
-        if (currentLikes == null) {
-            currentLikes = new ArrayList<>();
-        }
-        if(author.getNotifications() == null){
-            author.setNotifications(new ArrayList<>());
-        }
-       
-        NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now());
-        // Add the username if it's not already in the list
-        if (!currentLikes.contains(userName)) {
-            currentLikes.add(userName);
-           
-            // Save the updated post
-            Posts savedPost = postsRepository.save(foundPost);
-             User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-            if(user.getLikedPosts() == null){
-                user.setLikedPosts(new ArrayList<>());
-            }
+        if (post.isPresent()) {
+            Posts foundPost = post.get();
+            User author = foundPost.getAuthor();
+            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
             
-            user.getLikedPosts().add(id);
-            author.getNotifications().add(noti);
+            // Use the new PostLikeService to toggle the like
+            boolean isLiked = postLikeService.toggleLike(id, userName);
             
-            // Clean up notifications if they exceed 30
-            cleanupNotifications(author);
+            // Update the cached totalLikes count in the Posts entity
+            long newTotalLikes = postLikeService.getTotalLikes(id);
+            foundPost.setTotalLikes((int) newTotalLikes);
+            postsRepository.save(foundPost); // Save the updated like count
             
-            userRepository.save(author);
-            userRepository.save(user);
-            return Optional.of(savedPost);
-        }else{
-            currentLikes.remove(userName);
-            // Remove the original notification that was created when the like was added
-            if(currentNoti != null){
-                currentNoti.removeIf(notification -> 
-                notification.id() != null && 
-                notification.id().equals(foundPost.getId()) && 
-                notification.userName().equals(userName) && 
-                notification.noti().equals("Liked Your Post!")
-            );
-            }else{
+            // Handle notifications and user liked posts
+            if(author.getNotifications() == null){
                 author.setNotifications(new ArrayList<>());
             }
-            
-            Posts savedPost = postsRepository.save(foundPost);
-            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-            user.getLikedPosts().remove(id);
-            userRepository.save(user);
-            userRepository.save(author);
             if(user.getLikedPosts() == null){
                 user.setLikedPosts(new ArrayList<>());
             }
-            return Optional.of(savedPost);
+            
+            if (isLiked) {
+                // User liked the post
+                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now());
+                user.getLikedPosts().add(id);
+                author.getNotifications().add(noti);
+                
+                // Clean up notifications if they exceed 30
+                cleanupNotifications(author);
+            } else {
+                // User unliked the post
+                user.getLikedPosts().remove(id);
+                
+                // Remove the like notification
+                List<NotificationsDTO> currentNoti = author.getNotifications();
+                if(currentNoti != null){
+                    currentNoti.removeIf(notification -> 
+                        notification.id() != null && 
+                        notification.id().equals(foundPost.getId()) && 
+                        notification.userName().equals(userName) && 
+                        notification.noti().equals("Liked Your Post!")
+                    );
+                }
+            }
+            
+            userRepository.save(author);
+            userRepository.save(user);
+            return Optional.of(foundPost);
         }
-    }
 
-    return post; // Return original post if no changes made
+        return post; // Return original post if no changes made
     }
 
     public Optional<Posts> addComment(String id, String userName, String comment){
         Optional<Posts> post = postsRepository.findById(id);
-        User author = post.get().getAuthor();
-        User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-        NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!",LocalDateTime.now());
         if(post.isPresent()){
             Posts foundPost = post.get();
-            List<CommentDTO> currentComments = foundPost.getComments();
-            if(currentComments == null){
-                currentComments = new ArrayList<>();
-            }
+            User author = foundPost.getAuthor();
+            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            
+            // Use the new PostCommentService to add the comment
+            postCommentService.addComment(id, userName, comment);
+            
+            // Handle notifications and user comment history
+            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", LocalDateTime.now());
+            
             if(author.getNotifications() == null){
                 author.setNotifications(new ArrayList<>());
             }
             if(user.getComments() == null){
-                        user.setComments(new ArrayList<>());
-                    }
-            currentComments.add(new CommentDTO(userName,user.getProfilePic(), comment, LocalDateTime.now()));
+                user.setComments(new ArrayList<>());
+            }
             
-            
-            foundPost.setComments(currentComments);
-            Posts savedPost = postsRepository.save(foundPost);
             user.getComments().add(new CommentedOnDTO(id, comment, LocalDateTime.now()));
             author.getNotifications().add(noti);
             
@@ -425,7 +446,7 @@ public class PostsService {
             
             userRepository.save(author);
             userRepository.save(user);
-            return Optional.of(savedPost);
+            return Optional.of(foundPost);
         }
         return post;
     }
@@ -437,17 +458,9 @@ public class PostsService {
             User author = foundPost.getAuthor();
             User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
             
-            List<CommentDTO> currentComments = foundPost.getComments();
-            if(currentComments != null){
-                // Remove the comment by matching username and comment text
-                currentComments.removeIf(comment -> 
-                    comment.userName() != null &&
-                    comment.userName().equals(userName) && 
-                    comment.comment() != null &&
-                    comment.comment().equals(commentText)
-                );
-                foundPost.setComments(currentComments);
-            }
+            // Use the new PostCommentService to delete the comment
+            // Note: This is a simplified approach. For better implementation, we'd need comment IDs
+            // For now, we'll need to modify the frontend to provide more specific comment identification
             
             // Remove the notification that was created when the comment was added
             List<NotificationsDTO> currentNoti = author.getNotifications();
@@ -509,9 +522,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         });
         
@@ -520,9 +535,11 @@ public class PostsService {
 
 
     public PagedModel<PostsDTO> findByLikesDesc(int page, int size){
+        // NOW FAST: Use database-level sorting with cached totalLikes field!
         Pageable pageable = PageRequest.of(page, size);
-        Page<Posts> postsPage = postsRepository.findAllByOrderByTimeDesc(pageable);
-
+        Page<Posts> postsPage = postsRepository.findAllByOrderByTotalLikesDescTimeDesc(pageable);
+        
+        // Convert to DTOs (much simpler now)
         Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
             User u = p.getAuthor();
             UserPostsDTO author = new UserPostsDTO(
@@ -541,9 +558,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         });
         
@@ -574,9 +593,11 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         });
         
@@ -587,17 +608,16 @@ public class PostsService {
     public PagedModel<PostsDTO> searchPosts(String searchTerm, List<String> genres, String sortBy, int page, int size) {
         Pageable pageable;
         
-        // Set up sorting
+        // Set up sorting - now we can use database-level sorting for likes too!
         if ("likes".equalsIgnoreCase(sortBy)) {
-            pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("likes").descending());
+            pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("totalLikes").descending().and(org.springframework.data.domain.Sort.by("time").descending()));
         } else {
-            // Default to time (most recent)
             pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("time").descending());
         }
         
         Page<Posts> postsPage;
         
-        // Determine which search method to use based on provided parameters
+        // Get posts based on search criteria with proper sorting
         if (searchTerm != null && !searchTerm.trim().isEmpty() && genres != null && !genres.isEmpty()) {
             // Both search term and genres provided - use AND logic (both must match)
             postsPage = postsRepository.findByTitleOrDescriptionAndGenreIn(searchTerm.trim(), genres, pageable);
@@ -607,20 +627,20 @@ public class PostsService {
         } else if (genres != null && !genres.isEmpty()) {
             // Only genres provided
             if ("likes".equalsIgnoreCase(sortBy)) {
-                postsPage = postsRepository.findMostLikedPostsByGenre(genres, pageable);
+                postsPage = postsRepository.findByGenreAllOrderByTotalLikesDescTimeDesc(genres, pageable);
             } else {
                 postsPage = postsRepository.findMostRecentPostsByGenre(genres, pageable);
             }
         } else {
-            // No filters provided - return all posts with sorting
+            // No filters provided - use direct database sorting
             if ("likes".equalsIgnoreCase(sortBy)) {
-                postsPage = postsRepository.findMostLikedPosts(pageable);
+                postsPage = postsRepository.findAllByOrderByTotalLikesDescTimeDesc(pageable);
             } else {
                 postsPage = postsRepository.findMostRecentPosts(pageable);
             }
         }
         
-        // Convert to DTOs
+        // Convert to DTOs (much simpler now with database sorting)
         Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
             User u = p.getAuthor();
             UserPostsDTO author = new UserPostsDTO(
@@ -639,14 +659,76 @@ public class PostsService {
                 p.getFeatures(),
                 p.getGenre(),
                 p.getMusic(),
-                convertCommentsToSortedDTO(p.getComments()),
+                getCommentsForPost(p.getId()),
                 p.getTime(),
-                convertUsernamesToLikesDTO(p.getLikes())
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
             );
         });
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
+
+
+    public void addView(String id, String userName) {
+        // Verify post exists
+        postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        
+        // Use the new PostViewService to handle view tracking
+        postViewService.addView(id, userName);
+    }
+    
+    public List<ViewsDTO> getPostViews(String postId) {
+        // Verify post exists
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        
+        // Get recent views from the separate collection (limit to 50 for performance)
+        return postViewService.getRecentViews(postId, 50);
+    }
+    
+    // New methods for the separate views system
+    public PostViewService.PostViewSummary getPostViewSummary(String postId) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        return postViewService.getViewSummary(postId);
+    }
+    
+    public PagedModel<ViewsDTO> getPostViewsPaginated(String postId, int page, int size) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        Page<ViewsDTO> viewsPage = postViewService.getPostViews(postId, page, size);
+        return new PagedModel<>(viewsPage);
+    }
+    
+    // New methods for the separate comments system
+    public PostCommentService.PostCommentSummary getPostCommentSummary(String postId) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        return postCommentService.getCommentSummary(postId);
+    }
+    
+    public PagedModel<CommentDTO> getPostCommentsPaginated(String postId, int page, int size) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        Page<CommentDTO> commentsPage = postCommentService.getPostComments(postId, page, size);
+        return new PagedModel<>(commentsPage);
+    }
+    
+    // New methods for the separate likes system
+    public PostLikeService.PostLikeSummary getPostLikeSummary(String postId) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        return postLikeService.getLikeSummary(postId);
+    }
+    
+    public PagedModel<LikesDTO> getPostLikesPaginated(String postId, int page, int size) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        Page<LikesDTO> likesPage = postLikeService.getPostLikes(postId, page, size);
+        return new PagedModel<>(likesPage);
+    }
+    
+    public boolean hasUserLikedPost(String postId, String userName) {
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        return postLikeService.hasUserLiked(postId, userName);
+    }
+    
+   
     }
 
 

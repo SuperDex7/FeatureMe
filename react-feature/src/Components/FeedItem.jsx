@@ -2,17 +2,50 @@ import React, { useState, useEffect } from "react";
 import AudioPlayer from "./AudioPlayer";
 import CommentSection from "./CommentSection";
 import LikesSection from "./LikesSection";
-import { deletePost } from "../services/PostsService";
+import ViewsAnalytics from "./ViewsAnalytics";
+import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser }) {
+function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [localLikes, setLocalLikes] = useState(likes || []);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
 
   if (!open) return null;
+
+  const handlePlayClick = async (e) => {
+    e.stopPropagation();
+    
+    // Check cooldown before adding view
+    const cooldownKey = `view_${id}_${currentUser?.userName}`;
+    const lastViewTime = localStorage.getItem(cooldownKey);
+    const now = Date.now();
+    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    
+    let shouldAddView = true;
+    if (lastViewTime) {
+      const timeSinceLastView = now - parseInt(lastViewTime);
+      if (timeSinceLastView < oneMinute) {
+        shouldAddView = false;
+        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
+      }
+    }
+    
+    if (shouldAddView && currentUser) {
+      try {
+        await addView(id);
+        localStorage.setItem(cooldownKey, now.toString());
+        console.log("View added for post:", id);
+      } catch (error) {
+        console.error("Error adding view:", error);
+      }
+    }
+    
+    setShowAudioPlayer(true);
+  };
 
   const handleLikeUpdate = (updatedLikes) => {
     setLocalLikes(updatedLikes);
@@ -68,9 +101,11 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
           )}
           <div className="feed-card-title-row">
             <h2 className="feed-card-title">{title}</h2>
-            <button className="feed-card-play-btn" onClick={e => { e.stopPropagation(); setShowAudioPlayer(true); }} title="Play">
-              <span>&#9654;</span>
-            </button>
+            {!showAudioPlayer && (
+              <button className="feed-card-play-btn" onClick={handlePlayClick} title="Play">
+                <span>&#9654;</span>
+              </button>
+            )}
           </div>
           <div className="feed-card-desc">{description}</div>
           
@@ -100,6 +135,15 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
             >💬 {comments?.length || 0}</span>
+            <span className="feed-card-views-count">👁️ {totalViews || 0}</span>
+            {currentUser && currentUser.userName === userName && (
+              <span
+                className="feed-card-views"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setShowViewsAnalytics(true)}
+                title="View Analytics (Premium Feature)"
+              >📊 Analytics</span>
+            )}
           </div>
                     {!showComments ? (
             <LikesSection
@@ -134,13 +178,21 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             )}
           </div>
           
+          <ViewsAnalytics
+            postId={id}
+            isOpen={showViewsAnalytics}
+            onClose={() => setShowViewsAnalytics(false)}
+            currentUser={currentUser}
+            postAuthor={author}
+          />
+          
         </div>
       </div>
     </div>
   );
 }
 
-function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [] }) {
+function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -159,8 +211,34 @@ function FeedItem({ id, author, description, time, title, features, genre, music
     fetchUser();
   }, []);
 
-  const openAudioPlayer = (e) => {
+  const openAudioPlayer = async (e) => {
     e.stopPropagation();
+    
+    // Check cooldown before adding view
+    const cooldownKey = `view_${id}_${currentUser?.userName}`;
+    const lastViewTime = localStorage.getItem(cooldownKey);
+    const now = Date.now();
+    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    
+    let shouldAddView = true;
+    if (lastViewTime) {
+      const timeSinceLastView = now - parseInt(lastViewTime);
+      if (timeSinceLastView < oneMinute) {
+        shouldAddView = false;
+        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
+      }
+    }
+    
+    if (shouldAddView && currentUser) {
+      try {
+        await addView(id);
+        localStorage.setItem(cooldownKey, now.toString());
+        console.log("View added for post:", id);
+      } catch (error) {
+        console.error("Error adding view:", error);
+      }
+    }
+    
     setShowAudioPlayer(true);
   };
   
@@ -226,9 +304,11 @@ function FeedItem({ id, author, description, time, title, features, genre, music
           )}
           <div className="feed-card-title-row">
             <h2 className="feed-card-title">{title}</h2>
-            <button className="feed-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }} title="Play">
-              <span>&#9654;</span>
-            </button>
+            {!showAudioPlayer && (
+              <button className="feed-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }} title="Play">
+                <span>&#9654;</span>
+              </button>
+            )}
           </div>
           <div className="feed-card-desc">{description}</div>
           
@@ -248,6 +328,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
           <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
             <span className="feed-card-likes">❤️ {likes.length}</span>
             <span className="feed-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
+            <span className="feed-card-views-count">👁️ {totalViews || 0}</span>
           </div>
           
         </div>
@@ -267,6 +348,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
         likes={likes}
         onAddComment={handleModalAddComment}
         currentUser={currentUser}
+        totalViews={totalViews}
       />
     </>
   );
