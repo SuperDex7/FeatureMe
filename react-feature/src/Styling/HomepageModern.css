@@ -350,6 +350,137 @@
   justify-content: space-between;
   flex-wrap: wrap;
 }
+
+/* Analytics Preview Card */
+.analytics-preview-card {
+  width: 100%;
+  max-width: 700px;
+  background: linear-gradient(120deg, rgba(36,40,54,0.82) 60%, rgba(100,125,222,0.13) 100%);
+  transition: all 0.3s ease;
+  border: 2px solid rgba(120, 120, 255, 0.2);
+}
+
+.analytics-preview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 48px rgba(100, 125, 222, 0.25);
+  border-color: rgba(120, 120, 255, 0.4);
+}
+
+.analytics-preview-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.5rem;
+}
+
+.analytics-preview-icon {
+  font-size: 3rem;
+  background: linear-gradient(135deg, #ffa726, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  flex-shrink: 0;
+}
+
+.analytics-preview-text {
+  flex: 1;
+}
+
+.analytics-preview-text h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f3f3f7;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, #7f53ac 0%, #647dee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.analytics-preview-text p {
+  font-size: 1rem;
+  color: #bfc9d1;
+  margin: 0 0 0.8rem 0;
+  opacity: 0.9;
+}
+
+.analytics-preview-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #7eaaff;
+}
+
+.analytics-preview-arrow {
+  font-size: 1.5rem;
+  color: #647dee;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.analytics-preview-card:hover .analytics-preview-arrow {
+  transform: translateX(5px);
+}
+
+/* Analytics Modal */
+.analytics-modal-content {
+  width: 95vw;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: linear-gradient(135deg, rgba(30,34,45,0.98) 0%, rgba(34, 40, 49, 0.98) 100%);
+  border: 2px solid rgba(120, 120, 255, 0.3);
+}
+
+.analytics-modal-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(120, 120, 255, 0.2);
+}
+
+.analytics-modal-header h3 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f3f3f7;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, #7f53ac 0%, #647dee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.analytics-modal-header p {
+  font-size: 1.1rem;
+  color: #bfc9d1;
+  margin: 0;
+  opacity: 0.8;
+}
+
+.analytics-modal-body {
+  padding: 0;
+}
+
+/* Fix dropdown visibility in analytics modal */
+.analytics-modal-content .analytics-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.analytics-modal-content select,
+.analytics-modal-content option {
+  background: rgba(30, 34, 45, 0.95) !important;
+  color: #f3f3f7 !important;
+  border: 1px solid rgba(120, 120, 255, 0.3) !important;
+}
+
+.analytics-modal-content select:focus {
+  outline: none;
+  border-color: rgba(120, 120, 255, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(120, 120, 255, 0.2) !important;
+}
 .activity-card, .latest-post-card {
   flex: 1;
   min-width: 260px;
