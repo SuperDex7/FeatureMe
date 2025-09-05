@@ -163,12 +163,12 @@ function Feedf() {
   const [isGenreDropdownOpen, setIsGenreDropdownOpen] = useState(false);
   const [size, setSize] = useState(6)
   const [page, setPage] = useState(0)
-  const [searchSize, setSearchSize] = useState(9)
+  const [searchSize, setSearchSize] = useState(6)
   const [searchPage, setSearchPage] = useState(0)
   const [searchPosts, setSearchPosts]= useState(null)
   const [sort, setSort] = useState('likes')
-  const [totalPages, setTotalPages] = useState()
-  const [totalSearchPages, setTotalSearchPages] = useState()
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalSearchPages, setTotalSearchPages] = useState(0)
 
   const dropdownRef = useRef();
   const genreDropdownRef = useRef();
@@ -415,8 +415,8 @@ function Feedf() {
           ))|| "Search For Something"}
         </div>
                  <div id="pageButtons">
-         <button className="section-more-btn" onClick={() => setSearchPage(searchPage - 1)} disabled={searchPage == 0 || searchPage == null}>Previous Page</button>
-         <button className="section-more-btn" onClick={() => setSearchPage(searchPage + 1)} disabled={searchPage == totalSearchPages || searchPage == null}>Next Page</button>
+         <button className="section-more-btn" onClick={() => setSearchPage(searchPage - 1)} hidden={totalSearchPages < 2 ? true:false}  disabled={searchPage == 0 || searchPage == null}>Previous Page</button>
+         <button className="section-more-btn" onClick={() => setSearchPage(searchPage + 1)} hidden={totalSearchPages < 2 ? true:false}  disabled={searchPage == totalSearchPages || searchPage == null}>Next Page</button>
          </div>
       </section>
     </main>

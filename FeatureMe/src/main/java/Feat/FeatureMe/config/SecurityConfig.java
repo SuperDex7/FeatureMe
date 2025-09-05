@@ -43,7 +43,7 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(registry ->{
                 //registry.requestMatchers("/api/user/**").permitAll();
-                registry.requestMatchers("/api/posts/**").authenticated();
+                //registry.requestMatchers("/api/posts/**").authenticated();
                 registry.anyRequest().permitAll();
             })
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)

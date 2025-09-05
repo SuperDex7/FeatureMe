@@ -33,8 +33,8 @@ function LikedPosts(){
               ))|| "No Liked Posts Yet"}
             </div>
             <div id="pageButtons">
-        <button className="section-more-btn" onClick={prevPage} disabled={page == 0 || page == null? true: false}>Previous Page</button>
-        <button className="section-more-btn" onClick={nextPage} disabled={page == totalPages-1 || page == null? true: false}>Next Page</button>
+        <button className="section-more-btn" onClick={prevPage} hidden={totalPages < 2 ? true:false}  disabled={page == 0 || page == null? true: false}>Previous Page</button>
+        <button className="section-more-btn" onClick={nextPage} hidden={totalPages < 2 ? true:false}  disabled={page == totalPages-1 || page == null? true: false}>Next Page</button>
         </div>
             </div>
     )
