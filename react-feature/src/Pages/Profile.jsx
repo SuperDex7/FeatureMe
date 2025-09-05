@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "../Styling/Profile.css";
-import { getUserInfo, UserRelationsService } from "../services/UserService";
+import { getUserInfo, UserRelationsService, updateProfile } from "../services/UserService";
 import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
@@ -26,6 +26,18 @@ function Profile() {
   const [showFollow, setShowFollow] = useState(false)
   const [followPopupType, setFollowPopupType] = useState('followers')
   const [relationshipSummary, setRelationshipSummary] = useState(null)
+  
+  // Edit profile state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    userName: '',
+    bio: '',
+    location: '',
+    about: '',
+    profilePic: '',
+    banner: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
 
   const [size, setSize] = useState(6)
     const [page, setPage] = useState(0)
@@ -61,6 +73,20 @@ function Profile() {
     };
     fetchData();
   }, [username]);
+
+  // Populate edit form when user data is loaded
+  useEffect(() => {
+    if (user && currentUser?.userName === username) {
+      setEditFormData({
+        userName: user.userName || '',
+        bio: user.bio || '',
+        location: user.location || '',
+        about: user.about || '',
+        profilePic: user.profilePic || '',
+        banner: user.banner || ''
+      });
+    }
+  }, [user, currentUser, username]);
 
   // Note: isFollowing is now set directly from relationship summary
 
@@ -137,6 +163,57 @@ function Profile() {
       console.error('Error following/unfollowing user:', err);
     }
   };
+
+  // Edit profile handlers
+  const handleEditClick = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form data to original user data
+    if (user) {
+      setEditFormData({
+        userName: user.userName || '',
+        bio: user.bio || '',
+        location: user.location || '',
+        about: user.about || '',
+        profilePic: user.profilePic || '',
+        banner: user.banner || ''
+      });
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
+    
+    try {
+      const response = await updateProfile(editFormData);
+      console.log('Profile updated:', response.data);
+      
+      // Update the user state with new data
+      setUser(response.data);
+      setIsEditing(false);
+      
+      // Show success message (you can implement a toast notification here)
+      alert('Profile updated successfully!');
+      
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
   
   return (
     <div className="profile-glass-root">
@@ -150,7 +227,9 @@ function Profile() {
       </div>
       <div className="profile-glass-info-card overlap-margin">
         {currentUser?.userName === username ? (
-          <button className="profile-glass-edit">Edit Profile</button>
+          <button className="profile-glass-edit" onClick={isEditing ? handleCancelEdit : handleEditClick}>
+            {isEditing ? 'Cancel' : 'Edit Profile'}
+          </button>
         ) : (
           <button 
             className={`profile-glass-edit ${isFollowing ? 'following' : ''}`} 
@@ -159,24 +238,118 @@ function Profile() {
             {isFollowing ? 'Unfollow' : 'Follow'}
           </button>
         )}
-        <h2 className="profile-glass-username">{user.userName}</h2>
-                 <div className="profile-glass-badges-row">
-           {user?.badges?.map((badge, i) => {
-             const badgeInfo = BadgeService.getBadgeInfo(badge);
-             return (
-               <span
-                 key={i}
-                 className="profile-glass-badge"
-                 style={{ background: badgeInfo.color }}
-                 title={badgeInfo.description}
-               >
-                 {badgeInfo.icon}
-               </span>
-             );
-           })}
-         </div>
-        <p className="profile-glass-bio">{user.bio}</p>
-        <p className="profile-glass-location">{user.location}</p>
+        {isEditing ? (
+          <form className="profile-edit-form" onSubmit={handleSaveProfile}>
+            <div className="edit-field">
+              <label htmlFor="userName">Username:</label>
+              <input
+                type="text"
+                id="userName"
+                name="userName"
+                value={editFormData.userName}
+                onChange={handleInputChange}
+                required
+                disabled={editLoading}
+              />
+            </div>
+            
+            <div className="edit-field">
+              <label htmlFor="bio">Bio:</label>
+              <textarea
+                id="bio"
+                name="bio"
+                value={editFormData.bio}
+                onChange={handleInputChange}
+                rows="3"
+                disabled={editLoading}
+                placeholder="Tell us about yourself..."
+              />
+            </div>
+            
+            <div className="edit-field">
+              <label htmlFor="location">Location:</label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={editFormData.location}
+                onChange={handleInputChange}
+                disabled={editLoading}
+                placeholder="Where are you from?"
+              />
+            </div>
+            
+            <div className="edit-field">
+              <label htmlFor="about">About:</label>
+              <textarea
+                id="about"
+                name="about"
+                value={editFormData.about}
+                onChange={handleInputChange}
+                rows="4"
+                disabled={editLoading}
+                placeholder="More detailed information about yourself..."
+              />
+            </div>
+            
+            <div className="edit-field">
+              <label htmlFor="profilePic">Profile Picture URL:</label>
+              <input
+                type="url"
+                id="profilePic"
+                name="profilePic"
+                value={editFormData.profilePic}
+                onChange={handleInputChange}
+                disabled={editLoading}
+                placeholder="https://example.com/your-profile-pic.jpg"
+              />
+            </div>
+            
+            <div className="edit-field">
+              <label htmlFor="banner">Banner URL:</label>
+              <input
+                type="url"
+                id="banner"
+                name="banner"
+                value={editFormData.banner}
+                onChange={handleInputChange}
+                disabled={editLoading}
+                placeholder="https://example.com/your-banner.jpg"
+              />
+            </div>
+            
+            <div className="edit-actions">
+              <button 
+                type="submit" 
+                className="save-btn" 
+                disabled={editLoading}
+              >
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h2 className="profile-glass-username">{user.userName}</h2>
+            <div className="profile-glass-badges-row">
+              {user?.badges?.map((badge, i) => {
+                const badgeInfo = BadgeService.getBadgeInfo(badge);
+                return (
+                  <span
+                    key={i}
+                    className="profile-glass-badge"
+                    style={{ background: badgeInfo.color }}
+                    title={badgeInfo.description}
+                  >
+                    {badgeInfo.icon}
+                  </span>
+                );
+              })}
+            </div>
+            <p className="profile-glass-bio">{user.bio}</p>
+            <p className="profile-glass-location">{user.location}</p>
+          </>
+        )}
         <div className="profile-glass-stats">
           <div className="profile-glass-stat"><span className="stat-icon">📝</span><span className="stat-value">{user?.posts?.length || 0}</span><span className="stat-label">Posts</span></div>
           <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{relationshipSummary?.followersCount || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('followers')}>Followers</span></div>

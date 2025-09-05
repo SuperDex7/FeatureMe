@@ -308,4 +308,114 @@
   .profile-glass-stats {
     margin-bottom: 0.5rem;
   }
+
+  /* Edit Profile Form Styles */
+  .profile-edit-form {
+    text-align: left;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .edit-field {
+    margin-bottom: 1.5rem;
+  }
+
+  .edit-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .edit-field input,
+  .edit-field textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1rem;
+    transition: border-color 0.2s, background-color 0.2s;
+    resize: vertical;
+  }
+
+  .edit-field input:focus,
+  .edit-field textarea:focus {
+    outline: none;
+    border-color: #a259c6;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(162, 89, 198, 0.2);
+  }
+
+  .edit-field input::placeholder,
+  .edit-field textarea::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .edit-field input:disabled,
+  .edit-field textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .edit-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .save-btn {
+    background: linear-gradient(90deg, #a259c6, #5f5fd9);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 2rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(31, 38, 135, 0.2);
+  }
+
+  .save-btn:hover:not(:disabled) {
+    background: linear-gradient(90deg, #7d3bbd, #3a3ad9);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(31, 38, 135, 0.3);
+  }
+
+  .save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Responsive edit form */
+  @media (max-width: 900px) {
+    .profile-edit-form {
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+
+    .edit-field {
+      margin-bottom: 1rem;
+    }
+
+    .edit-field input,
+    .edit-field textarea {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.95rem;
+    }
+
+    .save-btn {
+      padding: 0.6rem 1.5rem;
+      font-size: 1rem;
+    }
+  }
   

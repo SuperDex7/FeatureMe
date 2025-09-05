@@ -56,3 +56,8 @@ export const UserRelationsService = {
         return api.get(`/user-relations/${userName}/following/usernames`);
     }
 };
+
+// Profile update method
+export const updateProfile = (profileData) => {
+    return api.put('/user/update', profileData);
+};
