@@ -13,6 +13,7 @@ import SignupPage from './Pages/SignupPage.jsx'
 import LoginPage from './Pages/LoginPage.jsx'
 import ProtectedRoute from './Components/ProtectedRoute.jsx'
 import Post from './Pages/Post.jsx'
+import PendingFeatures from './Components/PendingFeatures.jsx'
 
 const router = createBrowserRouter([
   {path: '/', element: <App />},
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
   {path: 'profiles', element: <ProtectedRoute><ProfilesPage /></ProtectedRoute>},
   {path: "/profile/:username", element: <ProtectedRoute><Profile /></ProtectedRoute>},
   {path: "/post/:id", element: <ProtectedRoute><Post/></ProtectedRoute>},
+  {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},
   {path: '*', element: <h1>404</h1>}
 ])
 const queryClient = new QueryClient()

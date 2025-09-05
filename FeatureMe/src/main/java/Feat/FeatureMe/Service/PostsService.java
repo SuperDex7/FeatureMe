@@ -7,7 +7,6 @@ import java.util.Optional;
 
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
@@ -97,40 +96,52 @@ public class PostsService {
     public Posts createPost(String authoruserName, Posts posts) {
         User author = userRepository.findByUserName(authoruserName)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
-    Posts post = new Posts(
-        null,
-        author,
-        posts.getTitle(),
-        posts.getDescription(),
-        posts.getFeatures(),
-        posts.getGenre(),
-        posts.getMusic(),
-        LocalDateTime.now(),
-        0 // Initial totalViews
-    );
-    Posts savedPost = postsRepository.insert(post);
-    PostsDTO postDto = new PostsDTO(
-        savedPost.getId(),
-        new UserPostsDTO(
-            author.getId(),
-            author.getUserName(),
-            author.getProfilePic(),
-            author.getBanner(),
-            author.getBio(),
-            author.getLocation()
-                    
-        ),
-        savedPost.getTitle(),
-        savedPost.getDescription(),
-        savedPost.getFeatures(),
-        savedPost.getGenre(),
-        savedPost.getMusic(),
-        getCommentsForPost(savedPost.getId()),
-        savedPost.getTime(),
-        getLikesForPost(savedPost.getId()),
-        getViewsForPost(savedPost.getId()),
-        savedPost.getTotalViews()
-    );
+        
+        // Determine post status based on whether features are requested
+        List<String> requestedFeatures = posts.getFeatures();
+        String postStatus = (requestedFeatures != null && !requestedFeatures.isEmpty()) ? "DRAFT" : "PUBLISHED";
+        
+        Posts post = new Posts(
+            null,
+            author,
+            posts.getTitle(),
+            posts.getDescription(),
+            new ArrayList<>(), // Start with empty approved features
+            posts.getGenre(),
+            posts.getMusic(),
+            LocalDateTime.now(),
+            0 // Initial totalViews
+        );
+        
+        // Set the new fields
+        post.setPendingFeatures(requestedFeatures != null ? new ArrayList<>(requestedFeatures) : new ArrayList<>());
+        post.setStatus(postStatus);
+        
+        Posts savedPost = postsRepository.insert(post);
+        PostsDTO postDto = new PostsDTO(
+            savedPost.getId(),
+            new UserPostsDTO(
+                author.getId(),
+                author.getUserName(),
+                author.getProfilePic(),
+                author.getBanner(),
+                author.getBio(),
+                author.getLocation()
+                        
+            ),
+            savedPost.getTitle(),
+            savedPost.getDescription(),
+            savedPost.getFeatures(),
+            savedPost.getPendingFeatures(),
+            savedPost.getStatus(),
+            savedPost.getGenre(),
+            savedPost.getMusic(),
+            getCommentsForPost(savedPost.getId()),
+            savedPost.getTime(),
+            getLikesForPost(savedPost.getId()),
+            getViewsForPost(savedPost.getId()),
+            savedPost.getTotalViews()
+        );
 
         // Update user's posts list
         if (author.getPosts() == null) {
@@ -139,28 +150,190 @@ public class PostsService {
         author.getPosts().add(savedPost.getId());
         userRepository.save(author);
 
-        List<User> features = userRepository.findByUserNameIn(post.getFeatures());
+        // Send approval requests to featured users instead of auto-adding
+        if (requestedFeatures != null && !requestedFeatures.isEmpty()) {
+            List<User> featuredUsers = userRepository.findByUserNameIn(requestedFeatures);
+            
+            for(User featuredUser : featuredUsers) {
+                if(featuredUser.getNotifications() == null){
+                    featuredUser.setNotifications(new ArrayList<>());
+                }
+                // Send approval request notification instead of confirmation
+                featuredUser.getNotifications().add(new NotificationsDTO(
+                    postDto.id(), 
+                    author.getUserName(), 
+                    "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.", 
+                    LocalDateTime.now()
+                ));
+                userRepository.save(featuredUser);
+            }
+        }
         
-        for(int i = 0; i < features.size(); i++){
-            if(features.get(i).getFeaturedOn() == null){
-                features.get(i).setFeaturedOn(new ArrayList<>());
-            }
-            if(features.get(i).getNotifications() == null){
-                features.get(i).setNotifications(new ArrayList<>());
-            }
-            features.get(i).getFeaturedOn().add(postDto.id());
-            features.get(i).getNotifications().add(new NotificationsDTO(postDto.id(), author.getUserName(), "Posted with you as a feature!", LocalDateTime.now()));
-            userRepository.save(features.get(i));
-        }
-        /* 
-        if(author.getFeaturedOn() == null){
-            author.setFeaturedOn(new ArrayList<>());
-        }
-        author.getFeaturedOn().add(postDto.id());
-        userRepository.save(author);
-*/
         return savedPost;
         
+    }
+    
+    public boolean approveFeature(String postId, String approverUserName) {
+        Posts post = postsRepository.findById(postId)
+            .orElseThrow(() -> new IllegalArgumentException("Post not found or has been deleted"));
+        
+        User approver = userRepository.findByUserName(approverUserName)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        // Check if user is in pending features
+        if (post.getPendingFeatures() == null || !post.getPendingFeatures().contains(approverUserName)) {
+            return false; // User not in pending features
+        }
+        
+        // Move from pending to approved features
+        post.getPendingFeatures().remove(approverUserName);
+        if (post.getFeatures() == null) {
+            post.setFeatures(new ArrayList<>());
+        }
+        post.getFeatures().add(approverUserName);
+        
+        // Add post to user's featuredOn list
+        if (approver.getFeaturedOn() == null) {
+            approver.setFeaturedOn(new ArrayList<>());
+        }
+        approver.getFeaturedOn().add(postId);
+        
+        // Check if all features are approved
+        if (post.getPendingFeatures().isEmpty()) {
+            post.setStatus("PUBLISHED");
+            
+            // Notify post author that post is now published
+            User author = post.getAuthor();
+            if (author.getNotifications() == null) {
+                author.setNotifications(new ArrayList<>());
+            }
+            author.getNotifications().add(new NotificationsDTO(
+                postId, 
+                "System", 
+                "Your post '" + post.getTitle() + "' is now published! All featured users have approved.", 
+                LocalDateTime.now()
+            ));
+            userRepository.save(author);
+        } else {
+            post.setStatus("PARTIALLY_APPROVED");
+        }
+        
+        // Notify approver
+        if (approver.getNotifications() == null) {
+            approver.setNotifications(new ArrayList<>());
+        }
+        approver.getNotifications().add(new NotificationsDTO(
+            postId, 
+            post.getAuthor().getUserName(), 
+            "You approved the feature request for '" + post.getTitle() + "'", 
+            LocalDateTime.now()
+        ));
+        
+        postsRepository.save(post);
+        userRepository.save(approver);
+        
+        return true;
+    }
+    
+    public boolean rejectFeature(String postId, String rejecterUserName) {
+        Posts post = postsRepository.findById(postId)
+            .orElseThrow(() -> new IllegalArgumentException("Post not found or has been deleted"));
+        
+        User rejecter = userRepository.findByUserName(rejecterUserName)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        // Check if user is in pending features
+        if (post.getPendingFeatures() == null || !post.getPendingFeatures().contains(rejecterUserName)) {
+            return false; // User not in pending features
+        }
+        
+        // Remove from pending features
+        post.getPendingFeatures().remove(rejecterUserName);
+        
+        // Check if there are remaining pending features
+        if (post.getPendingFeatures().isEmpty()) {
+            // If no pending features remain, publish with approved features only
+            post.setStatus("PUBLISHED");
+            
+            // Notify post author
+            User author = post.getAuthor();
+            if (author.getNotifications() == null) {
+                author.setNotifications(new ArrayList<>());
+            }
+            author.getNotifications().add(new NotificationsDTO(
+                postId, 
+                "System", 
+                "Your post '" + post.getTitle() + "' is now published with approved features only.", 
+                LocalDateTime.now()
+            ));
+            userRepository.save(author);
+        } else if (!post.getFeatures().isEmpty()) {
+            post.setStatus("PARTIALLY_APPROVED");
+        }
+        
+        // Notify rejecter
+        if (rejecter.getNotifications() == null) {
+            rejecter.setNotifications(new ArrayList<>());
+        }
+        rejecter.getNotifications().add(new NotificationsDTO(
+            postId, 
+            post.getAuthor().getUserName(), 
+            "You rejected the feature request for '" + post.getTitle() + "'", 
+            LocalDateTime.now()
+        ));
+        
+        // Notify post author about rejection
+        User author = post.getAuthor();
+        if (author.getNotifications() == null) {
+            author.setNotifications(new ArrayList<>());
+        }
+        author.getNotifications().add(new NotificationsDTO(
+            postId, 
+            rejecterUserName, 
+            rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'", 
+            LocalDateTime.now()
+        ));
+        
+        postsRepository.save(post);
+        userRepository.save(rejecter);
+        userRepository.save(author);
+        
+        return true;
+    }
+    
+    public List<PostsDTO> getPendingFeatureRequests(String userName) {
+        // Find all posts where user is in pendingFeatures
+        List<Posts> posts = postsRepository.findAll().stream()
+            .filter(post -> post.getPendingFeatures() != null && post.getPendingFeatures().contains(userName))
+            .collect(java.util.stream.Collectors.toList());
+        
+        return posts.stream().map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
+                p.getGenre(),
+                p.getMusic(),
+                getCommentsForPost(p.getId()),
+                p.getTime(),
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                p.getTotalViews()
+            );
+        }).collect(java.util.stream.Collectors.toList());
     }
     
     
@@ -198,6 +371,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -231,6 +406,8 @@ public class PostsService {
                 post.getTitle(),
                 post.getDescription(),
                 post.getFeatures(),
+                post.getPendingFeatures(),
+                post.getStatus(),
                 post.getGenre(),
                 post.getMusic(),
                 getCommentsForPost(post.getId()),
@@ -259,57 +436,89 @@ public class PostsService {
         }
         
         Posts post = postsRepository.findById(id).get();
-        List<String> featureList = post.getFeatures();
+        List<String> approvedFeatures = post.getFeatures();
+        List<String> pendingFeatures = post.getPendingFeatures();
         User author = userRepository.findById(post.getAuthor().getId()).get();
         
-        author.getPosts().remove(id);
-        List<String> currentPosts = author.getPosts(); 
-        if (currentPosts == null) {
-            currentPosts = new ArrayList<>();
+        // Remove post from author's posts list
+        if (author.getPosts() != null) {
+            author.getPosts().remove(id);
         }
         userRepository.save(author);
 
-        if (featureList != null && !featureList.isEmpty()) {
-            List<User> features = userRepository.findByUserNameIn(featureList);
+        // Clean up APPROVED features (remove from their featuredOn lists)
+        if (approvedFeatures != null && !approvedFeatures.isEmpty()) {
+            List<User> approvedUsers = userRepository.findByUserNameIn(approvedFeatures);
             
-
-            for(int i = 0; i < featureList.size(); i++){
-                User featureUser = features.get(i);
-                if (featureUser != null && featureUser.getFeaturedOn() != null) {
-                    featureUser.getFeaturedOn().remove(id);
-                    userRepository.save(featureUser);
+            for (User featuredUser : approvedUsers) {
+                if (featuredUser != null && featuredUser.getFeaturedOn() != null) {
+                    featuredUser.getFeaturedOn().remove(id);
+                    userRepository.save(featuredUser);
                 }
             }
         }
+        
+        // Clean up PENDING features (notify them that post was deleted)
+        if (pendingFeatures != null && !pendingFeatures.isEmpty()) {
+            List<User> pendingUsers = userRepository.findByUserNameIn(pendingFeatures);
+            
+            for (User pendingUser : pendingUsers) {
+                if (pendingUser != null) {
+                    // Remove any existing notifications related to this post
+                    if (pendingUser.getNotifications() != null) {
+                        pendingUser.getNotifications().removeIf(notification -> 
+                            id.equals(notification.id()));
+                    }
+                    
+                    // Add deletion notification
+                    if (pendingUser.getNotifications() == null) {
+                        pendingUser.setNotifications(new ArrayList<>());
+                    }
+                    pendingUser.getNotifications().add(new NotificationsDTO(
+                        null, // No post ID since it's deleted
+                        author.getUserName(),
+                        "Deleted their post '" + post.getTitle() + "' before you could approve/reject the feature request.",
+                        LocalDateTime.now()
+                    ));
+                    userRepository.save(pendingUser);
+                }
+            }
+        }
+        
+        // Finally, delete the post from database
         postsRepository.deleteById(id);
     }
 
     public List<PostsDTO> getFeaturedOn(String userName){
-        return postsRepository.findByFeatures(userName).stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
-            );
-        }).toList();
+        return postsRepository.findByFeatures(userName).stream()
+            .filter(p -> "PUBLISHED".equals(p.getStatus()))
+            .map(p -> {
+                User u = p.getAuthor();
+                UserPostsDTO author = new UserPostsDTO(
+                    u.getId(),
+                    u.getUserName(),
+                    u.getProfilePic(),
+                    u.getBanner(),
+                    u.getBio(),
+                    u.getLocation()
+                );
+                return new PostsDTO(
+                    p.getId(),
+                    author,
+                    p.getTitle(),
+                    p.getDescription(),
+                    p.getFeatures(),
+                    p.getPendingFeatures(),
+                    p.getStatus(),
+                    p.getGenre(),
+                    p.getMusic(),
+                    getCommentsForPost(p.getId()),
+                    p.getTime(),
+                    getLikesForPost(p.getId()),
+                    getViewsForPost(p.getId()),
+                    getTotalViewsForPost(p.getId())
+                );
+            }).toList();
     
     }
 
@@ -337,6 +546,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -501,7 +712,8 @@ public class PostsService {
 
     public PagedModel<PostsDTO> getAllPagedPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Posts> postsPage = postsRepository.findAllByOrderByTimeDesc(pageable);
+        // Only show published posts in public feed
+        Page<Posts> postsPage = postsRepository.findByStatusOrderByTimeDesc("PUBLISHED", pageable);
         
         // Convert Page<Posts> to Page<PostsDTO>
         Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
@@ -520,6 +732,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -535,9 +749,9 @@ public class PostsService {
 
 
     public PagedModel<PostsDTO> findByLikesDesc(int page, int size){
-        // NOW FAST: Use database-level sorting with cached totalLikes field!
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Posts> postsPage = postsRepository.findAllByOrderByTotalLikesDescTimeDesc(pageable);
+        // NOW FAST: Use database-level sorting with cached totalLikes field! - ONLY PUBLISHED
+        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("totalLikes").descending().and(org.springframework.data.domain.Sort.by("time").descending()));
+        Page<Posts> postsPage = postsRepository.findByStatusOrderByTotalLikesDescTimeDesc("PUBLISHED", pageable);
         
         // Convert to DTOs (much simpler now)
         Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
@@ -556,6 +770,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -573,7 +789,8 @@ public class PostsService {
     public PagedModel<PostsDTO> getSearchedPost(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size);
         
-        Page<Posts> postsSearchedPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCase(search, pageable);
+        // Only search published posts
+        Page<Posts> postsSearchedPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCaseAndStatus(search, "PUBLISHED", pageable);
         
         Page<PostsDTO> postsDTOSearchedPage = postsSearchedPage.map(p -> {
             User u = p.getAuthor();
@@ -591,6 +808,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -617,27 +836,19 @@ public class PostsService {
         
         Page<Posts> postsPage;
         
-        // Get posts based on search criteria with proper sorting
+        // Get posts based on search criteria with proper sorting - ONLY PUBLISHED POSTS
         if (searchTerm != null && !searchTerm.trim().isEmpty() && genres != null && !genres.isEmpty()) {
             // Both search term and genres provided - use AND logic (both must match)
-            postsPage = postsRepository.findByTitleOrDescriptionAndGenreIn(searchTerm.trim(), genres, pageable);
+            postsPage = postsRepository.findByTitleOrDescriptionAndGenreInAndStatus(searchTerm.trim(), genres, "PUBLISHED", pageable);
         } else if (searchTerm != null && !searchTerm.trim().isEmpty()) {
             // Only search term provided
-            postsPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCase(searchTerm.trim(), pageable);
+            postsPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCaseAndStatus(searchTerm.trim(), "PUBLISHED", pageable);
         } else if (genres != null && !genres.isEmpty()) {
-            // Only genres provided
-            if ("likes".equalsIgnoreCase(sortBy)) {
-                postsPage = postsRepository.findByGenreAllOrderByTotalLikesDescTimeDesc(genres, pageable);
-            } else {
-                postsPage = postsRepository.findMostRecentPostsByGenre(genres, pageable);
-            }
+            // Only genres provided - filter by status
+            postsPage = postsRepository.findByGenreInAndStatus(genres, "PUBLISHED", pageable);
         } else {
-            // No filters provided - use direct database sorting
-            if ("likes".equalsIgnoreCase(sortBy)) {
-                postsPage = postsRepository.findAllByOrderByTotalLikesDescTimeDesc(pageable);
-            } else {
-                postsPage = postsRepository.findMostRecentPosts(pageable);
-            }
+            // No filters provided - only published posts
+            postsPage = postsRepository.findByStatusOrderByTimeDesc("PUBLISHED", pageable);
         }
         
         // Convert to DTOs (much simpler now with database sorting)
@@ -657,6 +868,8 @@ public class PostsService {
                 p.getTitle(),
                 p.getDescription(),
                 p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),

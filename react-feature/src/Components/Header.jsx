@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
 import api, { logout, getCurrentUser } from "../services/AuthService";
 
 function Header() {
   const [displayNoti, setDisplayNoti] = useState(false);
+  const [displayUserMenu, setDisplayUserMenu] = useState(false);
   const [noti, setNoti] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const userMenuRef = useRef(null);
   const showNoti = () => setDisplayNoti((v) => !v);
+  const toggleUserMenu = () => setDisplayUserMenu((v) => !v);
   
   const handleLogout = async () => {
     await logout();
@@ -30,6 +33,24 @@ function Header() {
       });
     }
   }, [currentUser]);
+  
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setDisplayUserMenu(false);
+      }
+    };
+    
+    if (displayUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [displayUserMenu]);
+  
   return (
     <header className="main-header">
       <div className="header-inner">
@@ -47,11 +68,40 @@ function Header() {
             <span className="noti-icon">🔔</span>
             <span className="noti-label">Notifications</span>
           </button>
-          <a href={`/profile/${currentUser?.userName || ''}`} className="profile-link">Profile</a>
-          <button className="logout-btn" onClick={handleLogout} aria-label="Logout">
-            <span className="logout-icon">🚪</span>
-            <span className="logout-label">Logout</span>
-          </button>
+          
+          <div className="user-menu-container" ref={userMenuRef}>
+            <button className="user-menu-btn" onClick={toggleUserMenu} aria-label="User menu">
+              <img 
+                src={currentUser?.profilePic || '/default-avatar.png'} 
+                alt={currentUser?.userName || 'User'} 
+                className="user-avatar"
+              />
+              <span className="user-name">{currentUser?.userName || 'User'}</span>
+              <span className={`dropdown-arrow ${displayUserMenu ? 'open' : ''}`}>▼</span>
+            </button>
+            
+            {displayUserMenu && (
+              <div className="user-dropdown">
+                <a href={`/profile/${currentUser?.userName || ''}`} className="user-dropdown-item">
+                  <span className="dropdown-icon">👤</span>
+                  <span className="dropdown-label">View Profile</span>
+                </a>
+                <a href="/pending-features" className="user-dropdown-item">
+                  <span className="dropdown-icon">⏳</span>
+                  <span className="dropdown-label">Feature Requests</span>
+                </a>
+                <a href="/messages" className="user-dropdown-item">
+                  <span className="dropdown-icon">💬</span>
+                  <span className="dropdown-label">Messaging</span>
+                </a>
+                <div className="dropdown-divider"></div>
+                <button className="user-dropdown-item logout-item" onClick={handleLogout}>
+                  <span className="dropdown-icon">🚪</span>
+                  <span className="dropdown-label">Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         {displayNoti && (
           <div className="noti-dropdown">

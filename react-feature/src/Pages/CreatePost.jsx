@@ -279,6 +279,16 @@ function CreatePost(){
       <h3 className="step-title">Features & Collaborators</h3>
       <p className="step-description">Add any featured artists or collaborators</p>
       
+      <div className="approval-notice">
+        <div className="notice-icon">⚠️</div>
+        <div className="notice-content">
+          <strong>Feature Approval Required</strong>
+          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. Make sure to spell their
+            username correctly. Case sensitive!
+          </p>
+        </div>
+      </div>
+      
       <div className="input-group">
         <label className="input-label">Features</label>
         <input

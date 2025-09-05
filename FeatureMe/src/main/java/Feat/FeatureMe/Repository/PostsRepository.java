@@ -59,5 +59,23 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     @Query("{ 'genre': { $all: ?0 } }")
     Page<Posts> findMostRecentPostsByGenre(List<String> genres, Pageable pageable);
     
+    // Methods to filter by status (for feature approval system)
+    Page<Posts> findByStatusOrderByTimeDesc(String status, Pageable pageable);
+    List<Posts> findByStatus(String status);
+    
+    // Search methods with status filter
+    @Query("{ $and: [ { 'status': ?2 }, { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] } ] }")
+    Page<Posts> findByTitleOrDescriptionContainingIgnoreCaseAndStatus(String searchTerm, String status, Pageable pageable);
+    
+    @Query("{ $and: [ { 'status': ?1 }, { 'genre': { $in: ?0 } } ] }")
+    Page<Posts> findByGenreInAndStatus(List<String> genres, String status, Pageable pageable);
+    
+    @Query("{ $and: [ { 'status': ?2 }, { $and: [ { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] }, { 'genre': { $all: ?1 } } ] } ] }")
+    Page<Posts> findByTitleOrDescriptionAndGenreInAndStatus(String searchTerm, List<String> genres, String status, Pageable pageable);
+    
+    // Most liked posts with status filter
+    @Query("{ 'status': ?0 }")
+    Page<Posts> findByStatusOrderByTotalLikesDescTimeDesc(String status, Pageable pageable);
+    
 }
 

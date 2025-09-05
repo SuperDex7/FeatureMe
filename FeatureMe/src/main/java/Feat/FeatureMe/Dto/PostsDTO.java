@@ -9,6 +9,8 @@ public record PostsDTO(
         String title,
         String description,
         List<String> features,
+        List<String> pendingFeatures,
+        String status,
         List<String> genre,
         String music,
         List<CommentDTO> comments,

@@ -1,6 +1,7 @@
 package Feat.FeatureMe.Entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
@@ -22,6 +23,8 @@ public class Posts {
     private String title;
     private String description;
     private List<String> features;
+    private List<String> pendingFeatures; // Features awaiting approval
+    private String status = "DRAFT"; // DRAFT, PUBLISHED, PARTIALLY_APPROVED
     private List<String> genre;
     private String music;
     // Comments are now stored in separate PostComment collection
@@ -41,6 +44,8 @@ public class Posts {
         this.title = title;
         this.description = description;
         this.features = features;
+        this.pendingFeatures = new ArrayList<>();
+        this.status = "PUBLISHED"; // For backward compatibility
         this.genre = genre;
         this.music = music;
         this.time = time;
@@ -54,6 +59,8 @@ public class Posts {
         this.title = title;
         this.description = description;
         this.features = features;
+        this.pendingFeatures = new ArrayList<>();
+        this.status = "PUBLISHED"; // For backward compatibility
         this.genre = genre;
         this.music = music;
         this.time = time;
@@ -142,5 +149,21 @@ public class Posts {
 
     public void setTotalLikes(int totalLikes) {
         this.totalLikes = totalLikes;
+    }
+    
+    public List<String> getPendingFeatures() {
+        return pendingFeatures;
+    }
+
+    public void setPendingFeatures(List<String> pendingFeatures) {
+        this.pendingFeatures = pendingFeatures;
+    }
+    
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

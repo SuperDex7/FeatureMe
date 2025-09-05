@@ -1,0 +1,361 @@
+/* Pending Features Page Layout */
+.pending-features-page {
+  background: linear-gradient(135deg, #181a20 0%, #232946 100%);
+  min-height: 100vh;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  margin-top: 60px;
+}
+
+/* Pending Features Component */
+.pending-features {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  padding-top: 100px; /* Account for fixed header */
+}
+
+.pending-features-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.pending-features-header h2 {
+  color: #4f8cff;
+  font-size: 2rem;
+  font-weight: 900;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 16px rgba(79, 140, 255, 0.3);
+}
+
+.pending-features-header p {
+  color: #bfc9d1;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Loading and Error States */
+.loading, .error {
+  text-align: center;
+  padding: 3rem;
+  color: #bfc9d1;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #ff6b6b;
+}
+
+/* No Requests State */
+.no-requests {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: rgba(36, 40, 54, 0.72);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+.no-requests-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.no-requests h3 {
+  color: #f3f3f7;
+  font-size: 1.5rem;
+  margin: 0 0 1rem 0;
+}
+
+.no-requests p {
+  color: #bfc9d1;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Requests List */
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Request Card */
+.request-card {
+  background: rgba(36, 40, 54, 0.72);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  max-width: 100%;
+}
+
+.request-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  border-color: rgba(79, 140, 255, 0.3);
+}
+
+/* Request Header */
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.author-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(79, 140, 255, 0.3);
+}
+
+.author-details h4 {
+  color: #4f8cff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.author-details p {
+  color: #bfc9d1;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.request-time {
+  color: #8b9dc3;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Request Content */
+.request-content {
+  margin-bottom: 2rem;
+}
+
+.post-title {
+  color: #f3f3f7;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.3;
+}
+
+.post-description {
+  color: #bfc9d1;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
+.post-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.genre-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.genre-tag {
+  background: rgba(79, 140, 255, 0.2);
+  color: #4f8cff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid rgba(79, 140, 255, 0.3);
+}
+
+.features-info {
+  color: #bfc9d1;
+  font-size: 0.9rem;
+}
+
+.features-info strong {
+  color: #f3f3f7;
+  margin-right: 0.5rem;
+}
+
+.features-list {
+  color: #4f8cff;
+  font-weight: 500;
+}
+
+.features-list.approved {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.no-other-features {
+  color: #8b9dc3;
+  font-style: italic;
+}
+
+/* Request Actions */
+.request-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.approve-btn, .reject-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approve-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+}
+
+.approve-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+}
+
+.reject-btn {
+  background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+}
+
+.reject-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(220, 53, 69, 0.4);
+}
+
+/* Desktop Layout */
+@media (min-width: 1200px) {
+  .pending-features {
+    padding: 2rem 2rem;
+  }
+  
+  .requests-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+  }
+  
+  .request-card {
+    height: fit-content;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .pending-features {
+    max-width: 900px;
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .pending-features {
+    padding: 1.5rem 1rem;
+    padding-top: 90px;
+  }
+  
+  .pending-features-header h2 {
+    font-size: 1.75rem;
+  }
+  
+  .pending-features-header p {
+    font-size: 1rem;
+  }
+  
+  .request-card {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+  
+  .request-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .author-info {
+    gap: 0.75rem;
+  }
+  
+  .author-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .post-title {
+    font-size: 1.2rem;
+  }
+  
+  .request-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .approve-btn, .reject-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 1.5rem;
+  }
+  
+  .post-meta {
+    gap: 1rem;
+  }
+  
+  .genre-tags {
+    gap: 0.375rem;
+  }
+  
+  .genre-tag {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pending-features {
+    padding: 1rem 0.75rem;
+    padding-top: 80px;
+  }
+  
+  .pending-features-header {
+    margin-bottom: 1.5rem;
+  }
+  
+  .pending-features-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .request-card {
+    padding: 1rem;
+    margin: 0 0.25rem;
+  }
+  
+  .requests-list {
+    gap: 1rem;
+  }
+}

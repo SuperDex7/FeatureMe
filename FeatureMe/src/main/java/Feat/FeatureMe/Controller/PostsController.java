@@ -289,6 +289,50 @@ public class PostsController {
         return postsService.deleteComment(postId, user.getUserName(), commentText);
     }
     
+    @PostMapping("/approve-feature/{postId}")
+    public boolean approveFeature(@PathVariable String postId) {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        return postsService.approveFeature(postId, user.getUserName());
+    }
+    
+    @PostMapping("/reject-feature/{postId}")
+    public boolean rejectFeature(@PathVariable String postId) {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        return postsService.rejectFeature(postId, user.getUserName());
+    }
+    
+    @GetMapping("/pending-features")
+    public List<PostsDTO> getPendingFeatureRequests() {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        return postsService.getPendingFeatureRequests(user.getUserName());
+    }
     
 
 }
