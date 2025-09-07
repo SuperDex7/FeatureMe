@@ -24,9 +24,44 @@ function Post() {
     const [deletingComment, setDeletingComment] = useState(null);
     const [isDeletingPost, setIsDeletingPost] = useState(false);
     const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
+    const [commentPage, setCommentPage] = useState(0);
+    const [commentSize] = useState(10);
+    const [hasMoreComments, setHasMoreComments] = useState(true);
+    const [loadingComments, setLoadingComments] = useState(false);
+    const [totalComments, setTotalComments] = useState(0);
     
     const audioRef = useRef(null);
     const progressRef = useRef(null);
+
+    // Load comments with pagination
+    const loadComments = async (page = 0, append = false) => {
+        setLoadingComments(true);
+        try {
+            const response = await api.get(`/posts/comments/${id}/paginated?page=${page}&size=${commentSize}`);
+            const newComments = response.data.content || [];
+            const totalElements = response.data.page?.totalElements || 0;
+            
+            setTotalComments(totalElements);
+            
+            if (append) {
+                setComments(prev => [...prev, ...newComments]);
+            } else {
+                setComments(newComments);
+            }
+            
+            // Check if there are more comments to load
+            setHasMoreComments(newComments.length === commentSize && (page + 1) * commentSize < totalElements);
+        } catch (error) {
+            console.error('Error loading comments:', error);
+            // Fallback to empty array if pagination fails
+            if (!append) {
+                setComments([]);
+                setTotalComments(0);
+            }
+        } finally {
+            setLoadingComments(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,15 +71,26 @@ function Post() {
                 
                 const res = await api.get(`/posts/get/id/${id}`);
                 setPost(res.data);
-                setComments(Array.isArray(res.data.comments) ? res.data.comments : []);
                 setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
                 console.log(res.data);
+                
+                // Load first page of comments
+                loadComments(0, false);
             } catch (err) {
                 console.error("Error fetching data:", err);
             }
         };
         fetchData();
     }, [id]);
+
+    // Load more comments function
+    const loadMoreComments = () => {
+        if (!loadingComments && hasMoreComments) {
+            const nextPage = commentPage + 1;
+            setCommentPage(nextPage);
+            loadComments(nextPage, true); // append = true
+        }
+    };
 
     useEffect(() => {
         if (audioRef.current) {
@@ -80,14 +126,11 @@ function Post() {
             })
             .then(res => {
                 console.log(res);
-                // Optionally refresh to get server-side data (timestamps, etc.)
-                api.get(`/posts/get/id/${id}`)
-                    .then(postRes => {
-                        if (postRes.data && postRes.data.comments) {
-                            setComments(postRes.data.comments);
-                        }
-                    })
-                    .catch(err => console.error('Error fetching updated comments:', err));
+                // Reload the first page of comments to get the latest data
+                setCommentPage(0);
+                loadComments(0, false);
+                // Update total comments count
+                setTotalComments(prev => prev + 1);
             })
             .catch(err => {
                 console.error(err);
@@ -110,11 +153,10 @@ function Post() {
         try {
             await deleteComment(id, commentText);
             
-            // Fetch updated comments from server
-            const postRes = await api.get(`/posts/get/id/${id}`);
-            if (postRes.data && postRes.data.comments) {
-                setComments(postRes.data.comments);
-            }
+            // Reload current page of comments to reflect the deletion
+            loadComments(commentPage, false);
+            // Update total comments count
+            setTotalComments(prev => Math.max(0, prev - 1));
         } catch (err) {
             console.error('Error deleting comment:', err);
             // Could add error handling here if needed
@@ -258,7 +300,15 @@ function Post() {
                         <div className="hero-content">
                             <div className="track-badge">
                                 <span className="badge-icon">🎵</span>
+                                {post.status === 'PUBLISHED' && (
                                 <span className="badge-text">TRACK</span>
+                                )}
+                                {post.status === 'DRAFT' && (
+                                    <span className="badge-text">DRAFT</span>
+                                )}
+                                {post.status === 'PARTIALLY_APPROVED' && (
+                                    <span className="badge-text">PARTIALLY APPROVED</span>
+                                )}
                             </div>
                             <h1 className="hero-title">{post.title}</h1>
                             <p className="hero-subtitle">by {post.author.userName}</p>
@@ -275,7 +325,9 @@ function Post() {
                                     View Profile
                                 </button></a>
                                 {currentUser && currentUser.userName === post.author.userName && (
+                                    
                                     <>
+                                    {currentUser.role === 'USERPLUS' && (
                                         <button 
                                             className="hero-analytics-btn"
                                             onClick={() => setShowViewsAnalytics(true)}
@@ -284,6 +336,14 @@ function Post() {
                                             <span className="analytics-icon">📊</span>
                                             <span className="analytics-text">Analytics</span>
                                         </button>
+                                    ) ||  <button 
+                                    className="hero-analytics-btn"
+                                    onClick={() => alert('Get a Plus Membership to view analytics')}
+                                    title="View Analytics (Premium Feature)"
+                                >
+                                    <span className="analytics-icon">📊</span>
+                                    <span className="analytics-text">Analytics</span>
+                                </button>}
                                         <button 
                                             className="hero-delete-btn"
                                             onClick={handleDeletePost}
@@ -376,7 +436,7 @@ function Post() {
                                     <span className="stat-label">Likes</span>
                                 </div>
                                 <div className="stat-item">
-                                    <span className="stat-number">{comments?.length || 0}</span>
+                                    <span className="stat-number">{totalComments || 0}</span>
                                     <span className="stat-label">Comments</span>
                                 </div>
                                 <div className="stat-item">
@@ -569,33 +629,68 @@ function Post() {
                                     
                                     
                                     <div className="comments-section">
-                                        <h3 className="subsection-title">Comments ({comments?.length || 0})</h3>
+                                        <h3 className="subsection-title">Comments ({totalComments || 0})</h3>
                                         <div className="comments-list">
-                                            {comments?.map((comment, index) => (
-                                                <div key={index} className="comment-item">
-                                                    <div ><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
-                                                    <div className="comment-content">
-                                                        <div className="comment-header">
-                                                            <a href={`/profile/${comment.userName}`}><span className="comment-username">{comment.userName}</span></a>
-                                                            <div className="comment-header-right">
-                                                                <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
-                                                                {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
-                                                                    <button
-                                                                        className="delete-comment-btn"
-                                                                        onClick={() => handleDeleteComment(comment.comment)}
-                                                                        disabled={deletingComment === comment.comment}
-                                                                        title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
-                                                                    >
-                                                                        {deletingComment === comment.comment ? '...' : '🗑️'}
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <p className="comment-text">{comment.comment}</p>
-                                                    </div>
+                                            {loadingComments && comments.length === 0 ? (
+                                                <div className="comments-loading">
+                                                    <div className="loading-spinner"></div>
+                                                    <p>Loading comments...</p>
                                                 </div>
-                                            )) || "You will see comments here"}
+                                            ) : comments?.length > 0 ? (
+                                                comments.map((comment, index) => (
+                                                    <div key={index} className="comment-item">
+                                                        <div><a href={`/profile/${comment.userName}`}><img className="comment-avatar" src={comment.profilePic} alt="" /></a></div>
+                                                        <div className="comment-content">
+                                                            <div className="comment-header">
+                                                                <a href={`/profile/${comment.userName}`}><span className="comment-username">{comment.userName}</span></a>
+                                                                <div className="comment-header-right">
+                                                                    <span className="comment-time">{new Date(comment.time).toLocaleDateString()}</span>
+                                                                    {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
+                                                                        <button
+                                                                            className="delete-comment-btn"
+                                                                            onClick={() => handleDeleteComment(comment.comment)}
+                                                                            disabled={deletingComment === comment.comment}
+                                                                            title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
+                                                                        >
+                                                                            {deletingComment === comment.comment ? '...' : '🗑️'}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <p className="comment-text">{comment.comment}</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="no-comments">
+                                                    <p>No comments yet. Be the first to comment!</p>
+                                                </div>
+                                            )}
                                         </div>
+                                        
+                                        {/* Load More Comments Button */}
+                                        {hasMoreComments && (
+                                            <div className="load-more-section">
+                                                <button 
+                                                    className="load-more-btn"
+                                                    onClick={loadMoreComments}
+                                                    disabled={loadingComments}
+                                                >
+                                                    {loadingComments ? (
+                                                        <>
+                                                            <span className="loading-spinner-small"></span>
+                                                            Loading...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="load-more-icon">↓</span>
+                                                            Load More Comments
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
+                                        
                                         <div className="add-comment">
                                             <input 
                                                 type="text"
