@@ -21,7 +21,7 @@ function ViewsAnalyticsCard() {
         
         if (user && user.posts && user.posts.length > 0) {
           // Fetch user's posts
-          const response = await api.get(`/posts/get/all/id/${user.posts.join(',')}`);
+          const response = await api.get(`/posts/get/all/id/${user.posts.join(',')}/sorted`);
           setUserPosts(response.data.content || []);
         }
       } catch (error) {

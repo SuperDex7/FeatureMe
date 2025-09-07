@@ -69,6 +69,9 @@ public class PostsController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
+        // Validate file type based on user role
+        validateFileTypeForUser(file, user);
+        
         // Upload file to S3 bucket
         String keyName = file.getOriginalFilename();
         File tempFile = File.createTempFile("temp", null);
@@ -202,6 +205,13 @@ public class PostsController {
         return postsService.findByLikesDesc(page,size);
     }
     
+    @GetMapping("/get/likesdesc/role/{role}")
+    public PagedModel<PostsDTO> getPostsByLikesDescFilteredByRole(@PathVariable String role,
+    @RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "5") int size) {
+        return postsService.findByUserRoleOrderByLikesDesc(role, page, size);
+    }
+    
     @DeleteMapping("/delete/{id}")
     public void deletePost(@PathVariable String id) {
         // Get the authenticated user
@@ -239,10 +249,24 @@ public class PostsController {
         
         return postsService.getAllById(ids, page, size);
     }
+    
+    @GetMapping("/get/all/id/{ids}/sorted")
+    public PagedModel<PostsDTO> getAllByIdSorted(@PathVariable List<String> ids, @RequestParam( defaultValue = "0") int page,
+    @RequestParam( defaultValue = "5") int size) {
+        
+        return postsService.getAllByIdSortedByTime(ids, page, size);
+    }
+    
     @GetMapping("get/all/featuredOn/{ids}")
     public PagedModel<PostsDTO> getAllFeatureOn(@PathVariable List<String> ids, @RequestParam int page,
     @RequestParam int size) {
         return postsService.getAllById(ids, page, size);
+    }
+    
+    @GetMapping("get/all/featuredOn/{ids}/sorted")
+    public PagedModel<PostsDTO> getAllFeatureOnSorted(@PathVariable List<String> ids, @RequestParam int page,
+    @RequestParam int size) {
+        return postsService.getAllByIdSortedByTime(ids, page, size);
     }
     @PostMapping("/add/like/{id}")
     public Optional<Posts> addLikes(@PathVariable String id){
@@ -334,5 +358,78 @@ public class PostsController {
         return postsService.getPendingFeatureRequests(user.getUserName());
     }
     
+    /**
+     * Validates file type based on user role
+     * USER: only .mp3 files
+     * USERPLUS: .mp3 and .wav files
+     * No other file types are allowed
+     */
+    private void validateFileTypeForUser(MultipartFile file, User user) {
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("File is required");
+        }
+        
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.trim().isEmpty()) {
+            throw new RuntimeException("Invalid file name");
+        }
+        
+        // Get file extension
+        String fileExtension = "";
+        int lastDotIndex = originalFilename.lastIndexOf('.');
+        if (lastDotIndex > 0) {
+            fileExtension = originalFilename.substring(lastDotIndex + 1).toLowerCase();
+        }
+        
+        // Check MIME type as additional validation
+        String contentType = file.getContentType();
+        
+        String userRole = user.getRole();
+        
+        if ("USERPLUS".equals(userRole)) {
+            // USERPLUS can upload .mp3 and .wav files
+            if (!"mp3".equals(fileExtension) && !"wav".equals(fileExtension)) {
+                throw new RuntimeException("Plus users can only upload MP3 and WAV files. Uploaded file type: " + fileExtension);
+            }
+            
+            // Additional MIME type validation for USERPLUS
+            if (contentType != null && 
+                !contentType.equals("audio/mpeg") && 
+                !contentType.equals("audio/mp3") && 
+                !contentType.equals("audio/wav") && 
+                !contentType.equals("audio/wave") &&
+                !contentType.equals("audio/x-wav")) {
+                throw new RuntimeException("Invalid file type. Plus users can only upload MP3 and WAV audio files.");
+            }
+            
+        } else if ("USER".equals(userRole)) {
+            // Regular USER can only upload .mp3 files
+            if (user.getMonthlyPostsCount() >= 5) {
+                throw new RuntimeException("User has reached the maximum number of posts");
+            }
+           
+            if (!"mp3".equals(fileExtension)) {
+                throw new RuntimeException("Free users can only upload MP3 files. Uploaded file type: " + fileExtension + ". Upgrade to Plus for WAV support!");
+            }
+            
+            // Additional MIME type validation for USER
+            if (contentType != null && 
+                !contentType.equals("audio/mpeg") && 
+                !contentType.equals("audio/mp3")) {
+                throw new RuntimeException("Invalid file type. Free users can only upload MP3 audio files. Upgrade to Plus for more formats!");
+            }
+            
+        } else {
+            // Unknown role or no role - deny upload
+            throw new RuntimeException("Invalid user role. Cannot upload files.");
+        }
+        
+        // Additional file size validation (optional - adjust as needed)
+        long maxFileSize = "USERPLUS".equals(userRole) ? 90 * 1024 * 1024 : 15 * 1024 * 1024; // 90MB for Plus, 15MB for free
+        if (file.getSize() > maxFileSize) {
+            long maxSizeMB = maxFileSize / (1024 * 1024);
+            throw new RuntimeException("File size exceeds limit. Maximum allowed: " + maxSizeMB + "MB for " + userRole + " users.");
+        }
+    }
 
 }

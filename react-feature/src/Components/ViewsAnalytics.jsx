@@ -146,13 +146,13 @@ function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
               {sortedViews.map((view, index) => (
                 <div key={view.userName} className="view-item">
                   <div className="view-user">
-                    <img 
+                   <a href={`/profile/${view.userName}`}><img 
                       className="view-user-avatar" 
                       src={view.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
                       alt={view.userName}
-                    />
+                    /></a>
                     <div className="view-user-info">
-                      <span className="view-username">{view.userName}</span>
+                     <a href={`/profile/${view.userName}`}><span className="view-username">{view.userName}</span></a>
                       <span className="view-count">{view.viewCount} view{view.viewCount !== 1 ? 's' : ''}</span>
                     </div>
                   </div>

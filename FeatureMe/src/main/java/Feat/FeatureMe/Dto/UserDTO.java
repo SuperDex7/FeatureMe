@@ -7,6 +7,7 @@ public record UserDTO(
         String userName,
         String profilePic,
         String banner,
+        String role,
         String bio,
         String about,
         String demo,
@@ -19,6 +20,7 @@ public record UserDTO(
         List<String> featuredOn,
         List<String> posts,
         List<String> likedPosts,
+        int monthlyPostsCount,
         List<CommentedOnDTO> comments,
         List<NotificationsDTO> notifications
         

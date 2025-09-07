@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 
@@ -96,6 +97,8 @@ public class PostsService {
     public Posts createPost(String authoruserName, Posts posts) {
         User author = userRepository.findByUserName(authoruserName)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+                     
         
         // Determine post status based on whether features are requested
         List<String> requestedFeatures = posts.getFeatures();
@@ -148,6 +151,8 @@ public class PostsService {
             author.setPosts(new ArrayList<>());
         }
         author.getPosts().add(savedPost.getId());
+        
+        author.setMonthlyPostsCount(author.getMonthlyPostsCount() + 1);
         userRepository.save(author);
 
         // Send approval requests to featured users instead of auto-adding
@@ -561,6 +566,42 @@ public class PostsService {
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
 
+    public PagedModel<PostsDTO> getAllByIdSortedByTime(List<String> ids, int page, int size ) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "time"));
+        Page<Posts> posts = postsRepository.findAllByIdInOrderByTimeDesc(ids, pageable);
+        
+        Page<PostsDTO> postsDTOPage = posts.map(p -> {
+            User u = p.getAuthor();
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+            return new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
+                p.getGenre(),
+                p.getMusic(),
+                getCommentsForPost(p.getId()),
+                p.getTime(),
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                getTotalViewsForPost(p.getId())
+            );
+        });
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
+    }
+
     /**
      * Ensures notifications list doesn't exceed 30 items by removing oldest ones
      */
@@ -941,6 +982,63 @@ public class PostsService {
         return postLikeService.hasUserLiked(postId, userName);
     }
     
+    public PagedModel<PostsDTO> findByUserRoleOrderByLikesDesc(String role, int page, int size) {
+        // Since @DBRef fields can be tricky to query directly in MongoDB, 
+        // we'll fetch all published posts and filter by role in the service layer
+        
+        // Get a larger page size to account for filtering
+        int fetchSize = size * 3; // Fetch 3x more to account for filtering
+        Pageable pageable = PageRequest.of(0, Math.max(fetchSize, 50), org.springframework.data.domain.Sort.by("totalLikes").descending().and(org.springframework.data.domain.Sort.by("time").descending()));
+        Page<Posts> allPostsPage = postsRepository.findByStatusOrderByTotalLikesDescTimeDesc("PUBLISHED", pageable);
+        
+        // Filter by user role and convert to DTOs
+        List<PostsDTO> filteredPosts = allPostsPage.getContent().stream()
+            .filter(p -> p.getAuthor() != null && role.equals(p.getAuthor().getRole()))
+            .skip((long) page * size)
+            .limit(size)
+            .map(p -> {
+                User u = p.getAuthor();
+                UserPostsDTO author = new UserPostsDTO(
+                    u.getId(),
+                    u.getUserName(),
+                    u.getProfilePic(),
+                    u.getBanner(),
+                    u.getBio(),
+                    u.getLocation()
+                );
+                return new PostsDTO(
+                    p.getId(),
+                    author,
+                    p.getTitle(),
+                    p.getDescription(),
+                    p.getFeatures(),
+                    p.getPendingFeatures(),
+                    p.getStatus(),
+                    p.getGenre(),
+                    p.getMusic(),
+                    getCommentsForPost(p.getId()),
+                    p.getTime(),
+                    getLikesForPost(p.getId()),
+                    getViewsForPost(p.getId()),
+                    getTotalViewsForPost(p.getId())
+                );
+            })
+            .toList();
+        
+        // Calculate total elements for pagination (this is an approximation)
+        long totalFilteredElements = allPostsPage.getContent().stream()
+            .filter(p -> p.getAuthor() != null && role.equals(p.getAuthor().getRole()))
+            .count();
+        
+        // Create a manual page implementation
+        Page<PostsDTO> postsDTOPage = new org.springframework.data.domain.PageImpl<>(
+            filteredPosts, 
+            PageRequest.of(page, size), 
+            totalFilteredElements
+        );
+        
+        return new PagedModel<PostsDTO>(postsDTOPage);
+    }
    
     }
 

@@ -52,6 +52,7 @@ function Sidebar() {
           </ul>
         </div>
       </div>
+      {(currentUser?.role === 'USERPLUS' || currentUser?.monthlyPostsCount < 5) && (
       <div className="sidebar__create-container">
         <a href="/create-post" className="button type--A">
           <div className="button__line"></div>
@@ -61,6 +62,15 @@ function Sidebar() {
           <div className="button__drow2"></div>
         </a>
       </div>
+      )|| <div className="sidebar__create-container">
+      <div className="button type--A">
+        <div className="button__line"></div>
+        <div className="button__line"></div>
+        <span className="button__text" onClick={()=> alert("You have reached your monthly post limit")}>Create Post</span>
+        <div className="button__drow1"></div>
+        <div className="button__drow2"></div>
+      </div>
+    </div>}
     </aside>
   );
 }

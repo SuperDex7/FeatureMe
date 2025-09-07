@@ -1,7 +1,6 @@
 package Feat.FeatureMe.Service;
 
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,9 +20,11 @@ import Feat.FeatureMe.Repository.UserRepository;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserRelationService userRelationService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, UserRelationService userRelationService) {
         this.userRepository = userRepository;
+        this.userRelationService = userRelationService;
     }
     public User createUser(User user) {
         if(userRepository.existsByUserName(user.getUserName())){
@@ -59,6 +60,7 @@ public class UserService {
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
             updatedUser.getNotifications() != null && !updatedUser.getNotifications().isEmpty() ? updatedUser.getNotifications() : user.getNotifications(),
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
+            updatedUser.getMonthlyPostsCount() != 0 ? updatedUser.getMonthlyPostsCount() : user.getMonthlyPostsCount(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
         return userRepository.save(user);
@@ -107,6 +109,7 @@ public class UserService {
                 u.getUserName(),
                 u.getProfilePic(),
                 u.getBanner(),
+                u.getRole(),
                 u.getBio(),
                 u.getAbout(),
                 null,
@@ -119,6 +122,7 @@ public class UserService {
                 sortedFeaturedOn,
                 sortedPosts,
                 sortedLikedPosts,
+                u.getMonthlyPostsCount(),
                 sortedComments,
                 sortedNotifications
             );
@@ -172,6 +176,7 @@ public class UserService {
             user.getUserName(),
             user.getProfilePic(),
             user.getBanner(),
+            user.getRole(),
             user.getBio(),
             user.getAbout(),
             null,
@@ -184,6 +189,7 @@ public class UserService {
             sortedFeaturedOn,
             sortedPosts,
             sortedLikedPosts,
+            user.getMonthlyPostsCount(),
             sortedComments,
             sortedNotifications
         );
@@ -273,6 +279,7 @@ public class UserService {
             user.getUserName(),
             user.getProfilePic(),
             user.getBanner(), 
+            user.getRole(),
             user.getBio(),
             user.getAbout(),
             null,
@@ -285,6 +292,7 @@ public class UserService {
             sortedFeaturedOn,
             sortedPosts,
             sortedLikedPosts,
+            user.getMonthlyPostsCount(),
             sortedComments,
             sortedNotifications
         );
@@ -302,66 +310,9 @@ public class UserService {
         return notifications;
     }
     
-    /**
-     * Ensures notifications list doesn't exceed 30 items by removing oldest ones
-     */
-    private void cleanupNotifications(User user) {
-        List<NotificationsDTO> notifications = user.getNotifications();
-        if (notifications != null && notifications.size() > 30) {
-            // Sort by time (oldest first) and keep only the 30 most recent
-            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
-            // Remove oldest notifications, keeping only the 30 newest
-            notifications.subList(0, notifications.size() - 30).clear();
-        }
-    }
 
-    // Legacy follow method - delegates to UserRelationService
-    public String follow(String follower, String following){
-        // This will be injected via constructor or setter
-        // For now, keeping the old implementation for backward compatibility
-        // TODO: Replace with userRelationService.toggleFollow(follower, following)
-        
-        Optional<User> user = userRepository.findByUserName(follower);
-        Optional<User> author = userRepository.findByUserName(following);
-
-        List<String> followingList = user.get().getFollowing();
-        List<String> followersList = author.get().getFollowers();
-        NotificationsDTO noti = new NotificationsDTO(null, user.get().getUserName(), "Started Following You!", LocalDateTime.now());
-
-        // Initialize likes list if it's null
-        if (followingList == null) {
-            followingList = new ArrayList<>();
-        }
-        if(followersList == null){
-            followersList = (new ArrayList<>());
-        }
-        if(author.get().getNotifications() == null){
-            author.get().setNotifications(new ArrayList<>());
-        }
-        if (!followingList.contains(following)) {
-            followingList.add(following);
-        followersList.add(follower);
-        author.get().getNotifications().add(noti);
-        
-        // Clean up notifications if they exceed 30
-        cleanupNotifications(author.get());
-        
-        userRepository.save(user.get());
-        userRepository.save(author.get());
-        return "followed";
-        
-        }else{
-            followingList.remove(following);
-            followersList.remove(follower);
-            // Remove the original notification that was created when the follow was added
-            author.get().getNotifications().removeIf(notification -> 
-                notification.userName().equals(follower) && 
-                notification.noti().equals("Started Following You!")
-            );
-            userRepository.save(user.get());
-        userRepository.save(author.get());
-            return "Unfollowed";
-        }
-        
+    // Refactored follow method - delegates to UserRelationService
+    public String follow(String follower, String following) {
+        return userRelationService.toggleFollow(follower, following);
     }
 }
