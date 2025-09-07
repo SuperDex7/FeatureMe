@@ -1,0 +1,485 @@
+/* Subscription Page Styles */
+.subscription-page {
+  min-height: 100vh;
+  background: linear-gradient(120deg, #181a20 0%, #232946 100%);
+  color: #f3f3f3;
+}
+
+.subscription-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  margin-top: 64px;
+}
+
+/* Hero Section */
+.subscription-hero {
+  text-align: center;
+  padding: 3rem 0 2rem 0;
+}
+
+.subscription-title {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #4f8cff;
+  margin-bottom: 1rem;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 16px rgba(79, 140, 255, 0.3);
+}
+
+.subscription-subtitle {
+  font-size: 1.3rem;
+  color: rgba(243, 243, 243, 0.8);
+  margin-bottom: 3rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+/* Billing Toggle */
+.billing-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.billing-toggle span {
+  color: rgba(243, 243, 243, 0.6);
+  transition: color 0.3s ease;
+  position: relative;
+}
+
+.billing-toggle span.active {
+  color: #4f8cff;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 60px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.toggle-switch:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #4f8cff 0%, #a084e8 100%);
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.4);
+}
+
+.toggle-slider.monthly {
+  transform: translateX(3px);
+}
+
+.toggle-slider.yearly {
+  transform: translateX(33px);
+}
+
+.savings-badge {
+  background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+  color: #181a20;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
+}
+
+/* Pricing Cards */
+.pricing-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.pricing-card {
+  background: rgba(36, 40, 54, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.pricing-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(79, 140, 255, 0.2);
+}
+
+.pricing-card.popular {
+  border-color: #4f8cff;
+  box-shadow: 0 10px 30px rgba(79, 140, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.pricing-card.popular:hover {
+  transform: scale(1.05) translateY(-5px);
+}
+
+.pricing-card.current {
+  border-color: #00ff88;
+  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
+}
+
+.popular-badge {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #4f8cff 0%, #a084e8 100%);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.plan-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #f3f3f3;
+  margin-bottom: 1rem;
+}
+
+.price-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.currency {
+  font-size: 1.2rem;
+  color: rgba(243, 243, 243, 0.7);
+  margin-right: 0.2rem;
+}
+
+.price {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #4f8cff;
+}
+
+.period {
+  font-size: 1rem;
+  color: rgba(243, 243, 243, 0.7);
+  margin-left: 0.2rem;
+}
+
+.savings-text {
+  color: #00ff88;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.plan-description {
+  color: rgba(243, 243, 243, 0.8);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.card-body {
+  margin-bottom: 2rem;
+}
+
+.features-section,
+.coming-soon-section,
+.limitations-section {
+  margin-bottom: 1.5rem;
+}
+
+.features-section h4,
+.coming-soon-section h4,
+.limitations-section h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f3f3f3;
+  margin-bottom: 0.8rem;
+}
+
+.features-list,
+.coming-soon-list,
+.limitations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-item,
+.coming-soon-item,
+.limitation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem 0;
+  font-size: 0.95rem;
+  color: rgba(243, 243, 243, 0.9);
+}
+
+.check-icon {
+  color: #00ff88;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.soon-icon {
+  font-size: 1rem;
+}
+
+.limit-icon {
+  font-size: 1rem;
+}
+
+.coming-soon-item {
+  color: rgba(243, 243, 243, 0.7);
+}
+
+.limitation-item {
+  color: rgba(255, 171, 64, 0.8);
+}
+
+.card-footer {
+  text-align: center;
+}
+
+.plan-button {
+  width: 100%;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-button.free {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3f3f3;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.plan-button.free:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.plan-button.plus {
+  background: linear-gradient(135deg, #4f8cff 0%, #a084e8 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+}
+
+.plan-button.plus:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(79, 140, 255, 0.5);
+}
+
+.plan-button.current {
+  background: rgba(0, 255, 136, 0.2);
+  color: #00ff88;
+  border: 2px solid #00ff88;
+  cursor: default;
+}
+
+.plan-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* FAQ Section */
+.faq-section {
+  margin: 4rem 0;
+  text-align: center;
+}
+
+.faq-section h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #4f8cff;
+  margin-bottom: 2rem;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.faq-item {
+  background: rgba(36, 40, 54, 0.6);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.faq-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(79, 140, 255, 0.15);
+}
+
+.faq-item h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #f3f3f3;
+  margin-bottom: 0.8rem;
+}
+
+.faq-item p {
+  color: rgba(243, 243, 243, 0.8);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Trust Section */
+.trust-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin: 3rem 0;
+  padding: 2rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trust-item {
+  text-align: center;
+  padding: 1rem;
+}
+
+.trust-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.trust-item h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f3f3f3;
+  margin-bottom: 0.5rem;
+}
+
+.trust-item p {
+  color: rgba(243, 243, 243, 0.7);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .subscription-container {
+    padding: 1rem;
+  }
+  
+  .subscription-title {
+    font-size: 2.2rem;
+  }
+  
+  .subscription-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .pricing-cards {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .pricing-card.popular {
+    transform: none;
+  }
+  
+  .pricing-card.popular:hover {
+    transform: translateY(-5px);
+  }
+  
+  .billing-toggle {
+    font-size: 1rem;
+    gap: 0.8rem;
+  }
+  
+  .faq-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .trust-section {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .subscription-hero {
+    padding: 2rem 0 1.5rem 0;
+  }
+  
+  .subscription-title {
+    font-size: 1.8rem;
+  }
+  
+  .subscription-subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  .pricing-card {
+    padding: 1.5rem;
+  }
+  
+  .price {
+    font-size: 2.5rem;
+  }
+  
+  .trust-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .trust-icon {
+    font-size: 2rem;
+  }
+}
+
+/* Animation for plan changes */
+@keyframes planChange {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.pricing-card.current {
+  animation: planChange 0.5s ease-in-out;
+}
