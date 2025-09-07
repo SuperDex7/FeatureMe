@@ -8,15 +8,21 @@ const [size, setSize] = useState(6)
 const [page, setPage] = useState(0)
 const [totalPages, setTotalPages] = useState(0)
     useEffect(()=>{
-        getCurrentUser().then(res=>{
-            setUser(res)
-            
-            api.get(`/posts/get/all/id/${res.posts}?page=${page}&size=${size}`).then(res=>{
+        if (!user) {
+            getCurrentUser().then(res=>{
+                setUser(res)
+            })
+        }
+    }, [])
+
+    useEffect(()=>{
+        if (user && user.posts) {
+            api.get(`/posts/get/all/id/${user.posts}/sorted?page=${page}&size=${size}`).then(res=>{
                 setPosts(res.data.content)
                 setTotalPages(res.data.page.totalPages)
             })
-        })
-    }, [])
+        }
+    }, [user, page, size])
     const nextPage = () =>{
         setPage(page+1)
       }

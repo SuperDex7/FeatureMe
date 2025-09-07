@@ -12,6 +12,13 @@ function LikesSection({
 }) {
   const [localLikes, setLocalLikes] = useState(likes || []);
   const [currentUser, setCurrentUser] = useState(null);
+  const [paginatedLikes, setPaginatedLikes] = useState([]);
+  const [totalLikes, setTotalLikes] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [showAllLikes, setShowAllLikes] = useState(false);
+  const pageSize = 20;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -19,7 +26,58 @@ function LikesSection({
       setCurrentUser(user);
     };
     fetchUser();
-  }, []);
+    
+    // Get total likes count
+    fetchLikesSummary();
+  }, [postId]);
+
+  // Fetch likes summary to get total count
+  const fetchLikesSummary = async () => {
+    try {
+      const response = await api.get(`/posts/likes/${postId}/summary`);
+      setTotalLikes(response.data.totalLikes || 0);
+    } catch (error) {
+      console.error('Error fetching likes summary:', error);
+      setTotalLikes(localLikes?.length || 0);
+    }
+  };
+
+  // Load paginated likes
+  const loadPaginatedLikes = async (page = 0, append = false) => {
+    if (loading) return;
+    
+    setLoading(true);
+    try {
+      const response = await api.get(`/posts/likes/${postId}/paginated?page=${page}&size=${pageSize}`);
+      const newLikes = response.data.content || [];
+      
+      if (append) {
+        setPaginatedLikes(prev => [...prev, ...newLikes]);
+      } else {
+        setPaginatedLikes(newLikes);
+      }
+      
+      setCurrentPage(page);
+      setHasMore(newLikes.length === pageSize && (page + 1) * pageSize < totalLikes);
+    } catch (error) {
+      console.error('Error loading paginated likes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load more likes
+  const loadMoreLikes = () => {
+    loadPaginatedLikes(currentPage + 1, true);
+  };
+
+  // Toggle between showing recent likes and all likes
+  const toggleShowAllLikes = () => {
+    if (!showAllLikes) {
+      loadPaginatedLikes(0, false);
+    }
+    setShowAllLikes(!showAllLikes);
+  };
 
   const handleLike = (e) => {
     e.preventDefault();
@@ -63,6 +121,12 @@ function LikesSection({
         if (onLikeUpdate) {
           onLikeUpdate(postRes.data.likes);
         }
+        
+        // Refresh pagination data
+        fetchLikesSummary();
+        if (showAllLikes) {
+          loadPaginatedLikes(0, false);
+        }
       }
     })
     .catch(err => {
@@ -81,7 +145,17 @@ function LikesSection({
     <div className="likes-section-container">
       <div className="likes-section-header">
         <h3 className="likes-section-title">Likes</h3>
-        <span className="likes-count">{localLikes.length}</span>
+        <div className="likes-header-controls">
+          <span className="likes-count">{totalLikes || localLikes.length}</span>
+          {totalLikes > (localLikes?.length || 0) && (
+            <button 
+              className="view-all-likes-btn"
+              onClick={toggleShowAllLikes}
+            >
+              {showAllLikes ? 'Show Recent' : `View All ${totalLikes}`}
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="likes-section-body">
@@ -98,8 +172,8 @@ function LikesSection({
         </div>
         
         <div className="likes-list">
-          {localLikes && localLikes.length > 0 ? (
-            localLikes.map((like, index) => (
+          {(showAllLikes ? paginatedLikes : localLikes) && (showAllLikes ? paginatedLikes : localLikes).length > 0 ? (
+            (showAllLikes ? paginatedLikes : localLikes).map((like, index) => (
               like && like.userName ? (
                 <div key={index} className="like-item">
                   <div className="like-avatar-container">
@@ -123,6 +197,24 @@ function LikesSection({
             <div className="no-likes">
               <div className="no-likes-icon">💔</div>
               <p>No likes yet. Be the first to like this post!</p>
+            </div>
+          )}
+          
+          {/* Load More Button for Pagination */}
+          {showAllLikes && hasMore && !loading && (
+            <div className="load-more-likes">
+              <button 
+                className="load-more-btn"
+                onClick={loadMoreLikes}
+              >
+                Load More Likes
+              </button>
+            </div>
+          )}
+          
+          {loading && (
+            <div className="likes-loading">
+              <span>Loading likes...</span>
             </div>
           )}
         </div>
