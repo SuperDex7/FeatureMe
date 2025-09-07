@@ -25,6 +25,10 @@ class BadgeService {
         return { icon: '⭐', label: '500 Followers', color: '#8E44AD', description: 'Reached 500+ followers!' };
       case '100_FOLLOWERS':
         return { icon: '🎉', label: '100 Followers', color: '#16A085', description: 'Reached 100+ followers!' };
+        case 'SYSTEM':
+        return { icon: '🤖', label: 'System', color: '#6C7B7F', description: 'The System!' };
+      case 'CEO_FOUNDER':
+        return { icon: '👨‍💼', label: 'CEO/Founder', color: '#D4AF37', description: 'Founder and CEO of FeatureMe!' };
       default:
         return { icon: '🏆', label: 'Achievement', color: '#34495E', description: 'Special achievement unlocked!' };
     }
