@@ -23,7 +23,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
     const lastViewTime = localStorage.getItem(cooldownKey);
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
     
     let shouldAddView = true;
     if (lastViewTime) {
@@ -86,7 +86,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           </div>
           
           {/* Features */}
-          {features && Array.isArray(features) && features.length > 1 && (
+          {features && Array.isArray(features) && features.length > 0 && (
                 <div className="feed-card-features">
                   <span className="feed-card-feat-label">Feat:</span>
                   <span className="feed-card-feat-list">
@@ -137,10 +137,17 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
             >💬 {comments?.length || 0}</span>
             <span className="spotlight-modal-views-count">👁️ {totalViews || 0}</span>
             {currentUser && currentUser.userName === userName && (
+              currentUser.role === 'USERPLUS' && (
               <span
                 className="spotlight-modal-views"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setShowViewsAnalytics(true)}
+                title="View Analytics (Premium Feature)"
+              >📊 Analytics</span>
+              )|| <span
+                className="spotlight-modal-views"
+                style={{ cursor: 'pointer' }}
+                onClick={() => alert('Get a Plus Membership to view analytics')}
                 title="View Analytics (Premium Feature)"
               >📊 Analytics</span>
             )}
@@ -219,7 +226,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
     const lastViewTime = localStorage.getItem(cooldownKey);
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
     
     let shouldAddView = true;
     if (lastViewTime) {
@@ -299,7 +306,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
             <span className="spotlight-card-time">{new Date(time).toLocaleDateString()}</span>
           </div>
           
-          {features && features.length > 1 && (
+          {features && features.length > 0 && (
             <div className="spotlight-card-features">
               <span className="spotlight-card-feat-label">Feat:</span>
               <span className="spotlight-card-feat-list">{features.join(", ")}</span>

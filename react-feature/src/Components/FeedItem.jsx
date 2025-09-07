@@ -23,7 +23,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
     const lastViewTime = localStorage.getItem(cooldownKey);
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
     
     let shouldAddView = true;
     if (lastViewTime) {
@@ -86,7 +86,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             <span className="feed-card-time">{new Date(time).toLocaleDateString()}</span>
           </div>
             {/* Features */}
-              {features && Array.isArray(features) && features.length > 1 && (
+              {features && Array.isArray(features) && features.length > 0 && (
                 <div className="feed-card-features">
                   <span className="feed-card-feat-label">Feat:</span>
                   <span className="feed-card-feat-list">
@@ -137,12 +137,19 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             >💬 {comments?.length || 0}</span>
             <span className="feed-card-views-count">👁️ {totalViews || 0}</span>
             {currentUser && currentUser.userName === userName && (
+              currentUser.role === 'USERPLUS' && (
               <span
                 className="feed-card-views"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setShowViewsAnalytics(true)}
                 title="View Analytics (Premium Feature)"
               >📊 Analytics</span>
+              )|| <span
+              className="feed-card-views"
+              style={{ cursor: 'pointer' }}
+              onClick={() => alert('Get a Plus Membership to view analytics')}
+              title="View Analytics (Premium Feature)"
+            >📊 Analytics</span>
             )}
           </div>
                     {!showComments ? (
@@ -218,7 +225,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
     const lastViewTime = localStorage.getItem(cooldownKey);
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute in milliseconds
+    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
     
     let shouldAddView = true;
     if (lastViewTime) {
@@ -296,7 +303,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
             </div>
             <span className="feed-card-time">{new Date(time).toLocaleDateString()}</span>
           </div>
-          {features && features.length > 1 && (
+          {features && features.length > 0 && (
             <div className="feed-card-features">
               <span className="feed-card-feat-label">Feat:</span>
               <span className="feed-card-feat-list">{features.join(", ")}</span>
