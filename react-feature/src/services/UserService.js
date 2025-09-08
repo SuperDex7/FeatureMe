@@ -58,6 +58,12 @@ export const UserRelationsService = {
 };
 
 // Profile update method
-export const updateProfile = (profileData) => {
-    return api.put('/user/update', profileData);
+export const updateProfile = (profileData, isFormData = false) => {
+    const config = isFormData ? {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    } : {};
+    
+    return api.patch('/user/update', profileData, config);
 };

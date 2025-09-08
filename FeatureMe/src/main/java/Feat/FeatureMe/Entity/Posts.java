@@ -35,6 +35,8 @@ public class Posts {
     private int totalViews = 0;
     // Keep totalLikes as cached field for performance (will be calculated from PostLike collection)
     private int totalLikes = 0;
+    // Keep totalComments as cached field for performance (will be calculated from PostComment collection)
+    private int totalComments = 0;
 
     public Posts() { }
 
@@ -51,6 +53,7 @@ public class Posts {
         this.time = time;
         this.totalViews = totalViews;
         this.totalLikes = 0; // Initialize with 0 likes
+        this.totalComments = 0; // Initialize with 0 comments
     }
     
     public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews, int totalLikes) {
@@ -66,6 +69,7 @@ public class Posts {
         this.time = time;
         this.totalViews = totalViews;
         this.totalLikes = totalLikes;
+        this.totalComments = 0; // Initialize with 0 comments
     }
 
     public String getId() {
@@ -149,6 +153,14 @@ public class Posts {
 
     public void setTotalLikes(int totalLikes) {
         this.totalLikes = totalLikes;
+    }
+    
+    public int getTotalComments() {
+        return totalComments;
+    }
+
+    public void setTotalComments(int totalComments) {
+        this.totalComments = totalComments;
     }
     
     public List<String> getPendingFeatures() {

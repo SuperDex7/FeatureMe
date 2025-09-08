@@ -57,6 +57,35 @@ public class UserController {
     public User createUser(@RequestPart User user,
     @RequestPart("pp") MultipartFile pp,
     @RequestPart("banner") MultipartFile banner ) throws IOException {
+        
+        // Validate profile picture
+        if (pp == null || pp.isEmpty()) {
+            throw new IllegalArgumentException("Profile picture is required");
+        }
+        
+        String contentType = pp.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Profile picture must be an image file");
+        }
+        
+        if (pp.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Profile picture size must be less than 5MB");
+        }
+        
+        // Validate banner
+        if (banner == null || banner.isEmpty()) {
+            throw new IllegalArgumentException("Banner is required");
+        }
+        
+        String bannerContentType = banner.getContentType();
+        if (bannerContentType == null || !bannerContentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Banner must be an image file");
+        }
+        
+        if (banner.getSize() > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException("Banner size must be less than 10MB");
+        }
+        
         String ppName = pp.getOriginalFilename();
         String bannerName = banner.getOriginalFilename();
         File ppTemp = File.createTempFile("pptemp", null);
@@ -70,12 +99,82 @@ public class UserController {
         String s3Url2 = s3Service.uploadFile(bannerName, bannerPath);
         user.setBanner(s3Url2);
         user.setProfilePic(s3Url);
+        
+        // Clean up temp files
+        ppTemp.delete();
+        bannerTemp.delete();
+        
         return userService.createUser(user);
     }
-    @PatchMapping("/update/{id}")
-    public User updateUser(@PathVariable String id, @RequestBody User user) {
-        return userService.updateUser(id, user);
+    @PatchMapping("/update")
+    public User updateUser(@RequestPart("user") User userUpdateData,
+    @RequestPart(value = "pp", required = false) MultipartFile pp,
+    @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User userr = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Handle profile picture upload if provided
+        if (pp != null && !pp.isEmpty()) {
+            // Validate file type
+            String contentType = pp.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Profile picture must be an image file");
+            }
+            
+            // Validate file size (5MB limit)
+            if (pp.getSize() > 5 * 1024 * 1024) {
+                throw new IllegalArgumentException("Profile picture size must be less than 5MB");
+            }
+            
+            String ppName = pp.getOriginalFilename();
+            File ppTemp = File.createTempFile("pptemp", null);
+            pp.transferTo(ppTemp);
+            String ppPath = ppTemp.getAbsolutePath();
+            String s3Url = s3Service.uploadFile(ppName, ppPath);
+            userr.setProfilePic(s3Url);
+           
+            // Clean up temp file
+            ppTemp.delete();
+        } else if (userUpdateData.getProfilePic() != null && !userUpdateData.getProfilePic().isEmpty()) {
+            // If no file upload but URL provided, use the URL
+            userr.setProfilePic(userUpdateData.getProfilePic());
+        }
+        
+        // Handle banner upload if provided
+        if (banner != null && !banner.isEmpty()) {
+            // Validate file type
+            String contentType = banner.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Banner must be an image file");
+            }
+            
+            // Validate file size (10MB limit for banners)
+            if (banner.getSize() > 10 * 1024 * 1024) {
+                throw new IllegalArgumentException("Banner size must be less than 10MB");
+            }
+            
+            String bannerName = banner.getOriginalFilename();
+            File bannerTemp = File.createTempFile("bannerTemp", null);
+            banner.transferTo(bannerTemp);
+            String bannerPath = bannerTemp.getAbsolutePath();
+            String s3Url2 = s3Service.uploadFile(bannerName, bannerPath);
+            userr.setBanner(s3Url2);
+            
+            // Clean up temp file
+            bannerTemp.delete();
+        } else if (userUpdateData.getBanner() != null && !userUpdateData.getBanner().isEmpty()) {
+            // If no file upload but URL provided, use the URL
+            userr.setBanner(userUpdateData.getBanner());
+        }
+        userService.saveUser(userr);
+        return userService.updateUser(userr.getId(), userUpdateData);
     }
     @GetMapping("/get")
     public List<UserDTO> getAllUsers() {

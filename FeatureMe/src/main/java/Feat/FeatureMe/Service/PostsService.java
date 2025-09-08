@@ -20,10 +20,12 @@ import Feat.FeatureMe.Dto.LikesDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
+import Feat.FeatureMe.Entity.PostComment;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.PostsRepository;
 import Feat.FeatureMe.Repository.UserRepository;
+import Feat.FeatureMe.Service.S3Service;
 
 @Service
 public class PostsService {
@@ -33,13 +35,15 @@ public class PostsService {
     private final PostViewService postViewService;
     private final PostCommentService postCommentService;
     private final PostLikeService postLikeService;
+    private final S3Service s3Service;
     
-    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService) {
+    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService, S3Service s3Service) {
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
         this.postViewService = postViewService;
         this.postCommentService = postCommentService;
         this.postLikeService = postLikeService;
+        this.s3Service = s3Service;
     }
     
 
@@ -52,13 +56,6 @@ public class PostsService {
         }
     }
     
-    private int getTotalLikesForPost(String postId) {
-        try {
-            return (int) postLikeService.getTotalLikes(postId);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
     
     private List<CommentDTO> getCommentsForPost(String postId) {
         try {
@@ -69,13 +66,6 @@ public class PostsService {
         }
     }
     
-    private int getTotalCommentsForPost(String postId) {
-        try {
-            return (int) postCommentService.getTotalComments(postId);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
     
     private List<ViewsDTO> getViewsForPost(String postId) {
         try {
@@ -86,13 +76,6 @@ public class PostsService {
         }
     }
     
-    private int getTotalViewsForPost(String postId) {
-        try {
-            return (int) postViewService.getTotalViews(postId);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
         
     public Posts createPost(String authoruserName, Posts posts) {
         User author = userRepository.findByUserName(authoruserName)
@@ -143,7 +126,8 @@ public class PostsService {
             savedPost.getTime(),
             getLikesForPost(savedPost.getId()),
             getViewsForPost(savedPost.getId()),
-            savedPost.getTotalViews()
+            savedPost.getTotalViews(),
+            savedPost.getTotalComments()
         );
 
         // Update user's posts list
@@ -336,7 +320,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                p.getTotalViews()
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         }).collect(java.util.stream.Collectors.toList());
     }
@@ -384,7 +369,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         }).toList();
     }
@@ -419,7 +405,8 @@ public class PostsService {
                 post.getTime(),
                 getLikesForPost(post.getId()),
                 getViewsForPost(post.getId()),
-                getTotalViewsForPost(post.getId())
+                post.getTotalViews(),
+                post.getTotalComments()
             );
         } catch (Exception e) {
             throw e;
@@ -490,6 +477,30 @@ public class PostsService {
             }
         }
         
+        // Delete the associated S3 file before deleting the post
+        if (post.getMusic() != null && !post.getMusic().isEmpty()) {
+            try {
+                String s3Key = s3Service.extractKeyFromUrl(post.getMusic());
+                boolean deleted = s3Service.deleteFile(s3Key);
+                if (deleted) {
+                    System.out.println("Successfully deleted S3 file: " + s3Key);
+                } else {
+                    System.err.println("Failed to delete S3 file: " + s3Key);
+                }
+            } catch (Exception e) {
+                System.err.println("Error deleting S3 file for post " + id + ": " + e.getMessage());
+            }
+        }
+        
+        // Delete all comments for this post from the PostComment collection
+        postCommentService.deleteCommentsForPost(id);
+        
+        // Delete all likes for this post from the PostLike collection
+        postLikeService.deleteLikesForPost(id);
+        
+        // Delete all views for this post from the PostView collection
+        postViewService.deleteViewsForPost(id);
+        
         // Finally, delete the post from database
         postsRepository.deleteById(id);
     }
@@ -521,7 +532,8 @@ public class PostsService {
                     p.getTime(),
                     getLikesForPost(p.getId()),
                     getViewsForPost(p.getId()),
-                    getTotalViewsForPost(p.getId())
+                    p.getTotalViews(),
+                    p.getTotalComments()
                 );
             }).toList();
     
@@ -559,7 +571,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -595,7 +608,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -680,6 +694,9 @@ public class PostsService {
             // Use the new PostCommentService to add the comment
             postCommentService.addComment(id, userName, comment);
             
+            // Update the cached total comments count
+            foundPost.setTotalComments(foundPost.getTotalComments() + 1);
+            
             // Handle notifications and user comment history
             NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", LocalDateTime.now());
             
@@ -696,6 +713,8 @@ public class PostsService {
             // Clean up notifications if they exceed 30
             cleanupNotifications(author);
             
+            // Save the post with updated comment count
+            postsRepository.save(foundPost);
             userRepository.save(author);
             userRepository.save(user);
             return Optional.of(foundPost);
@@ -703,53 +722,65 @@ public class PostsService {
         return post;
     }
 
-    public Optional<Posts> deleteComment(String postId, String userName, String commentText){
-        Optional<Posts> post = postsRepository.findById(postId);
-        if(post.isPresent()){
-            Posts foundPost = post.get();
-            User author = foundPost.getAuthor();
-            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-            
-            // Use the new PostCommentService to delete the comment
-            // Note: This is a simplified approach. For better implementation, we'd need comment IDs
-            // For now, we'll need to modify the frontend to provide more specific comment identification
-            
-            // Remove the notification that was created when the comment was added
-            List<NotificationsDTO> currentNoti = author.getNotifications();
-            if(currentNoti != null){
-                currentNoti.removeIf(notification -> 
-                    notification.id() != null &&
-                    notification.id().equals(postId) && 
-                    notification.userName() != null &&
-                    notification.userName().equals(userName) && 
-                    notification.noti() != null &&
-                    notification.noti().equals("Commented on Your Post!")
-                );
-            }else{
-                author.setNotifications(new ArrayList<>());
-            }
-            
-            // Remove the comment from user's comments list
-            List<CommentedOnDTO> userComments = user.getComments();
-            if(userComments != null){
-                userComments.removeIf(comment -> 
-                    comment.id() != null &&
-                    comment.id().equals(postId) && 
-                    comment.commented() != null &&
-                    comment.commented().equals(commentText)
-                );
-            }else{
-                user.setComments(new ArrayList<>());
-            }
-            
-            Posts savedPost = postsRepository.save(foundPost);
-            userRepository.save(author);
-            userRepository.save(user);
-            return Optional.of(savedPost);
-        }
-        return post;
-    }
 
+    public boolean deleteCommentById(String commentId, String userName) {
+        // Use PostCommentService to delete the comment by ID
+        PostComment deletedComment = postCommentService.deleteCommentById(commentId, userName);
+        
+        if (deletedComment == null) {
+            // Comment not found or user not authorized
+            return false;
+        }
+        
+        // Clean up notifications and user comment history
+        String postId = deletedComment.getPostId();
+        String commentText = deletedComment.getComment();
+        
+        Optional<Posts> post = postsRepository.findById(postId);
+        if (post.isPresent()) {
+            Posts foundPost = post.get();
+            
+            // Update the cached total comments count
+            foundPost.setTotalComments(Math.max(0, foundPost.getTotalComments() - 1));
+            
+            User author = foundPost.getAuthor();
+            User user = userRepository.findByUserName(userName).orElse(null);
+            
+            if (author != null && user != null) {
+                // Remove the notification that was created when the comment was added
+                List<NotificationsDTO> currentNoti = author.getNotifications();
+                if(currentNoti != null){
+                    currentNoti.removeIf(notification -> 
+                        notification.id() != null &&
+                        notification.id().equals(postId) && 
+                        notification.userName() != null &&
+                        notification.userName().equals(userName) && 
+                        notification.noti() != null &&
+                        notification.noti().equals("Commented on Your Post!")
+                    );
+                }
+                
+                // Remove the comment from user's comments list
+                List<CommentedOnDTO> userComments = user.getComments();
+                if(userComments != null){
+                    userComments.removeIf(comment -> 
+                        comment.id() != null &&
+                        comment.id().equals(postId) && 
+                        comment.commented() != null &&
+                        comment.commented().equals(commentText)
+                    );
+                }
+                
+                userRepository.save(author);
+                userRepository.save(user);
+            }
+            
+            // Save the post with updated comment count
+            postsRepository.save(foundPost);
+        }
+        
+        return true;
+    }
 
     public PagedModel<PostsDTO> getAllPagedPosts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
@@ -781,7 +812,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -819,7 +851,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -857,7 +890,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -917,7 +951,8 @@ public class PostsService {
                 p.getTime(),
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
-                getTotalViewsForPost(p.getId())
+                p.getTotalViews(),
+                p.getTotalComments()
             );
         });
         
@@ -954,10 +989,6 @@ public class PostsService {
     }
     
     // New methods for the separate comments system
-    public PostCommentService.PostCommentSummary getPostCommentSummary(String postId) {
-        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        return postCommentService.getCommentSummary(postId);
-    }
     
     public PagedModel<CommentDTO> getPostCommentsPaginated(String postId, int page, int size) {
         postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
@@ -1020,7 +1051,8 @@ public class PostsService {
                     p.getTime(),
                     getLikesForPost(p.getId()),
                     getViewsForPost(p.getId()),
-                    getTotalViewsForPost(p.getId())
+                    p.getTotalViews(),
+                    p.getTotalComments()
                 );
             })
             .toList();

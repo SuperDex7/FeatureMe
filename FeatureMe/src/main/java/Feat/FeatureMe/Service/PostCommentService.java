@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,10 +77,23 @@ public class PostCommentService {
     }
     
     /**
-     * Delete a specific comment
+     * Delete a specific comment by comment ID
+     * Returns the deleted comment for cleanup purposes, or null if not found/unauthorized
      */
-    public void deleteComment(String postId, String userName, LocalDateTime time) {
-        postCommentRepository.deleteByPostIdAndUserNameAndTime(postId, userName, time);
+    public PostComment deleteCommentById(String commentId, String userName) {
+        Optional<PostComment> commentOpt = postCommentRepository.findById(commentId);
+        
+        if (commentOpt.isPresent()) {
+            PostComment comment = commentOpt.get();
+            
+            // Verify the user owns this comment
+            if (comment.getUserName().equals(userName)) {
+                postCommentRepository.deleteById(commentId);
+                return comment;
+            }
+        }
+        
+        return null;
     }
     
     /**
@@ -104,6 +118,7 @@ public class PostCommentService {
      */
     private CommentDTO convertToCommentDTO(PostComment postComment) {
         return new CommentDTO(
+            postComment.getId(),
             postComment.getUserName(),
             postComment.getProfilePic(),
             postComment.getComment(),
@@ -111,27 +126,4 @@ public class PostCommentService {
         );
     }
     
-    /**
-     * Get comments summary for a post
-     */
-    public PostCommentSummary getCommentSummary(String postId) {
-        long totalComments = getTotalComments(postId);
-        
-        return new PostCommentSummary(totalComments);
-    }
-    
-    /**
-     * Inner class for comment summary data
-     */
-    public static class PostCommentSummary {
-        private final long totalComments;
-        
-        public PostCommentSummary(long totalComments) {
-            this.totalComments = totalComments;
-        }
-        
-        public long getTotalComments() { 
-            return totalComments; 
-        }
-    }
 }

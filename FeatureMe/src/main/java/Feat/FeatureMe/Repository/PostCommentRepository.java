@@ -33,6 +33,6 @@ public interface PostCommentRepository extends MongoRepository<PostComment, Stri
     // Get comments by specific user (for user analytics)
     Page<PostComment> findByUserNameOrderByTimeDesc(String userName, Pageable pageable);
     
-    // Delete a specific comment by user and post (for comment deletion)
+    // Delete a specific comment by user and post (for comment deletion by time - rarely used)
     void deleteByPostIdAndUserNameAndTime(String postId, String userName, LocalDateTime time);
 }

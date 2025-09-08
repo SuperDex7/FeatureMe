@@ -76,16 +76,7 @@ function Homepage() {
       </div>
     );
   }
-  // Example data (replace with real data as needed)
-  const userr = {
-    name: 'SuperDex',
-    avatar: 'dpp.jpg',
-    posts: 256,
-    followers: 1200,
-    following: 300,
-    profileCompletion: 80,
-    banner: 'banner.jpg',
-  };
+  
   const trendingPosts = [
     { id: 1, title: 'Synthwave Dreams', author: 'DJ Nova', cover: 'pb.jpg', likes: 120 },
     { id: 2, title: 'Lo-Fi Chill', author: 'LoFiCat', cover: 'dpp.jpg', likes: 98 },
@@ -179,7 +170,7 @@ function Homepage() {
             <div className="latest-post-desc">{latestPost.description}</div>
             <div className="latest-post-stats">
               <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost?.likes?.length || 0}</span>
-              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0}</span>
+              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.totalComments || 0}</span>
             </div>
             <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
             </>
@@ -188,6 +179,7 @@ function Homepage() {
         </div>
 
         {/* View Analytics Card */}
+        {user.role === 'USERPLUS' && (
         <section className="analytics-preview-card glass-card" onClick={() => setAnalyticsModalOpen(true)} style={{cursor: 'pointer'}}>
           <div className="analytics-preview-content">
             <div className="analytics-preview-icon">📊</div>
@@ -203,7 +195,21 @@ function Homepage() {
             <div className="analytics-preview-arrow">→</div>
           </div>
         </section>
-
+        )|| <section className="analytics-preview-card glass-card" onClick={() => alert('Get a Plus Membership to view analytics')} style={{cursor: 'pointer'}}>
+        <div className="analytics-preview-content">
+          <div className="analytics-preview-icon">📊</div>
+          <div className="analytics-preview-text">
+            <h3>View Analytics</h3>
+            <p>Track your posts performance and engagement</p>
+            <div className="analytics-preview-stats">
+              <span>{user?.posts?.length || 0} Posts</span>
+              <span>•</span>
+              <span>Premium Feature</span>
+            </div>
+          </div>
+          <div className="analytics-preview-arrow">→</div>
+        </div>
+      </section>}
         {/* Friend Suggestions */}
         <FriendSuggestions limit={5} />
 
@@ -287,7 +293,7 @@ function Homepage() {
                 <h4>{latestPost.title}</h4>
                 <div className="latest-post-modal-stats">
                   <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes.length} Likes</span>
-                  <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.comments?.length || 0} Shares</span>
+                  <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.totalComments || 0} Shares</span>
                 </div>
                 <p>{latestPost.description}</p>
                 <div className="latest-post-comments-section">

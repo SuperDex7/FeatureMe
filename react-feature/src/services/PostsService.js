@@ -12,13 +12,8 @@ export const getPostById = (id) => {
   return api.get(`/posts/get/id/${id}`);
 }
 
-export const deleteComment = (postId, commentText) => {
-  return api.delete(`/posts/delete/comment/${postId}`, {
-    data: commentText,
-    headers: {
-      'Content-Type': 'text/plain'
-    }
-  });
+export const deleteComment = (commentId) => {
+  return api.delete(`/posts/delete/comment/${commentId}`);
 }
 
 export const deletePost = (postId) => {

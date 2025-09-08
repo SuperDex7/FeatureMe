@@ -10,14 +10,15 @@ function CommentSection({
   showComments, 
   setShowComments,
   postAuthor = null, // Post author information
-  maxHeight = "300px", // Configurable max height for comments list
-  placeholder = "Add a comment..." // Configurable placeholder text
+  maxHeight = "200px", // Configurable max height for comments list
+  placeholder = "Add a comment...", // Configurable placeholder text
+  totalCommentsFromPost = 0 // Total comments count from backend
 }) {
   const [commentInput, setCommentInput] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [deletingComment, setDeletingComment] = useState(null);
   const [paginatedComments, setPaginatedComments] = useState([]);
-  const [totalComments, setTotalComments] = useState(0);
+  const [totalComments, setTotalComments] = useState(totalCommentsFromPost);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -30,21 +31,13 @@ function CommentSection({
       setCurrentUser(user);
     };
     fetchUser();
-    
-    // Get total comment count
-    fetchCommentSummary();
   }, [postId]);
 
-  // Fetch comment summary to get total count
-  const fetchCommentSummary = async () => {
-    try {
-      const response = await api.get(`/posts/comments/${postId}/summary`);
-      setTotalComments(response.data.totalComments || 0);
-    } catch (error) {
-      console.error('Error fetching comment summary:', error);
-      setTotalComments(comments?.length || 0);
-    }
-  };
+  // Update totalComments when prop changes
+  useEffect(() => {
+    setTotalComments(totalCommentsFromPost);
+  }, [totalCommentsFromPost]);
+
 
   // Load paginated comments
   const loadPaginatedComments = async (page = 0, append = false) => {
@@ -117,7 +110,6 @@ function CommentSection({
                 onAddComment(postRes.data.comments, true);
                 
                 // Refresh pagination data
-                fetchCommentSummary();
                 if (showAllComments) {
                     loadPaginatedComments(0, false);
                 }
@@ -130,13 +122,16 @@ function CommentSection({
     }
   };
 
-  const handleDeleteComment = async (commentText) => {
-    if (!currentUser) return;
+  const handleDeleteComment = async (comment) => {
+    if (!currentUser || !comment.id) {
+      console.error('Cannot delete comment: missing user or comment ID');
+      return;
+    }
     
-    setDeletingComment(commentText);
+    setDeletingComment(comment.id);
     
     try {
-      await deleteComment(postId, commentText);
+      await deleteComment(comment.id);
       
       // Fetch updated comments from server
       const postRes = await api.get(`/posts/get/id/${postId}`);
@@ -145,7 +140,6 @@ function CommentSection({
         onAddComment(postRes.data.comments, true);
         
         // Refresh pagination data
-        fetchCommentSummary();
         if (showAllComments) {
           loadPaginatedComments(0, false);
         }
@@ -200,14 +194,14 @@ function CommentSection({
                         <span className="comment-time">
                           {comment.time ? new Date(comment.time).toLocaleDateString() : 'Just now'}
                         </span>
-                        {currentUser && (currentUser.userName === comment.userName || (postAuthor && currentUser.userName === postAuthor.userName)) && (
+                        {currentUser && comment.id && (currentUser.userName === comment.userName || (postAuthor && currentUser.userName === postAuthor.userName)) && (
                           <button
                             className="delete-comment-btn"
-                            onClick={() => handleDeleteComment(comment.comment)}
-                            disabled={deletingComment === comment.comment}
+                            onClick={() => handleDeleteComment(comment)}
+                            disabled={deletingComment === comment.id}
                             title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
                           >
-                            {deletingComment === comment.comment ? '...' : '🗑️'}
+                            {deletingComment === comment.id ? '...' : '🗑️'}
                           </button>
                         )}
                       </div>

@@ -39,9 +39,6 @@ function Post() {
         try {
             const response = await api.get(`/posts/comments/${id}/paginated?page=${page}&size=${commentSize}`);
             const newComments = response.data.content || [];
-            const totalElements = response.data.page?.totalElements || 0;
-            
-            setTotalComments(totalElements);
             
             if (append) {
                 setComments(prev => [...prev, ...newComments]);
@@ -49,14 +46,13 @@ function Post() {
                 setComments(newComments);
             }
             
-            // Check if there are more comments to load
-            setHasMoreComments(newComments.length === commentSize && (page + 1) * commentSize < totalElements);
+            // Check if there are more comments to load using the cached totalComments
+            setHasMoreComments(newComments.length === commentSize && (page + 1) * commentSize < totalComments);
         } catch (error) {
             console.error('Error loading comments:', error);
             // Fallback to empty array if pagination fails
             if (!append) {
                 setComments([]);
-                setTotalComments(0);
             }
         } finally {
             setLoadingComments(false);
@@ -72,6 +68,7 @@ function Post() {
                 const res = await api.get(`/posts/get/id/${id}`);
                 setPost(res.data);
                 setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
+                setTotalComments(res.data.totalComments || 0);
                 console.log(res.data);
                 
                 // Load first page of comments
@@ -145,13 +142,16 @@ function Post() {
         }
     };
 
-    const handleDeleteComment = async (commentText) => {
-        if (!currentUser) return;
+    const handleDeleteComment = async (comment) => {
+        if (!currentUser || !comment.id) {
+            console.error('Cannot delete comment: missing user or comment ID');
+            return;
+        }
         
-        setDeletingComment(commentText);
+        setDeletingComment(comment.id);
         
         try {
-            await deleteComment(id, commentText);
+            await deleteComment(comment.id);
             
             // Reload current page of comments to reflect the deletion
             loadComments(commentPage, false);
@@ -272,7 +272,7 @@ function Post() {
             await deletePost(id);
             console.log('Post deleted successfully');
             // Redirect to home page after successful deletion
-            window.location.href = '/';
+            window.location.href = '/feed';
         } catch (err) {
             console.error('Error deleting post:', err);
             alert('Failed to delete post. Please try again.');
@@ -648,11 +648,11 @@ function Post() {
                                                                     {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
                                                                         <button
                                                                             className="delete-comment-btn"
-                                                                            onClick={() => handleDeleteComment(comment.comment)}
-                                                                            disabled={deletingComment === comment.comment}
+                                                                            onClick={() => handleDeleteComment(comment)}
+                                                                            disabled={deletingComment === comment.id}
                                                                             title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
                                                                         >
-                                                                            {deletingComment === comment.comment ? '...' : '🗑️'}
+                                                                            {deletingComment === comment.id ? '...' : '🗑️'}
                                                                         </button>
                                                                     )}
                                                                 </div>

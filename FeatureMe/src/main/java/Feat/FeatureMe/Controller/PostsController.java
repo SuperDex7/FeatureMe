@@ -132,10 +132,6 @@ public class PostsController {
         return postsService.getPostCommentsPaginated(id, page, size);
     }
     
-    @GetMapping("/comments/{id}/summary")
-    public PostCommentService.PostCommentSummary getPostCommentSummary(@PathVariable String id) {
-        return postsService.getPostCommentSummary(id);
-    }
     
     @GetMapping("/likes/{id}/paginated")
     public PagedModel<LikesDTO> getPostLikesPaginated(
@@ -298,8 +294,8 @@ public class PostsController {
         return postsService.addComment(id, user.getUserName(), comment);
     }
     
-    @DeleteMapping("/delete/comment/{postId}")
-    public Optional<Posts> deleteComment(@PathVariable String postId, @RequestBody String commentText){
+    @DeleteMapping("/delete/comment/{commentId}")
+    public boolean deleteComment(@PathVariable String commentId){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -310,7 +306,7 @@ public class PostsController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
-        return postsService.deleteComment(postId, user.getUserName(), commentText);
+        return postsService.deleteCommentById(commentId, user.getUserName());
     }
     
     @PostMapping("/approve-feature/{postId}")

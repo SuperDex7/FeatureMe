@@ -6,7 +6,7 @@ import ViewsAnalytics from "./ViewsAnalytics";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0 }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -134,7 +134,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               className={`spotlight-modal-comments${showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
-            >💬 {comments?.length || 0}</span>
+            >💬 {totalComments || 0}</span>
             <span className="spotlight-modal-views-count">👁️ {totalViews || 0}</span>
             {currentUser && currentUser.userName === userName && (
               currentUser.role === 'USERPLUS' && (
@@ -201,7 +201,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
   );
 }
 
-function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0 }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -335,7 +335,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
           
           <div className="spotlight-card-stats-row">
             <span className="spotlight-card-likes">❤️ {likes.length}</span>
-            <span className="spotlight-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
+            <span className="spotlight-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {totalComments || 0}</span>
             <span className="spotlight-card-views-count">👁️ {totalViews || 0}</span>
           </div>
           
@@ -363,6 +363,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
         onAddComment={handleModalAddComment}
         currentUser={currentUser}
         totalViews={totalViews}
+        totalComments={totalComments}
       />
     </>
   );

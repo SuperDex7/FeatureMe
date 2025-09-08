@@ -6,7 +6,7 @@ import ViewsAnalytics from "./ViewsAnalytics";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0 }) {
+function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -134,7 +134,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               className={`feed-card-comments${showComments ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
               onClick={() => setShowComments(true)}
-            >💬 {comments?.length || 0}</span>
+            >💬 {totalComments || 0}</span>
             <span className="feed-card-views-count">👁️ {totalViews || 0}</span>
             {currentUser && currentUser.userName === userName && (
               currentUser.role === 'USERPLUS' && (
@@ -168,6 +168,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               showComments={showComments}
               setShowComments={setShowComments}
               postAuthor={author}
+              totalCommentsFromPost={totalComments}
             />
           )}
           <div className="feed-card-actions-row">
@@ -199,7 +200,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
   );
 }
 
-function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0 }) {
+function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0 }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -334,7 +335,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
           )}
           <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
             <span className="feed-card-likes">❤️ {likes.length}</span>
-            <span className="feed-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {allComments == null ? 0 : allComments.length}</span>
+            <span className="feed-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {totalComments || 0}</span>
             <span className="feed-card-views-count">👁️ {totalViews || 0}</span>
           </div>
           
@@ -356,6 +357,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
         onAddComment={handleModalAddComment}
         currentUser={currentUser}
         totalViews={totalViews}
+        totalComments={totalComments}
       />
     </>
   );

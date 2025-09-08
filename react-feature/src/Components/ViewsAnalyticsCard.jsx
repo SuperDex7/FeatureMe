@@ -156,7 +156,7 @@ function ViewsAnalyticsCard() {
                     </span>
                     <span className="analytics-stat">
                       <span className="analytics-stat-icon">💬</span>
-                      <span className="analytics-stat-value">{post.comments?.length || 0}</span>
+                      <span className="analytics-stat-value">{post.totalComments || 0}</span>
                     </span>
                   </div>
                 </div>

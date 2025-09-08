@@ -7,9 +7,8 @@ import { getUserInfo, UserRelationsService, updateProfile } from "../services/Us
 import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
-import ProfilePosts from "../Components/ProfilePosts";
-import ProfilePosts2 from "../Components/ProfilePosts2";
 import ShowFollow from "../Components/ShowFollow";
+import FeedItem from "../Components/FeedItem";
 
 function Profile() {
   const [activeTab, setActiveTab] = useState("posts");
@@ -30,14 +29,21 @@ function Profile() {
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
-    userName: '',
     bio: '',
     location: '',
     about: '',
     profilePic: '',
-    banner: ''
+    banner: '',
+    socialMedia: []
+  });
+  const [profilePicFile, setProfilePicFile] = useState(null);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [uploadMethod, setUploadMethod] = useState({
+    profilePic: 'url', // 'url' or 'file'
+    banner: 'url'      // 'url' or 'file'
   });
   const [editLoading, setEditLoading] = useState(false);
+  const [socialLinksExpanded, setSocialLinksExpanded] = useState(false);
 
   const [size, setSize] = useState(6)
     const [page, setPage] = useState(0)
@@ -78,12 +84,12 @@ function Profile() {
   useEffect(() => {
     if (user && currentUser?.userName === username) {
       setEditFormData({
-        userName: user.userName || '',
         bio: user.bio || '',
         location: user.location || '',
         about: user.about || '',
         profilePic: user.profilePic || '',
-        banner: user.banner || ''
+        banner: user.banner || '',
+        socialMedia: user.socialMedia || []
       });
     }
   }, [user, currentUser, username]);
@@ -102,29 +108,27 @@ function Profile() {
   const prevFeatPage = () =>{
     setFeatPage(featPage-1)
   }
-  // Load posts when activeTab changes
+  // Load posts when activeTab changes or page changes
   useEffect(() => {
-    if (activeTab === "posts" && user && co === 0) {
-      api.get(`posts/get/all/id/${user.posts}?page=${page}&size=${size}`).then(res => {
+    if (activeTab === "posts" && user && user.posts) {
+      api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${size}`).then(res => {
         setTotalPages(res.data.page.totalPages)
         setPosts(res.data.content)
         console.log(res.data)
-        setCo(co + 1)
       })
     }
-  }, [activeTab, user, co]);
+  }, [activeTab, user, page, size]);
 
-  // Load featuredOn when activeTab changes
+  // Load featuredOn when activeTab changes or page changes
   useEffect(() => {
-    if (activeTab === "friends" && user && co2 === 0) {
-      api.get(`posts/get/all/featuredOn/${user.featuredOn}?page=${featPage}&size=${featSize}`).then(res => {
+    if (activeTab === "friends" && user && user.featuredOn) {
+      api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${featPage}&size=${featSize}`).then(res => {
         setFeatTotalPages(res.data.page.totalPages)
         setFeatureOn(res.data.content)
         console.log(res.data)
-        setCo2(co2 + 1)
       })
     }
-  }, [activeTab, user, co2]);
+  }, [activeTab, user, featPage, featSize]);
 
   if (isLoading) {
     return (
@@ -174,12 +178,12 @@ function Profile() {
     // Reset form data to original user data
     if (user) {
       setEditFormData({
-        userName: user.userName || '',
         bio: user.bio || '',
         location: user.location || '',
         about: user.about || '',
         profilePic: user.profilePic || '',
-        banner: user.banner || ''
+        banner: user.banner || '',
+        socialMedia: user.socialMedia || []
       });
     }
   };
@@ -192,17 +196,109 @@ function Profile() {
     }));
   };
 
+  const handleSocialMediaChange = (index, value) => {
+    const newSocialMedia = [...editFormData.socialMedia];
+    newSocialMedia[index] = value;
+    setEditFormData(prev => ({
+      ...prev,
+      socialMedia: newSocialMedia
+    }));
+  };
+
+  const addSocialMediaLink = () => {
+    setEditFormData(prev => ({
+      ...prev,
+      socialMedia: [...prev.socialMedia, '']
+    }));
+  };
+
+  const removeSocialMediaLink = (index) => {
+    setEditFormData(prev => ({
+      ...prev,
+      socialMedia: prev.socialMedia.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleFileChange = (type, file) => {
+    if (type === 'profilePic') {
+      setProfilePicFile(file);
+    } else if (type === 'banner') {
+      setBannerFile(file);
+    }
+  };
+
+  const handleUploadMethodChange = (type, method) => {
+    setUploadMethod(prev => ({
+      ...prev,
+      [type]: method
+    }));
+    
+    // Clear the other method's data when switching
+    if (type === 'profilePic') {
+      if (method === 'file') {
+        setEditFormData(prev => ({ ...prev, profilePic: '' }));
+      } else {
+        setProfilePicFile(null);
+      }
+    } else if (type === 'banner') {
+      if (method === 'file') {
+        setEditFormData(prev => ({ ...prev, banner: '' }));
+      } else {
+        setBannerFile(null);
+      }
+    }
+  };
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setEditLoading(true);
     
     try {
-      const response = await updateProfile(editFormData);
+      // Create FormData for file uploads if needed
+      const formData = new FormData();
+      
+      // Add text fields - create a User object structure
+      const userData = {
+        bio: editFormData.bio,
+        location: editFormData.location,
+        about: editFormData.about,
+        socialMedia: editFormData.socialMedia
+      };
+      
+      // Only add profilePic and banner URLs if using URL method
+      if (uploadMethod.profilePic === 'url') {
+        userData.profilePic = editFormData.profilePic;
+      }
+      if (uploadMethod.banner === 'url') {
+        userData.banner = editFormData.banner;
+      }
+      
+      formData.append('user', new Blob([JSON.stringify(userData)], { type: 'application/json' }));
+      
+      // Add files if using file upload method
+      if (uploadMethod.profilePic === 'file' && profilePicFile) {
+        formData.append('pp', profilePicFile);
+      }
+      
+      if (uploadMethod.banner === 'file' && bannerFile) {
+        formData.append('banner', bannerFile);
+      }
+      
+      // Add upload method info
+      formData.append('profilePicMethod', uploadMethod.profilePic);
+      formData.append('bannerMethod', uploadMethod.banner);
+      
+      const response = await updateProfile(formData, true); // true indicates multipart form data
       console.log('Profile updated:', response.data);
       
       // Update the user state with new data
       setUser(response.data);
       setIsEditing(false);
+      
+      // Reset file states
+      setProfilePicFile(null);
+      setBannerFile(null);
+      setUploadMethod({ profilePic: 'url', banner: 'url' });
       
       // Show success message (you can implement a toast notification here)
       alert('Profile updated successfully!');
@@ -239,92 +335,260 @@ function Profile() {
           </button>
         )}
         {isEditing ? (
-          <form className="profile-edit-form" onSubmit={handleSaveProfile}>
-            <div className="edit-field">
-              <label htmlFor="userName">Username:</label>
-              <input
-                type="text"
-                id="userName"
-                name="userName"
-                value={editFormData.userName}
-                onChange={handleInputChange}
-                required
-                disabled={editLoading}
-              />
+          <form className="profile-edit-form modern-form" onSubmit={handleSaveProfile}>
+            <div className="form-header">
+              <h3 className="form-title">✏️ Edit Your Profile</h3>
+              <p className="form-subtitle">Update your information to keep your profile fresh</p>
             </div>
             
-            <div className="edit-field">
-              <label htmlFor="bio">Bio:</label>
-              <textarea
-                id="bio"
-                name="bio"
-                value={editFormData.bio}
-                onChange={handleInputChange}
-                rows="3"
-                disabled={editLoading}
-                placeholder="Tell us about yourself..."
-              />
+            <div className="form-section">
+              <h4 className="section-title">📝 Basic Information</h4>
+              
+              <div className="edit-field">
+                <label htmlFor="bio">
+                  <span className="field-icon">💬</span>
+                  Bio
+                </label>
+                <textarea
+                  id="bio"
+                  name="bio"
+                  value={editFormData.bio}
+                  onChange={handleInputChange}
+                  rows="3"
+                  disabled={editLoading}
+                  placeholder="Tell us about yourself..."
+                  className="modern-textarea"
+                />
+              </div>
+              
+              <div className="edit-field">
+                <label htmlFor="location">
+                  <span className="field-icon">📍</span>
+                  Location
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={editFormData.location}
+                  onChange={handleInputChange}
+                  disabled={editLoading}
+                  placeholder="City, State?"
+                  className="modern-input"
+                />
+              </div>
+              
+              <div className="edit-field">
+                <label htmlFor="about">
+                  <span className="field-icon">📋</span>
+                  About Me
+                </label>
+                <textarea
+                  id="about"
+                  name="about"
+                  value={editFormData.about}
+                  onChange={handleInputChange}
+                  rows="4"
+                  disabled={editLoading}
+                  placeholder="Share more details about yourself, your music, and your journey..."
+                  className="modern-textarea"
+                />
+              </div>
             </div>
             
-            <div className="edit-field">
-              <label htmlFor="location">Location:</label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={editFormData.location}
-                onChange={handleInputChange}
-                disabled={editLoading}
-                placeholder="Where are you from?"
-              />
+            <div className="form-section">
+              <h4 className="section-title">🖼️ Visual Assets</h4>
+              
+              {/* Profile Picture */}
+              <div className="edit-field">
+                <label>
+                  <span className="field-icon">👤</span>
+                  Profile Picture
+                </label>
+                
+                <div className="upload-method-selector">
+                  <button
+                    type="button"
+                    className={`method-btn ${uploadMethod.profilePic === 'url' ? 'active' : ''}`}
+                    onClick={() => handleUploadMethodChange('profilePic', 'url')}
+                    disabled={editLoading}
+                  >
+                    🔗 URL
+                  </button>
+                  <button
+                    type="button"
+                    className={`method-btn ${uploadMethod.profilePic === 'file' ? 'active' : ''}`}
+                    onClick={() => handleUploadMethodChange('profilePic', 'file')}
+                    disabled={editLoading}
+                  >
+                    📁 Upload File
+                  </button>
+                </div>
+                
+                {uploadMethod.profilePic === 'url' ? (
+                  <input
+                    type="url"
+                    name="profilePic"
+                    value={editFormData.profilePic}
+                    onChange={handleInputChange}
+                    disabled={editLoading}
+                    placeholder="https://example.com/your-profile-pic.jpg"
+                    className="modern-input"
+                  />
+                ) : (
+                  <div className="file-upload-area">
+                    <input
+                      type="file"
+                      id="profilePicFile"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange('profilePic', e.target.files[0])}
+                      disabled={editLoading}
+                      className="file-input"
+                    />
+                    <label htmlFor="profilePicFile" className="file-label">
+                      {profilePicFile ? (
+                        <>
+                          <span className="file-icon">✅</span>
+                          {profilePicFile.name}
+                        </>
+                      ) : (
+                        <>
+                          <span className="file-icon">📷</span>
+                          Choose profile picture...
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+              
+              {/* Banner */}
+              <div className="edit-field">
+                <label>
+                  <span className="field-icon">🎨</span>
+                  Banner Image
+                </label>
+                
+                <div className="upload-method-selector">
+                  <button
+                    type="button"
+                    className={`method-btn ${uploadMethod.banner === 'url' ? 'active' : ''}`}
+                    onClick={() => handleUploadMethodChange('banner', 'url')}
+                    disabled={editLoading}
+                  >
+                    🔗 URL
+                  </button>
+                  <button
+                    type="button"
+                    className={`method-btn ${uploadMethod.banner === 'file' ? 'active' : ''}`}
+                    onClick={() => handleUploadMethodChange('banner', 'file')}
+                    disabled={editLoading}
+                  >
+                    📁 Upload File
+                  </button>
+                </div>
+                
+                {uploadMethod.banner === 'url' ? (
+                  <input
+                    type="url"
+                    name="banner"
+                    value={editFormData.banner}
+                    onChange={handleInputChange}
+                    disabled={editLoading}
+                    placeholder="https://example.com/your-banner.jpg"
+                    className="modern-input"
+                  />
+                ) : (
+                  <div className="file-upload-area">
+                    <input
+                      type="file"
+                      id="bannerFile"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange('banner', e.target.files[0])}
+                      disabled={editLoading}
+                      className="file-input"
+                    />
+                    <label htmlFor="bannerFile" className="file-label">
+                      {bannerFile ? (
+                        <>
+                          <span className="file-icon">✅</span>
+                          {bannerFile.name}
+                        </>
+                      ) : (
+                        <>
+                          <span className="file-icon">🖼️</span>
+                          Choose banner image...
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="edit-field">
-              <label htmlFor="about">About:</label>
-              <textarea
-                id="about"
-                name="about"
-                value={editFormData.about}
-                onChange={handleInputChange}
-                rows="4"
-                disabled={editLoading}
-                placeholder="More detailed information about yourself..."
-              />
-            </div>
+            {/* Social Media Links - UserPlus Feature */}
+            {user.role === 'USERPLUS' && (
+              <div className="form-section">
+                <h4 className="section-title">🔗 Social Media Links</h4>
+                <p className="section-description">Connect your social profiles (UserPlus Feature)</p>
+                <div className="social-media-inputs">
+                  {editFormData.socialMedia.map((link, index) => (
+                    <div key={index} className="social-media-input-group">
+                      <input
+                        type="url"
+                        value={link}
+                        onChange={(e) => handleSocialMediaChange(index, e.target.value)}
+                        disabled={editLoading}
+                        placeholder="https://www.youtube.com/@yourname"
+                        className="social-media-input"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeSocialMediaLink(index)}
+                        disabled={editLoading}
+                        className="remove-social-btn"
+                        title="Remove link"
+                      >
+                        ❌
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addSocialMediaLink}
+                    disabled={editLoading || editFormData.socialMedia.length >= 6}
+                    className="add-social-btn"
+                  >
+                    ➕ Add Social Link {editFormData.socialMedia.length >= 6 && '(Max 6)'}
+                  </button>
+                </div>
+              </div>
+            )}
             
-            <div className="edit-field">
-              <label htmlFor="profilePic">Profile Picture URL:</label>
-              <input
-                type="url"
-                id="profilePic"
-                name="profilePic"
-                value={editFormData.profilePic}
-                onChange={handleInputChange}
-                disabled={editLoading}
-                placeholder="https://example.com/your-profile-pic.jpg"
-              />
-            </div>
-            
-            <div className="edit-field">
-              <label htmlFor="banner">Banner URL:</label>
-              <input
-                type="url"
-                id="banner"
-                name="banner"
-                value={editFormData.banner}
-                onChange={handleInputChange}
-                disabled={editLoading}
-                placeholder="https://example.com/your-banner.jpg"
-              />
-            </div>
-            
-            <div className="edit-actions">
+            <div className="form-actions">
               <button 
-                type="submit" 
-                className="save-btn" 
+                type="button"
+                className="cancel-btn modern-btn" 
+                onClick={handleCancelEdit}
                 disabled={editLoading}
               >
-                {editLoading ? 'Saving...' : 'Save Changes'}
+                ❌ Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="save-btn modern-btn primary" 
+                disabled={editLoading}
+              >
+                {editLoading ? (
+                  <>
+                    <span className="loading-spinner"></span>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    ✅ Save Changes
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -348,6 +612,58 @@ function Profile() {
             </div>
             <p className="profile-glass-bio">{user.bio}</p>
             <p className="profile-glass-location">{user.location}</p>
+            
+            {/* Social Links - UserPlus Feature */}
+            {user.role === 'USERPLUS' && user.socialMedia && user.socialMedia.length > 0 && (
+              <div className={`profile-glass-social-links ${socialLinksExpanded ? 'expanded' : ''}`}>
+                <div 
+                  className="social-links-header"
+                  onClick={() => setSocialLinksExpanded(!socialLinksExpanded)}
+                >
+                  <h4 className="social-links-title">🔗 Social Links</h4>
+                  <span className={`expand-arrow ${socialLinksExpanded ? 'expanded' : ''}`}>
+                    ▼
+                  </span>
+                </div>
+                
+                {socialLinksExpanded && (
+                  <div className="social-links-grid">
+                    {user.socialMedia.map((link, index) => {
+                      const domain = new URL(link).hostname.replace('www.', '');
+                      const platformName = domain.split('.')[0];
+                      
+                      // Get platform icon based on domain
+                      const getPlatformIcon = (domain) => {
+                        if (domain.includes('youtube')) return '📺';
+                        if (domain.includes('tiktok')) return '🎵';
+                        if (domain.includes('instagram')) return '📷';
+                        if (domain.includes('twitter') || domain.includes('x.com')) return '🐦';
+                        if (domain.includes('facebook')) return '👥';
+                        if (domain.includes('linkedin')) return '💼';
+                        if (domain.includes('twitch')) return '🎮';
+                        if (domain.includes('discord')) return '💬';
+                        if (domain.includes('spotify')) return '🎧';
+                        return '🌐';
+                      };
+                      
+                      return (
+                        <a 
+                          key={index}
+                          href={link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="social-link"
+                          title={`Visit ${platformName}`}
+                        >
+                          <span className="social-icon">{getPlatformIcon(domain)}</span>
+                          <span className="social-platform">{platformName.charAt(0).toUpperCase() + platformName.slice(1)}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
         <div className="profile-glass-stats">
@@ -377,7 +693,7 @@ function Profile() {
              <div className="profilePosts">
             
            {posts.map((item) => (
-             <ProfilePosts2 key={item.id} {...item} />
+             <FeedItem key={item.id} {...item} />
            ))}
          </div>
          <div id="pageButtons">
@@ -398,7 +714,7 @@ function Profile() {
            <div className="profilePosts">
             
            {featuredOn.map((item) => (
-             <ProfilePosts key={item.id} {...item} />
+             <FeedItem key={item.id} {...item} />
            ))}
          </div>
          <div id="pageButtons">

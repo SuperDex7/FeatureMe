@@ -17,7 +17,8 @@ public record PostsDTO(
         LocalDateTime time,
         List<LikesDTO> likes,
         List<ViewsDTO> views,
-        int totalViews
+        int totalViews,
+        int totalComments
         
 ) {
 
