@@ -52,6 +52,55 @@ public class S3Service
 		s3Client.getObject(getObjectRequest, Path.of(downloadPath));
 	}
 	
+	/**
+	 * Deletes a file from the S3 bucket
+	 * @param keyName The S3 object key to delete
+	 * @return true if deletion was successful, false otherwise
+	 */
+	public boolean deleteFile(String keyName) {
+		try {
+			software.amazon.awssdk.services.s3.model.DeleteObjectRequest deleteObjectRequest = 
+				software.amazon.awssdk.services.s3.model.DeleteObjectRequest.builder()
+					.bucket(bucketName)
+					.key(keyName)
+					.build();
+					
+			s3Client.deleteObject(deleteObjectRequest);
+			return true;
+		} catch (Exception e) {
+			System.err.println("Error deleting file from S3: " + e.getMessage());
+			return false;
+		}
+	}
+	
+	/**
+	 * Extracts the S3 key from a full S3 URL and decodes it properly
+	 * @param s3Url Full S3 URL
+	 * @return S3 key (filename) with proper decoding
+	 */
+	public String extractKeyFromUrl(String s3Url) {
+		if (s3Url == null || !s3Url.contains(bucketName)) {
+			return s3Url; // Return as-is if not an S3 URL
+		}
+		
+		String baseUrl = "https://" + bucketName + ".s3." + region + ".amazonaws.com/";
+		if (s3Url.startsWith(baseUrl)) {
+			String encodedKey = s3Url.substring(baseUrl.length());
+			// Decode the URL-encoded key back to the original filename
+			// Replace + with spaces and handle other URL encoding
+			String decodedKey = encodedKey.replace("+", " ");
+			try {
+				// Use URLDecoder for proper URL decoding
+				decodedKey = java.net.URLDecoder.decode(encodedKey, "UTF-8");
+			} catch (Exception e) {
+				// Fallback to simple replacement if URLDecoder fails
+				decodedKey = encodedKey.replace("+", " ");
+			}
+			return decodedKey;
+		}
+		return s3Url;
+	}
+	
 	// Simple helper method to detect content type
 	private String getContentType(String fileName) {
 		if (fileName == null) return "application/octet-stream";
