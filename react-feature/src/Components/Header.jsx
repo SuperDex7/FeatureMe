@@ -15,6 +15,7 @@ function Header() {
   const handleLogout = async () => {
     await logout();
   };
+
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -90,9 +91,19 @@ function Header() {
                   <span className="dropdown-icon">⏳</span>
                   <span className="dropdown-label">Feature Requests</span>
                 </a>
+                <a href="/create-post"> className="user-dropdown-item" 
+                  <span className="dropdown-icon">✍️</span>
+                  <span className="dropdown-label">
+                    Create Post
+                  </span>
+                </a>
                 <a href="/messages" className="user-dropdown-item">
                   <span className="dropdown-icon">💬</span>
                   <span className="dropdown-label">Messaging</span>
+                </a>
+                <a href="/subscription" className="user-dropdown-item">
+                  <span className="dropdown-icon">⭐</span>
+                  <span className="dropdown-label">{currentUser?.role === 'USER' ? 'Upgrade Plan' : 'Your Plan'}</span>
                 </a>
                 <div className="dropdown-divider"></div>
                 <button className="user-dropdown-item logout-item" onClick={handleLogout}>

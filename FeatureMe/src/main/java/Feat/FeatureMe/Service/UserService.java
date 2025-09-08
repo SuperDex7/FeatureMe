@@ -26,6 +26,11 @@ public class UserService {
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
     }
+
+    public void saveUser(User user){
+        userRepository.save(user);
+    }
+
     public User createUser(User user) {
         if(userRepository.existsByUserName(user.getUserName())){
             throw new IllegalArgumentException("User already exists with this username");

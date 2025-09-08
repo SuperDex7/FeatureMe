@@ -25,6 +25,10 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     Page<Posts> findAllByOrderByTimeDesc(Pageable pageable);
     Page<Posts> findAllById(Pageable pageable);
     Page<Posts> findAllByIdIn(List<String> ids, Pageable pageable);
+    
+    // Method to find posts by ID list sorted by time descending
+    @Query("{ '_id': { $in: ?0 } }")
+    Page<Posts> findAllByIdInOrderByTimeDesc(List<String> ids, Pageable pageable);
 
     // Flexible search methods with multiple filters and sorting options
     
@@ -64,7 +68,7 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     List<Posts> findByStatus(String status);
     
     // Search methods with status filter
-    @Query("{ $and: [ { 'status': ?2 }, { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] } ] }")
+    @Query("{ $and: [ { 'status': ?1 }, { $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'description': { $regex: ?0, $options: 'i' } } ] } ] }")
     Page<Posts> findByTitleOrDescriptionContainingIgnoreCaseAndStatus(String searchTerm, String status, Pageable pageable);
     
     @Query("{ $and: [ { 'status': ?1 }, { 'genre': { $in: ?0 } } ] }")
