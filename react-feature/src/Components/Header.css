@@ -425,5 +425,23 @@
     font-size: 1.3rem;
   }
 }
+
+/* Post Limit Indicator Styles */
+.post-limit-indicator {
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* Style for Create Post button when limit is reached */
+.user-dropdown-item:has(.post-limit-indicator) {
+  opacity: 0.7;
+}
+
+.user-dropdown-item:has(.post-limit-indicator):hover {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: rgba(255, 107, 107, 0.3);
+}
   
   

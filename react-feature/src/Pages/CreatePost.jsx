@@ -183,13 +183,59 @@ function CreatePost(){
   });
 }
 
-  // Handle file selection and clear errors
+  // Handle file selection with validation
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-    // Clear file error when user selects a file
-    if (errors.file) {
-      setErrors(prev => ({ ...prev, file: '' }));
+    
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+
+    // Validate file type based on user role
+    const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
+    const userRole = currentUser?.role;
+    
+    let isValidFile = false;
+    let errorMessage = '';
+
+    if (userRole === 'USERPLUS') {
+      // Plus users can upload MP3 and WAV
+      if (fileExtension === 'mp3' || fileExtension === 'wav') {
+        isValidFile = true;
+      } else {
+        errorMessage = `Plus users can only upload MP3 and WAV files. You selected: .${fileExtension}`;
+      }
+    } else if (userRole === 'USER') {
+      // Free users can only upload MP3
+      if (fileExtension === 'mp3') {
+        isValidFile = true;
+      } else {
+        errorMessage = `Free users can only upload MP3 files. You selected: .${fileExtension}. Upgrade to Plus for WAV support!`;
+      }
+    } else {
+      errorMessage = 'Invalid user role. Cannot upload files.';
+    }
+
+    // Additional file size validation
+    const maxFileSize = userRole === 'USERPLUS' ? 90 * 1024 * 1024 : 15 * 1024 * 1024; // 90MB for Plus, 15MB for free
+    if (isValidFile && selectedFile.size > maxFileSize) {
+      const maxSizeMB = maxFileSize / (1024 * 1024);
+      isValidFile = false;
+      errorMessage = `File size exceeds limit. Maximum allowed: ${maxSizeMB}MB for ${userRole} users.`;
+    }
+
+    if (isValidFile) {
+      setFile(selectedFile);
+      // Clear file error when user selects a valid file
+      if (errors.file) {
+        setErrors(prev => ({ ...prev, file: '' }));
+      }
+    } else {
+      setFile(null);
+      setErrors(prev => ({ ...prev, file: errorMessage }));
+      // Clear the file input
+      e.target.value = '';
     }
   };
 
@@ -327,54 +373,76 @@ function CreatePost(){
     </div>
   );
 
-  const renderStep3 = () => (
-    <div className="step-content">
-      <h3 className="step-title">Upload Audio File</h3>
-      <p className="step-description">Upload your audio file (.mp3 or .wav)</p>
-      
-      <div className="upload-section">
-        <div className="file-upload-area">
-          <input
-            type="file"
-            accept=".mp3,.wav"
-            className="file-input"
-            onChange={handleFileChange}
-            id="audio-upload"
-          />
-          <label htmlFor="audio-upload" className={`file-upload-label ${errors.file ? 'error' : ''}`}>
-            <div className="upload-icon">🎵</div>
-            <div className="upload-text">
-              {file ? (
-                <>
-                  <strong>File Selected:</strong>
-                  <span>{file.name}</span>
-                  <span className="file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                </>
-              ) : (
-                <>
-                  <strong>Click to upload</strong>
-                  <span>or drag and drop</span>
-                  <span className="file-types">MP3, WAV up to 50MB</span>
-                </>
-              )}
+  const renderStep3 = () => {
+    const userRole = currentUser?.role;
+    const acceptedTypes = userRole === 'USERPLUS' ? '.mp3,.wav' : '.mp3';
+    const maxFileSize = userRole === 'USERPLUS' ? 90 : 15;
+    const supportedFormats = userRole === 'USERPLUS' ? 'MP3, WAV' : 'MP3 only';
+    
+    return (
+      <div className="step-content">
+        <h3 className="step-title">Upload Audio File</h3>
+        <p className="step-description">
+          {userRole === 'USERPLUS' 
+            ? 'Upload your audio file (.mp3 or .wav)' 
+            : 'Upload your MP3 file (.mp3 only - Upgrade to Plus for WAV support!)'
+          }
+        </p>
+        
+        {userRole === 'USER' && (
+          <div className="upgrade-notice">
+            <div className="notice-icon">⭐</div>
+            <div className="notice-content">
+              <strong>Upgrade to Plus for more formats!</strong>
+              <p>Plus users can upload both MP3 and WAV files with higher file size limits.</p>
             </div>
-          </label>
-        </div>
-        {errors.file && <span className="error-message">{errors.file}</span>}
-      </div>
-
-      {file && (
-        <div className="file-preview">
-          <h4>File Preview:</h4>
-          <div className="file-info">
-            <span className="file-name">{file.name}</span>
-            <span className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-            <span className="file-type">{file.type}</span>
           </div>
+        )}
+        
+        <div className="upload-section">
+          <div className="file-upload-area">
+            <input
+              type="file"
+              accept={acceptedTypes}
+              className="file-input"
+              onChange={handleFileChange}
+              id="audio-upload"
+            />
+            <label htmlFor="audio-upload" className={`file-upload-label ${errors.file ? 'error' : ''}`}>
+              <div className="upload-icon">🎵</div>
+              <div className="upload-text">
+                {file ? (
+                  <>
+                    <strong>File Selected:</strong>
+                    <span>{file.name}</span>
+                    <span className="file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>Click to upload</strong>
+                    <span>or drag and drop</span>
+                    <span className="file-types">{supportedFormats} up to {maxFileSize}MB</span>
+                  </>
+                )}
+              </div>
+            </label>
+          </div>
+          {errors.file && <span className="error-message">{errors.file}</span>}
         </div>
-      )}
-    </div>
-  );
+
+        {file && (
+          <div className="file-preview">
+            <h4>File Preview:</h4>
+            <div className="file-info">
+              <span className="file-name">{file.name}</span>
+              <span className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="file-type">{file.type}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderStep4 = () => (
     <div className="step-content">

@@ -34,7 +34,6 @@
     align-items: center;
     gap: 0.7rem;
     letter-spacing: 0.5px;
-    cursor:pointer;
   }
 
   .feed-tab:hover {

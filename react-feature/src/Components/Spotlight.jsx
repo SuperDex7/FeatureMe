@@ -33,12 +33,22 @@ function Spotlight() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/posts/get/likesdesc?page=${page}&size=${size}`) // Get more posts to organize by genre
+      // Fetch posts filtered by USERPLUS role for spotlight
+      const response = await api.get(`/posts/get/likesdesc/role/USERPLUS?page=${page}&size=${size}`)
       const posts = response.data.content || [];
       setSpotlightPosts(posts);
       setTotalPages(response.data.page.totalPages -1)
     } catch (error) {
       console.error('Error fetching spotlight posts:', error);
+      // Fallback to regular posts if role filtering fails
+      try {
+        const fallbackResponse = await api.get(`/posts/get/likesdesc?page=${page}&size=${size}`)
+        const fallbackPosts = fallbackResponse.data.content || [];
+        setSpotlightPosts(fallbackPosts);
+        setTotalPages(fallbackResponse.data.page.totalPages -1)
+      } catch (fallbackError) {
+        console.error('Error fetching fallback posts:', fallbackError);
+      }
     }
     setLoading(false);
   };
@@ -103,8 +113,8 @@ function Spotlight() {
           className={`spotlight-genre-tab ${selectedGenre === 'all' ? 'active' : ''}`}
           onClick={() => setSelectedGenre('all')}
         >
-          <span role="img" aria-label="all">🔥</span>
-          Top Overall
+          <span role="img" aria-label="all">⭐</span>
+          Plus Creators
         </button>
         {availableGenres.map(genre => (
           <button 
@@ -124,10 +134,10 @@ function Spotlight() {
           <div className="spotlight-section">
             <div className="spotlight-section-header">
               <h2 className="spotlight-section-title">
-                <span role="img" aria-label="fire">🔥</span>
-                Top Liked Posts
+                <span role="img" aria-label="star">⭐</span>
+                Plus Creator Spotlight
               </h2>
-              <p className="spotlight-section-subtitle">Most popular posts across all genres</p>
+              <p className="spotlight-section-subtitle">Top posts from Plus subscribers</p>
             </div>
             <div className="spotlight-cards-grid">
               {getTopPostsOverall().map((item) => (

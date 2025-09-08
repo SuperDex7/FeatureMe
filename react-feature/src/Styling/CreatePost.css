@@ -340,6 +340,42 @@
   color: #f3f3f7;
 }
 
+/* Upgrade Notice */
+.upgrade-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(255, 171, 64, 0.1) 0%, rgba(79, 140, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 171, 64, 0.3);
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.upgrade-notice .notice-icon {
+  font-size: 1.5rem;
+  margin-top: 0.1rem;
+}
+
+.upgrade-notice .notice-content {
+  flex: 1;
+}
+
+.upgrade-notice .notice-content strong {
+  display: block;
+  color: #ffab40;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.upgrade-notice .notice-content p {
+  color: rgba(243, 243, 247, 0.8);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* Upload Section */
 .upload-section {
   margin-bottom: 1.5rem;
