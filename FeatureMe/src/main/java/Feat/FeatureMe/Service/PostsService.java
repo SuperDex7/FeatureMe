@@ -136,7 +136,6 @@ public class PostsService {
         }
         author.getPosts().add(savedPost.getId());
         
-        author.setMonthlyPostsCount(author.getMonthlyPostsCount() + 1);
         userRepository.save(author);
 
         // Send approval requests to featured users instead of auto-adding

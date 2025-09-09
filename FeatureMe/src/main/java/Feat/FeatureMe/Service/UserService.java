@@ -65,7 +65,6 @@ public class UserService {
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
             updatedUser.getNotifications() != null && !updatedUser.getNotifications().isEmpty() ? updatedUser.getNotifications() : user.getNotifications(),
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
-            updatedUser.getMonthlyPostsCount() != 0 ? updatedUser.getMonthlyPostsCount() : user.getMonthlyPostsCount(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
         return userRepository.save(user);
@@ -127,7 +126,6 @@ public class UserService {
                 sortedFeaturedOn,
                 sortedPosts,
                 sortedLikedPosts,
-                u.getMonthlyPostsCount(),
                 sortedComments,
                 sortedNotifications
             );
@@ -194,7 +192,6 @@ public class UserService {
             sortedFeaturedOn,
             sortedPosts,
             sortedLikedPosts,
-            user.getMonthlyPostsCount(),
             sortedComments,
             sortedNotifications
         );
@@ -297,7 +294,6 @@ public class UserService {
             sortedFeaturedOn,
             sortedPosts,
             sortedLikedPosts,
-            user.getMonthlyPostsCount(),
             sortedComments,
             sortedNotifications
         );

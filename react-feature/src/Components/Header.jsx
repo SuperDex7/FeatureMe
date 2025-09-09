@@ -91,7 +91,7 @@ function Header() {
                   <span className="dropdown-icon">⏳</span>
                   <span className="dropdown-label">Feature Requests</span>
                 </a>
-                <a href="/create-post"> className="user-dropdown-item" 
+                <a href="/create-post" className="user-dropdown-item"  > 
                   <span className="dropdown-icon">✍️</span>
                   <span className="dropdown-label">
                     Create Post

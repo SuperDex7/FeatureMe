@@ -20,7 +20,6 @@ public record UserDTO(
         List<String> featuredOn,
         List<String> posts,
         List<String> likedPosts,
-        int monthlyPostsCount,
         List<CommentedOnDTO> comments,
         List<NotificationsDTO> notifications
         

@@ -400,9 +400,6 @@ public class PostsController {
             
         } else if ("USER".equals(userRole)) {
             // Regular USER can only upload .mp3 files
-            if (user.getMonthlyPostsCount() >= 5) {
-                throw new RuntimeException("User has reached the maximum number of posts");
-            }
            
             if (!"mp3".equals(fileExtension)) {
                 throw new RuntimeException("Free users can only upload MP3 files. Uploaded file type: " + fileExtension + ". Upgrade to Plus for WAV support!");

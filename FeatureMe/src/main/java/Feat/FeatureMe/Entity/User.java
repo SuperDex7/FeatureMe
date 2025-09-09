@@ -44,7 +44,6 @@ public class User implements UserDetails{
     private List<String> featuredOn;
     private List<String> likedPosts;
     private List<String> posts;
-    private int monthlyPostsCount;
     private List<NotificationsDTO> notifications;
     private List<CommentedOnDTO> comments;
     @CreatedDate
@@ -72,7 +71,6 @@ public class User implements UserDetails{
                 List<String> posts,
                 List<NotificationsDTO> notifications,
                 List<CommentedOnDTO> comments,
-                int monthlyPostsCount,
                 LocalDateTime createdAt) {
         this.id = id;
         this.userName = userName;
@@ -95,7 +93,6 @@ public class User implements UserDetails{
         this.posts = posts;
         this.notifications = notifications;
         this.comments = comments;
-        this.monthlyPostsCount = monthlyPostsCount;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -275,13 +272,6 @@ public class User implements UserDetails{
         this.notifications = notifications;
     }
 
-    public int getMonthlyPostsCount() {
-        return monthlyPostsCount;
-    }
-
-    public void setMonthlyPostsCount(int postsCount) {
-        this.monthlyPostsCount = postsCount;
-    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
