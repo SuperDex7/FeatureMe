@@ -20,15 +20,13 @@ public class PostLike {
     @Indexed
     private String userName;      // User who liked the post
     
-    private String profilePic;    // User's profile picture (cached for performance)
     private LocalDateTime likedAt; // When the like was created
     
     public PostLike() {}
     
-    public PostLike(String postId, String userName, String profilePic, LocalDateTime likedAt) {
+    public PostLike(String postId, String userName, LocalDateTime likedAt) {
         this.postId = postId;
         this.userName = userName;
-        this.profilePic = profilePic;
         this.likedAt = likedAt;
     }
     
@@ -57,13 +55,6 @@ public class PostLike {
         this.userName = userName;
     }
     
-    public String getProfilePic() {
-        return profilePic;
-    }
-    
-    public void setProfilePic(String profilePic) {
-        this.profilePic = profilePic;
-    }
     
     public LocalDateTime getLikedAt() {
         return likedAt;
