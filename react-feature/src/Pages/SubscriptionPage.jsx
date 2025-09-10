@@ -18,7 +18,6 @@ const SubscriptionPage = () => {
        
       ],
       limitations: [
-        'Limited to 5 posts monthly',
         'No advanced analytics',
         'No GIF uploads for profile/banner',
         'Basic discovery features',
@@ -33,7 +32,6 @@ const SubscriptionPage = () => {
       price: { monthly: 5.00, yearly: 50.00 },
       description: 'For serious creators and artists',
       features: [
-        'Unlimited posting',
         'Advanced Views Analytics',
         'Upload GIFs for profile picture & banner',
         'Enhanced profile customization',
