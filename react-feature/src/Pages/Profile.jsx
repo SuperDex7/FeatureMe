@@ -9,23 +9,28 @@ import BadgeService from "../services/BadgeService";
 import { getPostById } from "../services/PostsService";
 import ShowFollow from "../Components/ShowFollow";
 import FeedItem from "../Components/FeedItem";
+import AddDemo from "../ProfileComponets/AddDemo";
+import DemoGrid from "../ProfileComponets/DemoGrid";
+import DemoService from "../services/DemoService";
+
 
 function Profile() {
-  const [activeTab, setActiveTab] = useState("posts");
+  const [activeTab, setActiveTab] = useState("demos");
   const { username } = useParams();
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true);
   const [posts, setPosts] = useState([]);
   const [featuredOn, setFeatureOn] = useState([]);
-  const [count, setCount] = useState(null)
-  const [co, setCo] = useState(0)
-  const [co2, setCo2] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [showFollow, setShowFollow] = useState(false)
   const [followPopupType, setFollowPopupType] = useState('followers')
   const [relationshipSummary, setRelationshipSummary] = useState(null)
+  const [addDemo, setAddDemo] = useState(false)
+  const [showAboutModal, setShowAboutModal] = useState(false)
+  const [demos, setDemos] = useState([])
   
+
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -63,7 +68,6 @@ function Profile() {
         const response = await api.get(`/user/get/${username}`);
         setUser(response.data);
         console.log(response.data);
-        setCount(response.data.posts.length);
         
         // Get relationship summary using new endpoint
         const relationshipResponse = await UserRelationsService.getRelationshipSummary(username);
@@ -130,6 +134,19 @@ function Profile() {
     }
   }, [activeTab, user, featPage, featSize]);
 
+  useEffect(() => {
+    if (activeTab === "demos" && user) {
+      // Fetch demos for the current user
+      DemoService.getUserDemos(user.id).then(demos => {
+        setDemos(demos)
+        console.log("User demos:", demos)
+      }).catch(err => {
+        console.error("Error fetching demos:", err)
+        setDemos([])
+      })
+    }
+  }, [activeTab, user]);
+
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -143,6 +160,36 @@ function Profile() {
   const showTheFollow = (type) => {
     setFollowPopupType(type)
     setShowFollow(true)
+  }
+  const handleAddDemo = () =>{
+    setAddDemo(!addDemo)
+  }
+
+  const handleDemoAdded = () => {
+    // Refresh demos list after a new demo is added
+    if (activeTab === "demos" && user) {
+      DemoService.getUserDemos().then(demos => {
+        setDemos(demos)
+        console.log("Demos refreshed:", demos)
+      }).catch(err => {
+        console.error("Error refreshing demos:", err)
+      })
+    }
+  }
+
+  const handleDeleteDemo = async (demoId) => {
+    if (window.confirm("Are you sure you want to delete this demo? This action cannot be undone.")) {
+      try {
+        await DemoService.deleteDemo(demoId);
+        // Refresh demos list after deletion
+        const updatedDemos = await DemoService.getUserDemos();
+        setDemos(updatedDemos);
+        console.log("Demo deleted successfully");
+      } catch (err) {
+        console.error("Error deleting demo:", err);
+        alert("Failed to delete demo. Please try again.");
+      }
+    }
   }
 
   const closeFollowPopup = () => {
@@ -248,6 +295,7 @@ function Profile() {
       }
     }
   };
+  
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -358,7 +406,11 @@ function Profile() {
                   disabled={editLoading}
                   placeholder="Tell us about yourself..."
                   className="modern-textarea"
+                  maxLength="50"
                 />
+                <div className="char-counter">
+                  {editFormData.bio.length}/50 characters
+                </div>
               </div>
               
               <div className="edit-field">
@@ -375,7 +427,11 @@ function Profile() {
                   disabled={editLoading}
                   placeholder="City, State?"
                   className="modern-input"
+                  maxLength="50"
                 />
+                <div className="char-counter">
+                  {editFormData.location.length}/50 characters
+                </div>
               </div>
               
               <div className="edit-field">
@@ -392,7 +448,11 @@ function Profile() {
                   disabled={editLoading}
                   placeholder="Share more details about yourself, your music, and your journey..."
                   className="modern-textarea"
+                  maxLength="250"
                 />
+                <div className="char-counter">
+                  {editFormData.about.length}/250 characters
+                </div>
               </div>
             </div>
             
@@ -541,6 +601,7 @@ function Profile() {
                         disabled={editLoading}
                         placeholder="https://www.youtube.com/@yourname"
                         className="social-media-input"
+                        maxLength="200"
                       />
                       <button
                         type="button"
@@ -666,6 +727,26 @@ function Profile() {
             )}
           </>
         )}
+        {/* About Section - Moved to top */}
+        {user?.about && (
+          <div className="profile-glass-about-section">
+            <div className="about-preview">
+              <h4 className="about-title">📋 About</h4>
+              <p className="about-text">
+                {user.about.length > 150 ? `${user.about.substring(0, 150)}...` : user.about}
+              </p>
+              {user.about.length > 150 && (
+                <button 
+                  className="read-more-btn"
+                  onClick={() => setShowAboutModal(true)}
+                >
+                  Read More →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="profile-glass-stats">
           <div className="profile-glass-stat"><span className="stat-icon">📝</span><span className="stat-value">{user?.posts?.length || 0}</span><span className="stat-label">Posts</span></div>
           <div className="profile-glass-stat"><span className="stat-icon">👥</span><span className="stat-value">{relationshipSummary?.followersCount || 0}</span><span className="stat-label clickable" onClick={() => showTheFollow('followers')}>Followers</span></div>
@@ -678,12 +759,32 @@ function Profile() {
           onClose={closeFollowPopup}
           type={followPopupType}
         />
+
+        {/* About Modal */}
+        {showAboutModal && (
+          <div className="modal-overlay" onClick={() => setShowAboutModal(false)}>
+            <div className="modal-content about-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">📋 About {user.userName}</h3>
+                <button 
+                  className="modal-close-btn"
+                  onClick={() => setShowAboutModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <p className="about-full-text">{user.about}</p>
+              </div>
+            </div>
+          </div>
+        )}
         
       </div>
       
       <div className="profile-glass-tabs">
         <button className={`profile-glass-tab${activeTab === "posts" ? " active" : ""}`} onClick={() => setActiveTab("posts")}>Posts</button>
-        <button className={`profile-glass-tab${activeTab === "about" ? " active" : ""}`} onClick={() => setActiveTab("about")}>About</button>
+        <button className={`profile-glass-tab${activeTab === "demos" ? " active" : ""}`} onClick={() => setActiveTab("demos")}>Demos</button>
         <button className={`profile-glass-tab${activeTab === "friends" ? " active" : ""}`} onClick={() => setActiveTab("friends")}>Features</button>
       </div>
       <div className="profile-glass-content">
@@ -702,10 +803,23 @@ function Profile() {
         </div>
           </div>
         )}
-        {activeTab === "about" && (
+        {activeTab === "demos" && (
           <div>
-            <h3>About You</h3>
-            <p>{user?.about || "All the personal details, bio, interests, etc. go here."} </p>
+            {addDemo && currentUser?.userName === username && (
+              <AddDemo 
+                setAddDemo={setAddDemo} 
+                onDemoAdded={handleDemoAdded} 
+                userRole={currentUser?.role || 'USER'} 
+              />
+            )}
+            
+            <DemoGrid 
+              demos={demos}
+              currentUser={currentUser}
+              username={username}
+              onAddDemo={handleAddDemo}
+              onDeleteDemo={handleDeleteDemo}
+            />
           </div>
         )}
         {activeTab === "friends" && (

@@ -10,7 +10,7 @@ public record UserDTO(
         String role,
         String bio,
         String about,
-        String demo,
+        List<String> demo,
         String location,
         List<String> socialMedia,
         List<String> badges,
