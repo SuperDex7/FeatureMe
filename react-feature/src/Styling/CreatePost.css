@@ -260,6 +260,15 @@
   font-weight: 600;
 }
 
+/* Character Counter */
+.char-counter {
+  color: #bfc9d1;
+  font-size: 0.8rem;
+  text-align: right;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
 /* Features Section */
 .tag-list {
   display: flex;
@@ -735,6 +744,22 @@
   border-color: #4f8cff;
   background: rgba(30, 34, 45, 0.8);
   box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
+}
+
+.genre-selector-button.error {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.genre-selector-button.error:hover {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.15);
+}
+
+.genre-selector-button.error:focus {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.15);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
 }
 
 .genre-button-text {

@@ -126,8 +126,12 @@ function SignupPage() {
                   value={formData.email}
                   onChange={handleInput}
                   placeholder="Enter your email"
+                  maxLength="100"
                   required
                 />
+                <div className="char-counter">
+                  {formData.email.length}/100 characters
+                </div>
               </div>
 
               <div className="form-group">
@@ -139,8 +143,12 @@ function SignupPage() {
                   value={formData.password}
                   onChange={handleInput}
                   placeholder="Create a strong password"
+                  maxLength="50"
                   required
                 />
+                <div className="char-counter">
+                  {formData.password.length}/50 characters
+                </div>
               </div>
 
               <button type="button" className="next-btn" onClick={handleNext}>
@@ -167,6 +175,13 @@ function SignupPage() {
             <h2>Pick Your Username</h2>
             <p>This is how others will see you on the platform</p>
             
+            <div className="username-warning">
+              <div className="warning-icon">⚠️</div>
+              <div className="warning-text">
+                <strong>Important:</strong> Your username cannot be changed after account creation until further notice. Choose carefully!
+              </div>
+            </div>
+            
             <form className="signup-form">
               <div className="form-group">
                 <label htmlFor="userName">Username *</label>
@@ -177,8 +192,12 @@ function SignupPage() {
                   value={formData.userName}
                   onChange={handleInput}
                   placeholder="Enter your username"
+                  maxLength="30"
                   required
                 />
+                <div className="char-counter">
+                  {formData.userName.length}/30 characters
+                </div>
               </div>
 
               <div className="form-actions">
@@ -220,7 +239,11 @@ function SignupPage() {
                   value={formData.bio}
                   onChange={handleInput}
                   placeholder="Short description about yourself..."
+                  maxLength="50"
                 />
+                <div className="char-counter">
+                  {formData.bio.length}/50 characters
+                </div>
               </div>
 
               <div className="form-group">
@@ -232,7 +255,11 @@ function SignupPage() {
                   onChange={handleInput}
                   placeholder="Tell me about yourself..."
                   rows="4"
+                  maxLength="250"
                 />
+                <div className="char-counter">
+                  {formData.about.length}/250 characters
+                </div>
               </div>
 
               <div className="form-actions">

@@ -133,6 +133,44 @@
   border-color: #a259c6;
 }
 
+/* Username Warning */
+.username-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.warning-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.warning-text {
+  color: #ffc107;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.warning-text strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Character Counter */
+.char-counter {
+  color: #bdbdbd;
+  font-size: 0.85rem;
+  text-align: right;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
 
 
 /* Form Actions */
@@ -245,6 +283,20 @@
     flex-direction: column;
     gap: 0.5rem;
   }
+  
+  .username-warning {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .warning-icon {
+    font-size: 1.25rem;
+  }
+  
+  .warning-text {
+    font-size: 0.9rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -265,6 +317,18 @@
     width: 35px;
     height: 35px;
     font-size: 1rem;
+  }
+  
+  .username-warning {
+    padding: 0.75rem;
+  }
+  
+  .warning-text {
+    font-size: 0.85rem;
+  }
+  
+  .char-counter {
+    font-size: 0.8rem;
   }
 }
 

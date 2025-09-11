@@ -68,6 +68,11 @@ function CreatePost(){
       : [...genres, g];
     setGenres(newGenres);
     setPost({ ...post, genre: newGenres });
+    
+    // Clear genre error when a genre is selected
+    if (newGenres.length > 0 && errors.genre) {
+      setErrors(prev => ({ ...prev, genre: '' }));
+    }
   };
 
   const handleGenrePopupClose = () => {
@@ -105,6 +110,9 @@ function CreatePost(){
     const newErrors = {};
     if (!post.title || post.title.trim() === '') {
       newErrors.title = 'Song name is required';
+    }
+    if (genres.length === 0) {
+      newErrors.genre = 'At least one genre is required';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -272,8 +280,12 @@ function CreatePost(){
           type="text"
           className={`text-input ${errors.title ? 'error' : ''}`}
           placeholder="Format Suggestion: Song Name or Instrument - BPM"
+          maxLength="50"
           onChange={handleInput}
         />
+        <div className="char-counter">
+          {post.title.length}/50 characters
+        </div>
         {errors.title && <span className="error-message">{errors.title}</span>}
       </div>
 
@@ -284,15 +296,19 @@ function CreatePost(){
           rows={4}
           className="text-area"
           placeholder="Describe your song, inspiration, or any special notes..."
+          maxLength="80"
           onChange={handleInput}
         />
+        <div className="char-counter">
+          {post.description.length}/80 characters
+        </div>
       </div>
 
       <div className="input-group">
-        <label className="input-label">Genre</label>
+        <label className="input-label">Genre *</label>
         <button
           type="button"
-          className="genre-selector-button"
+          className={`genre-selector-button ${errors.genre ? 'error' : ''}`}
           onClick={handleGenrePopupOpen}
         >
           <span className="genre-button-text">
@@ -300,6 +316,7 @@ function CreatePost(){
           </span>
           <span className="genre-button-icon">🎵</span>
         </button>
+        {errors.genre && <span className="error-message">{errors.genre}</span>}
         {genres.length > 0 && (
           <div className="selected-genres-preview">
             {genres.map((genre, index) => (
@@ -601,9 +618,9 @@ function CreatePost(){
                 {currentStep < 4 ? (
                   <button 
                     type="button" 
-                    className={`nav-button next-button ${(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
+                    className={`nav-button next-button ${(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
                     onClick={(e) => nextStep(e)}
-                    disabled={(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file)}
+                    disabled={(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file)}
                   >
                     Next →
                   </button>
