@@ -227,6 +227,10 @@ public class UserService {
         return userRepository.findByEmail(usernameOrEmail);
     }
     
+    public Optional<User> findByStripeCustomerId(String stripeCustomerId) {
+        return userRepository.findByStripeCustomerId(stripeCustomerId);
+    }
+    
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         User user = findByUsernameOrEmail(usernameOrEmail)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with: " + usernameOrEmail));

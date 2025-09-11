@@ -29,6 +29,11 @@ public class User implements UserDetails{
     @Indexed(unique = true)
     private String email;
     private String role;
+    
+    // Stripe-related fields
+    private String stripeCustomerId;
+    private String stripeSubscriptionId;
+    private String subscriptionStatus; // active, canceled, past_due, etc.
 
     private String bio;
     private String about;
@@ -134,6 +139,30 @@ public class User implements UserDetails{
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getStripeCustomerId() {
+        return stripeCustomerId;
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
+
+    public String getStripeSubscriptionId() {
+        return stripeSubscriptionId;
+    }
+
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+    }
+
+    public String getSubscriptionStatus() {
+        return subscriptionStatus;
+    }
+
+    public void setSubscriptionStatus(String subscriptionStatus) {
+        this.subscriptionStatus = subscriptionStatus;
     }
 
     public String getBio() {

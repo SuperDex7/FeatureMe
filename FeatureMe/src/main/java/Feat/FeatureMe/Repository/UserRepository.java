@@ -21,5 +21,6 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     List<User> findByUserNameIn(List<String> usernames);
     
+    Optional<User> findByStripeCustomerId(String stripeCustomerId);
     
 }
