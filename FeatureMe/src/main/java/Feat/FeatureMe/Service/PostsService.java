@@ -479,13 +479,16 @@ public class PostsService {
         // Delete the associated S3 file before deleting the post
         if (post.getMusic() != null && !post.getMusic().isEmpty()) {
             try {
-                String s3Key = s3Service.extractKeyFromUrl(post.getMusic());
+                s3Service.extractKeyFromUrl(post.getMusic());
+                /* String s3Key = s3Service.extractKeyFromUrl(post.getMusic());
+                
                 boolean deleted = s3Service.deleteFile(s3Key);
                 if (deleted) {
                     System.out.println("Successfully deleted S3 file: " + s3Key);
                 } else {
                     System.err.println("Failed to delete S3 file: " + s3Key);
                 }
+                */
             } catch (Exception e) {
                 System.err.println("Error deleting S3 file for post " + id + ": " + e.getMessage());
             }
@@ -961,10 +964,15 @@ public class PostsService {
 
     public void addView(String id, String userName) {
         // Verify post exists
-        postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        Posts post = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
         
         // Use the new PostViewService to handle view tracking
         postViewService.addView(id, userName);
+        
+        // Update the cached totalViews count in the Posts entity
+        long newTotalViews = postViewService.getTotalViews(id);
+        post.setTotalViews((int) newTotalViews);
+        postsRepository.save(post); // Save the updated view count
     }
     
     public List<ViewsDTO> getPostViews(String postId) {

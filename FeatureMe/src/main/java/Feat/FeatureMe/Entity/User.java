@@ -48,7 +48,7 @@ public class User implements UserDetails{
     private List<CommentedOnDTO> comments;
     @CreatedDate
     private LocalDateTime createdAt;
-    public User() {}
+   
 
     public User(String id,
                 String userName,

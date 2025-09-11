@@ -12,7 +12,6 @@ const SubscriptionPage = () => {
       price: { monthly: 0, yearly: 0 },
       description: 'Perfect for getting started',
       features: [
-        '5 posts per month',
         'Basic profile features',
         'Community access'
        
@@ -21,6 +20,7 @@ const SubscriptionPage = () => {
         'No advanced analytics',
         'No GIF uploads for profile/banner',
         'Basic discovery features',
+        '3 Profile Demo Limit',
         '15mb file upload limit | MP3 only'
       ],
       buttonText: currentPlan === 'free' ? 'Current Plan' : 'Downgrade',
@@ -34,9 +34,9 @@ const SubscriptionPage = () => {
       features: [
         'Advanced Views Analytics',
         'Upload GIFs for profile picture & banner',
-        'Enhanced profile customization',
-        'Collaboration tools',
+        'Social Media URL Container',
         'Advanced discovery boost',
+        'Up To 6 Profile Demos',
         '90mb file upload limit | MP3 and Wave File Uploads'
       ],
       comingSoon: [
