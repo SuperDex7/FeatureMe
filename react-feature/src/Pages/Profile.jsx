@@ -135,7 +135,7 @@ function Profile() {
   }, [activeTab, user, featPage, featSize]);
 
   useEffect(() => {
-    if (activeTab === "demos" && user) {
+    if (activeTab === "demos" && user && user.id) {
       // Fetch demos for the current user
       DemoService.getUserDemos(user.id).then(demos => {
         setDemos(demos)
@@ -363,10 +363,10 @@ function Profile() {
     <div className="profile-glass-root">
       <Header />
       <div className="profile-glass-banner-wrap taller">
-        <img className="profile-glass-banner" src={user.banner} alt="Profile Banner" />
+        <img className="profile-glass-banner" src={user?.banner || '/default-banner.jpg'} alt="Profile Banner" />
         
         <div className="profile-glass-avatar-wrap overlap-half">
-          <img className="profile-glass-avatar" src={user.profilePic} alt="User Avatar" />
+          <img className="profile-glass-avatar" src={user?.profilePic || '/default-avatar.jpg'} alt="User Avatar" />
         </div>
       </div>
       <div className="profile-glass-info-card overlap-margin">
@@ -655,7 +655,7 @@ function Profile() {
           </form>
         ) : (
           <>
-            <h2 className="profile-glass-username">{user.userName}</h2>
+            <h2 className="profile-glass-username">{user?.userName || 'Unknown User'}</h2>
             <div className="profile-glass-badges-row">
               {user?.badges?.map((badge, i) => {
                 const badgeInfo = BadgeService.getBadgeInfo(badge);
@@ -671,11 +671,11 @@ function Profile() {
                 );
               })}
             </div>
-            <p className="profile-glass-bio">{user.bio}</p>
-            <p className="profile-glass-location">{user.location}</p>
+            <p className="profile-glass-bio">{user?.bio || 'No bio available'}</p>
+            <p className="profile-glass-location">{user?.location || 'Location not set'}</p>
             
             {/* Social Links - UserPlus Feature */}
-            {user.role === 'USERPLUS' && user.socialMedia && user.socialMedia.length > 0 && (
+            {user?.role === 'USERPLUS' && user?.socialMedia && user.socialMedia.length > 0 && (
               <div className={`profile-glass-social-links ${socialLinksExpanded ? 'expanded' : ''}`}>
                 <div 
                   className="social-links-header"
@@ -733,9 +733,9 @@ function Profile() {
             <div className="about-preview">
               <h4 className="about-title">📋 About</h4>
               <p className="about-text">
-                {user.about.length > 150 ? `${user.about.substring(0, 150)}...` : user.about}
+                {user?.about && user.about.length > 150 ? `${user.about.substring(0, 150)}...` : user?.about || 'No about information available'}
               </p>
-              {user.about.length > 150 && (
+              {user?.about && user.about.length > 150 && (
                 <button 
                   className="read-more-btn"
                   onClick={() => setShowAboutModal(true)}
@@ -765,7 +765,7 @@ function Profile() {
           <div className="modal-overlay" onClick={() => setShowAboutModal(false)}>
             <div className="modal-content about-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3 className="modal-title">📋 About {user.userName}</h3>
+                <h3 className="modal-title">📋 About {user?.userName || 'User'}</h3>
                 <button 
                   className="modal-close-btn"
                   onClick={() => setShowAboutModal(false)}
@@ -774,7 +774,7 @@ function Profile() {
                 </button>
               </div>
               <div className="modal-body">
-                <p className="about-full-text">{user.about}</p>
+                <p className="about-full-text">{user?.about || 'No about information available'}</p>
               </div>
             </div>
           </div>
