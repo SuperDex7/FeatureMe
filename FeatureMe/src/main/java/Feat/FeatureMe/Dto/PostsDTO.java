@@ -11,6 +11,7 @@ public record PostsDTO(
         List<String> features,
         List<String> pendingFeatures,
         String status,
+        double price,
         List<String> genre,
         String music,
         List<CommentDTO> comments,

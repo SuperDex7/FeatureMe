@@ -25,7 +25,7 @@ public class Posts {
     private List<String> features;
     private List<String> pendingFeatures; // Features awaiting approval
     private String status = "DRAFT"; // DRAFT, PUBLISHED, PARTIALLY_APPROVED
-    private int price;
+    private double price;
     private List<String> genre;
     private String music;
     // Comments are now stored in separate PostComment collection
@@ -39,9 +39,9 @@ public class Posts {
     // Keep totalComments as cached field for performance (will be calculated from PostComment collection)
     private int totalComments = 0;
 
-    
+    public Posts() { }
 
-    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews) {
+    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, LocalDateTime time, int totalViews) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -58,7 +58,7 @@ public class Posts {
         this.totalComments = 0; // Initialize with 0 comments
     }
     
-    public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews, int totalLikes) {
+    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, LocalDateTime time, int totalViews, int totalLikes) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -114,10 +114,10 @@ public class Posts {
     public void setFeatures(List<String> features) {
         this.features = features;
     }
-    public int getPrice() {
+    public double getPrice() {
         return price;
     }
-    public void setPrice(int price) {
+    public void setPrice(double price) {
         this.price = price;
     }
 
