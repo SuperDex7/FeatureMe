@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header2 from "../Components/Header2";
+import Footer from "../Components/Footer";
 import "../SignupComp/SignupPage.css";
 import "../Styling/Profile.css";
 import axios from 'axios';
@@ -727,6 +728,7 @@ function SignupPage() {
           Create Account
         </button>
       </div>
+      <Footer />
     </div>
   );
 }

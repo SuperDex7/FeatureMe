@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api, { getCurrentUser } from '../services/AuthService';
 import Header from './Header';
+import Footer from './Footer';
 import './PendingFeatures.css';
 
 const PendingFeatures = () => {
@@ -70,6 +71,7 @@ const PendingFeatures = () => {
         <div className="pending-features">
           <div className="loading">Loading pending feature requests...</div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -81,6 +83,7 @@ const PendingFeatures = () => {
         <div className="pending-features">
           <div className="error">{error}</div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -96,6 +99,7 @@ const PendingFeatures = () => {
             <p>You don't have any feature requests waiting for approval.</p>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -180,6 +184,7 @@ const PendingFeatures = () => {
                  ))}
        </div>
       </div>
+      <Footer />
      </div>
    );
  };

@@ -1,6 +1,7 @@
 import "../Styling/CreatePost.css"
 import React, { useState, useRef, useEffect } from "react";
 import Header from "../Components/Header";
+import Footer from "../Components/Footer";
 import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
 const GENRES = [
@@ -639,6 +640,7 @@ function CreatePost(){
       </div>
       
       {renderGenrePopup()}
+      <Footer />
     </div>
   );
 }

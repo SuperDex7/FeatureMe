@@ -4,6 +4,7 @@ import api, { getCurrentUser } from "../services/AuthService";
 import { deleteComment, deletePost, addView } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
+import Footer from "../Components/Footer";
 import LikesSection from "../Components/LikesSection";
 import ViewsAnalytics from "../Components/ViewsAnalytics";
 
@@ -716,6 +717,7 @@ function Post() {
                 currentUser={currentUser}
                 postAuthor={post.author}
             />
+            <Footer />
         </div>
     );
 }
