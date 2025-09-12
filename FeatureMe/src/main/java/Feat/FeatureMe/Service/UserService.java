@@ -40,7 +40,7 @@ public class UserService {
         }
         return userRepository.insert(user);
     }
-    public User updateUser(String id, User updatedUser) {
+    public void updateUser(String id, User updatedUser) {
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         user = new User(
@@ -67,7 +67,8 @@ public class UserService {
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
-        return userRepository.save(user);
+        userRepository.save(user);
+        
     }
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll()

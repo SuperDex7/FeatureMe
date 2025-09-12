@@ -25,6 +25,7 @@ public class Posts {
     private List<String> features;
     private List<String> pendingFeatures; // Features awaiting approval
     private String status = "DRAFT"; // DRAFT, PUBLISHED, PARTIALLY_APPROVED
+    private int price;
     private List<String> genre;
     private String music;
     // Comments are now stored in separate PostComment collection
@@ -38,7 +39,7 @@ public class Posts {
     // Keep totalComments as cached field for performance (will be calculated from PostComment collection)
     private int totalComments = 0;
 
-    public Posts() { }
+    
 
     public Posts(String id, User author, String title, String description, List<String> features, List<String> genre, String music, LocalDateTime time, int totalViews) {
         this.id = id;
@@ -46,6 +47,7 @@ public class Posts {
         this.title = title;
         this.description = description;
         this.features = features;
+        this.price = price;
         this.pendingFeatures = new ArrayList<>();
         this.status = "PUBLISHED"; // For backward compatibility
         this.genre = genre;
@@ -62,6 +64,7 @@ public class Posts {
         this.title = title;
         this.description = description;
         this.features = features;
+        this.price = price;
         this.pendingFeatures = new ArrayList<>();
         this.status = "PUBLISHED"; // For backward compatibility
         this.genre = genre;
@@ -110,6 +113,12 @@ public class Posts {
 
     public void setFeatures(List<String> features) {
         this.features = features;
+    }
+    public int getPrice() {
+        return price;
+    }
+    public void setPrice(int price) {
+        this.price = price;
     }
 
     public List<String> getGenre() {

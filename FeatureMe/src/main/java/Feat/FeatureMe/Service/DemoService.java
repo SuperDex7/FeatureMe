@@ -42,7 +42,11 @@ public class DemoService {
     public List<Demos> getAllDemos(String id) {
         User user = userRepository.findById(id).get();
 
+        if (user.getDemo() ==null) {
+                    user.setDemo(new ArrayList<>());
+                }
         List<String> demos = user.getDemo();
+        
 
 
         return demoRepository.findAllById(demos);
