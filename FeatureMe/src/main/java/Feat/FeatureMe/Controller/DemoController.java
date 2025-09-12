@@ -84,10 +84,15 @@ public class DemoController {
         String email = authentication.getName();
        userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
+            
 
         return demoService.getAllDemos(id);
     }
-    
+    @GetMapping("/get/id/{id}")
+    public Demos getDemoById(@PathVariable String id) {
+        return demoService.getDemoById(id);
+    }
+
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteDemo(@PathVariable String id){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

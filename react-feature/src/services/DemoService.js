@@ -44,7 +44,7 @@ const DemoService = {
   // Get demo by ID
   getDemoById: async (demoId) => {
     try {
-      const response = await api.get(`/demos/get/${demoId}`);
+      const response = await api.get(`/demos/get/id/${demoId}`);
       return response.data;
     } catch (error) {
       console.error("Error fetching demo:", error);

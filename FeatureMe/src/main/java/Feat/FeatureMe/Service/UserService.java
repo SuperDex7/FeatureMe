@@ -6,6 +6,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -13,8 +17,10 @@ import org.springframework.stereotype.Service;
 import Feat.FeatureMe.Dto.CommentedOnDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.UserDTO;
+import Feat.FeatureMe.Dto.UserSearchDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
+import Feat.FeatureMe.Dto.UserPostsDTO;
 
 @Service
 public class UserService {
@@ -197,9 +203,48 @@ public class UserService {
             sortedNotifications
         );
     }
-    public List<User> getUserByName(String userName) {
+    public PagedModel<UserPostsDTO> getUserByName(String userName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
        
-        return userRepository.findByUserNameStartingWithIgnoreCase(userName);
+        Page<User> users = userRepository.findByUserNameContainingIgnoreCase(userName, pageable);
+        
+        Page<UserPostsDTO> usersDTO = users.map(u -> {
+            return new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+        });
+        return new PagedModel<UserPostsDTO>(usersDTO);
+    }
+
+    // Optimized search method with more data for enhanced search cards
+    public PagedModel<UserSearchDTO> getUserByNameEnhanced(String userName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+       
+        Page<User> users = userRepository.findByUserNameContainingIgnoreCase(userName, pageable);
+        
+        Page<UserSearchDTO> usersDTO = users.map(u -> {
+            return new UserSearchDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation(),
+                u.getRole(),
+                u.getBadges() != null ? u.getBadges() : Collections.emptyList(),
+                u.getDemo() != null ? u.getDemo() : Collections.emptyList(),
+                u.getSocialMedia() != null ? u.getSocialMedia() : Collections.emptyList(),
+                u.getFollowers() != null ? u.getFollowers().size() : 0,
+                u.getFollowing() != null ? u.getFollowing().size() : 0,
+                u.getPosts() != null ? u.getPosts().size() : 0
+            );
+        });
+        return new PagedModel<UserSearchDTO>(usersDTO);
     }
     public void deleteUser(String id) {
         userRepository.deleteById(id);

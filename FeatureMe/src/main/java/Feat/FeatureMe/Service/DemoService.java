@@ -63,6 +63,10 @@ public class DemoService {
 
 
     }
+
+    public Demos getDemoById(String id) {
+        return demoRepository.findById(id).get();
+    }
    
     
     

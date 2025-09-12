@@ -63,6 +63,7 @@ function Header() {
         </div>
         <nav className="header-nav">
           <a href="/feed" className="nav-link">Feed</a>
+          <a href="/user-search" className="nav-link">Search</a>
         </nav>
         <div className="header-actions">
           <button className="noti-btn" onClick={showNoti} aria-label="Show notifications">

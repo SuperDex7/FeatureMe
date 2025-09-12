@@ -9,6 +9,8 @@ import org.springframework.web.multipart.MultipartFile;
 import Feat.FeatureMe.Dto.LoginDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.UserDTO;
+import Feat.FeatureMe.Dto.UserPostsDTO;
+import Feat.FeatureMe.Dto.UserSearchDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -227,9 +230,14 @@ public class UserController {
         return userService.getAllUsers();
     }
     @GetMapping("/get/list/{userName}")
-    public List<User> getUserByName(@PathVariable String userName) {
-       return userService.getUserByName(userName);
+    public PagedModel<UserPostsDTO> getUserByName(@PathVariable String userName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+       return userService.getUserByName(userName, page, size);
 
+    }
+
+    @GetMapping("/get/search/{userName}")
+    public PagedModel<UserSearchDTO> getUserByNameEnhanced(@PathVariable String userName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+       return userService.getUserByNameEnhanced(userName, page, size);
     }
 
     @GetMapping("/get/{userName}")
