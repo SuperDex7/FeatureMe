@@ -32,11 +32,11 @@ function LoginPage() {
       setErrorMessage('');
     }
   };
- const loginGithub = () =>{
+ // const loginGithub = () =>{
   
-  window.location.href = "http://localhost:8080/login/oauth2/code/github"
+  // window.location.href = "http://localhost:8080/login/oauth2/code/github"
   
- }
+ // }
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -190,7 +190,7 @@ function LoginPage() {
             )}
           </button>
 
-          <div className="divider">
+          {/* <div className="divider">
             <span>or</span>
           </div>
 
@@ -201,7 +201,7 @@ function LoginPage() {
             <button onClick={loginGithub} type="button" className="social-btn github">
               Continue with Github
             </button>
-          </div>
+          </div> */}
 
           <div className="signup-link">
             Don't have an account? <a href="/signup">Sign up</a>

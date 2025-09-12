@@ -17,6 +17,8 @@ public class Demos {
     private List<String> features;
     private String songUrl;
 
+    public Demos() { }
+
     
     public Demos(String id, String creatorId, String title, List<String> features, String songUrl) {
         this.id = id;
