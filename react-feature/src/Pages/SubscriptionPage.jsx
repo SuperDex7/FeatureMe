@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../Components/Header';
+import Footer from '../Components/Footer';
 import '../Styling/Subscription.css';
 import { loadStripe } from "@stripe/stripe-js";
 import api from "../services/AuthService";
@@ -132,6 +133,18 @@ const SubscriptionPage = () => {
 
 const handlePlanAction = async (planType) => {
     if (planType === 'free' && currentPlan === 'plus') {
+        // Show confirmation alert for downgrade
+        const confirmed = window.confirm(
+            "Are you sure you want to downgrade to the Free plan?\n\n" +
+            "⚠️ You will keep your FeatureMe Plus features until the end of your current billing cycle.\n" +
+            "After that, you'll be moved to the Free plan.\n\n" +
+            "Do you want to continue with the downgrade?"
+        );
+        
+        if (!confirmed) {
+            return; // User cancelled
+        }
+        
         // Downgrade to free - webhook will handle the actual status change
         try {
             const response = await api.get("/payment/cancel-subscription");
@@ -339,6 +352,7 @@ const handlePlanAction = async (planType) => {
           */}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

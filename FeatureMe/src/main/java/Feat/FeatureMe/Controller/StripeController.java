@@ -342,7 +342,10 @@ public class StripeController {
             try {
                 // Cancel the subscription in Stripe at the end of the current billing period
                 Subscription subscription = Subscription.retrieve(subscriptionId);
-                subscription.cancel();
+                com.stripe.param.SubscriptionUpdateParams params = com.stripe.param.SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(true)
+                    .build();
+                subscription.update(params);
                 
                 Map<String, Object> result = new HashMap<>();
                 result.put("success", true);
