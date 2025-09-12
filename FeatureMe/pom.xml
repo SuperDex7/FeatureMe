@@ -32,6 +32,11 @@
 	
 	<dependencies>
 	<dependency>
+    <groupId>com.resend</groupId>
+    <artifactId>resend-java</artifactId>
+    <version>LATEST</version>
+</dependency>
+	<dependency>
   <groupId>com.stripe</groupId>
   <artifactId>stripe-java</artifactId>
   <version>29.5.0</version>

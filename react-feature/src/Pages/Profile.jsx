@@ -3,10 +3,9 @@ import { useParams } from "react-router-dom";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "../Styling/Profile.css";
-import { getUserInfo, UserRelationsService, updateProfile } from "../services/UserService";
+import { UserRelationsService, updateProfile } from "../services/UserService";
 import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
-import { getPostById } from "../services/PostsService";
 import ShowFollow from "../Components/ShowFollow";
 import FeedItem from "../Components/FeedItem";
 import AddDemo from "../ProfileComponets/AddDemo";
@@ -49,6 +48,71 @@ function Profile() {
   });
   const [editLoading, setEditLoading] = useState(false);
   const [socialLinksExpanded, setSocialLinksExpanded] = useState(false);
+  
+  // File validation state
+  const [profilePicError, setProfilePicError] = useState("");
+  const [bannerError, setBannerError] = useState("");
+  const [profilePicUrlError, setProfilePicUrlError] = useState("");
+  const [bannerUrlError, setBannerUrlError] = useState("");
+
+  // File validation function for USER role
+  const validateImageFile = (file, type) => {
+    if (!file) return { isValid: true, error: "" };
+    
+    // Check if user is USER role - restrict to JPEG, JPG, PNG only
+    if (currentUser?.role === 'USER') {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        return { 
+          isValid: false, 
+          error: `Please select a valid ${type} file (JPEG, JPG, or PNG only)` 
+        };
+      }
+    } else {
+      // For other roles, allow more formats
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+      if (!allowedTypes.includes(file.type)) {
+        return { 
+          isValid: false, 
+          error: `Please select a valid ${type} file (JPEG, PNG, GIF, WebP, or BMP)` 
+        };
+      }
+    }
+    
+    // Check file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      return { 
+        isValid: false, 
+        error: `${type} file size must be less than 5MB` 
+      };
+    }
+    
+    return { isValid: true, error: "" };
+  };
+
+  // URL validation function for USER role
+  const validateImageUrl = (url, type) => {
+    if (!url || !url.trim()) return { isValid: true, error: "" };
+    
+    // Check if user is USER role - restrict to JPEG, JPG, PNG only
+    if (currentUser?.role === 'USER') {
+      const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+      const urlLower = url.toLowerCase();
+      
+      // Check if URL ends with allowed extension
+      const hasValidExtension = allowedExtensions.some(ext => urlLower.endsWith(ext));
+      
+      if (!hasValidExtension) {
+        return { 
+          isValid: false, 
+          error: `Please use a valid ${type} URL (JPEG, JPG, or PNG only)` 
+        };
+      }
+    }
+    
+    return { isValid: true, error: "" };
+  };
 
   const [size, setSize] = useState(6)
     const [page, setPage] = useState(0)
@@ -168,7 +232,7 @@ function Profile() {
   const handleDemoAdded = () => {
     // Refresh demos list after a new demo is added
     if (activeTab === "demos" && user) {
-      DemoService.getUserDemos().then(demos => {
+      DemoService.getUserDemos(user.id).then(demos => {
         setDemos(demos)
         console.log("Demos refreshed:", demos)
       }).catch(err => {
@@ -182,7 +246,7 @@ function Profile() {
       try {
         await DemoService.deleteDemo(demoId);
         // Refresh demos list after deletion
-        const updatedDemos = await DemoService.getUserDemos();
+        const updatedDemos = await DemoService.getUserDemos(user.id);
         setDemos(updatedDemos);
         console.log("Demo deleted successfully");
       } catch (err) {
@@ -241,6 +305,23 @@ function Profile() {
       ...prev,
       [name]: value
     }));
+
+    // Validate URLs for profile picture and banner
+    if (name === 'profilePic' && uploadMethod.profilePic === 'url') {
+      const validation = validateImageUrl(value, 'profile picture');
+      if (!validation.isValid) {
+        setProfilePicUrlError(validation.error);
+      } else {
+        setProfilePicUrlError("");
+      }
+    } else if (name === 'banner' && uploadMethod.banner === 'url') {
+      const validation = validateImageUrl(value, 'banner');
+      if (!validation.isValid) {
+        setBannerUrlError(validation.error);
+      } else {
+        setBannerUrlError("");
+      }
+    }
   };
 
   const handleSocialMediaChange = (index, value) => {
@@ -267,10 +348,33 @@ function Profile() {
   };
 
   const handleFileChange = (type, file) => {
-    if (type === 'profilePic') {
-      setProfilePicFile(file);
-    } else if (type === 'banner') {
-      setBannerFile(file);
+    if (file) {
+      // Validate the file
+      const validation = validateImageFile(file, type);
+      if (!validation.isValid) {
+        if (type === 'profilePic') {
+          setProfilePicError(validation.error);
+        } else if (type === 'banner') {
+          setBannerError(validation.error);
+        }
+        return;
+      }
+      
+      // Clear any previous errors
+      if (type === 'profilePic') {
+        setProfilePicError("");
+        setProfilePicFile(file);
+      } else if (type === 'banner') {
+        setBannerError("");
+        setBannerFile(file);
+      }
+    } else {
+      // Clear error when no file is selected
+      if (type === 'profilePic') {
+        setProfilePicError("");
+      } else if (type === 'banner') {
+        setBannerError("");
+      }
     }
   };
 
@@ -284,14 +388,18 @@ function Profile() {
     if (type === 'profilePic') {
       if (method === 'file') {
         setEditFormData(prev => ({ ...prev, profilePic: '' }));
+        setProfilePicUrlError(""); // Clear URL error
       } else {
         setProfilePicFile(null);
+        setProfilePicError(""); // Clear file error
       }
     } else if (type === 'banner') {
       if (method === 'file') {
         setEditFormData(prev => ({ ...prev, banner: '' }));
+        setBannerUrlError(""); // Clear URL error
       } else {
         setBannerFile(null);
+        setBannerError(""); // Clear file error
       }
     }
   };
@@ -299,6 +407,13 @@ function Profile() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    
+    // Check for file and URL validation errors
+    if (profilePicError || bannerError || profilePicUrlError || bannerUrlError) {
+      alert("Please fix file upload errors before saving.");
+      return;
+    }
+    
     setEditLoading(true);
     
     try {
@@ -339,14 +454,27 @@ function Profile() {
       const response = await updateProfile(formData, true); // true indicates multipart form data
       console.log('Profile updated:', response.data);
       
-      // Update the user state with new data
-      setUser(response.data);
-      setIsEditing(false);
-      
-      // Reset file states
+      // Reset file states and clear validation errors
       setProfilePicFile(null);
       setBannerFile(null);
       setUploadMethod({ profilePic: 'url', banner: 'url' });
+      setProfilePicError("");
+      setBannerError("");
+      setProfilePicUrlError("");
+      setBannerUrlError("");
+      
+      // Refresh the entire profile data to ensure consistency
+      try {
+        const refreshedUser = await api.get(`/user/get/${username}`);
+        setUser(refreshedUser.data);
+        console.log("Profile refreshed with latest data:", refreshedUser.data);
+      } catch (refreshError) {
+        console.error("Error refreshing profile data:", refreshError);
+        // Fallback to response data if refresh fails
+        setUser(response.data);
+      }
+      
+      setIsEditing(false);
       
       // Show success message (you can implement a toast notification here)
       alert('Profile updated successfully!');
@@ -486,24 +614,37 @@ function Profile() {
                 </div>
                 
                 {uploadMethod.profilePic === 'url' ? (
-                  <input
-                    type="url"
-                    name="profilePic"
-                    value={editFormData.profilePic}
-                    onChange={handleInputChange}
-                    disabled={editLoading}
-                    placeholder="https://example.com/your-profile-pic.jpg"
-                    className="modern-input"
-                  />
+                  <div>
+                    <input
+                      type="url"
+                      name="profilePic"
+                      value={editFormData.profilePic}
+                      onChange={handleInputChange}
+                      disabled={editLoading}
+                      placeholder="https://example.com/your-profile-pic.jpg"
+                      className={`modern-input ${profilePicUrlError ? 'error-input' : ''}`}
+                    />
+                    {profilePicUrlError && (
+                      <div className="error-message">{profilePicUrlError}</div>
+                    )}
+                    <div className="file-info">
+                      <small>
+                        {currentUser?.role === 'USER' 
+                          ? "Accepted formats: JPEG, JPG, PNG URLs only" 
+                          : "Accepted formats: JPEG, PNG, GIF, WebP, BMP URLs"
+                        }
+                      </small>
+                    </div>
+                  </div>
                 ) : (
                   <div className="file-upload-area">
                     <input
                       type="file"
                       id="profilePicFile"
-                      accept="image/*"
+                      accept={currentUser?.role === 'USER' ? "image/jpeg,image/jpg,image/png" : "image/*"}
                       onChange={(e) => handleFileChange('profilePic', e.target.files[0])}
                       disabled={editLoading}
-                      className="file-input"
+                      className={`file-input ${profilePicError ? 'error-input' : ''}`}
                     />
                     <label htmlFor="profilePicFile" className="file-label">
                       {profilePicFile ? (
@@ -518,6 +659,17 @@ function Profile() {
                         </>
                       )}
                     </label>
+                    {profilePicError && (
+                      <div className="error-message">{profilePicError}</div>
+                    )}
+                    <div className="file-info">
+                      <small>
+                        {currentUser?.role === 'USER' 
+                          ? "Accepted formats: JPEG, JPG, PNG (max 5MB)" 
+                          : "Accepted formats: JPEG, PNG, GIF, WebP, BMP (max 5MB)"
+                        }
+                      </small>
+                    </div>
                   </div>
                 )}
               </div>
@@ -549,24 +701,37 @@ function Profile() {
                 </div>
                 
                 {uploadMethod.banner === 'url' ? (
-                  <input
-                    type="url"
-                    name="banner"
-                    value={editFormData.banner}
-                    onChange={handleInputChange}
-                    disabled={editLoading}
-                    placeholder="https://example.com/your-banner.jpg"
-                    className="modern-input"
-                  />
+                  <div>
+                    <input
+                      type="url"
+                      name="banner"
+                      value={editFormData.banner}
+                      onChange={handleInputChange}
+                      disabled={editLoading}
+                      placeholder="https://example.com/your-banner.jpg"
+                      className={`modern-input ${bannerUrlError ? 'error-input' : ''}`}
+                    />
+                    {bannerUrlError && (
+                      <div className="error-message">{bannerUrlError}</div>
+                    )}
+                    <div className="file-info">
+                      <small>
+                        {currentUser?.role === 'USER' 
+                          ? "Accepted formats: JPEG, JPG, PNG URLs only" 
+                          : "Accepted formats: JPEG, PNG, GIF, WebP, BMP URLs"
+                        }
+                      </small>
+                    </div>
+                  </div>
                 ) : (
                   <div className="file-upload-area">
                     <input
                       type="file"
                       id="bannerFile"
-                      accept="image/*"
+                      accept={currentUser?.role === 'USER' ? "image/jpeg,image/jpg,image/png" : "image/*"}
                       onChange={(e) => handleFileChange('banner', e.target.files[0])}
                       disabled={editLoading}
-                      className="file-input"
+                      className={`file-input ${bannerError ? 'error-input' : ''}`}
                     />
                     <label htmlFor="bannerFile" className="file-label">
                       {bannerFile ? (
@@ -581,6 +746,17 @@ function Profile() {
                         </>
                       )}
                     </label>
+                    {bannerError && (
+                      <div className="error-message">{bannerError}</div>
+                    )}
+                    <div className="file-info">
+                      <small>
+                        {currentUser?.role === 'USER' 
+                          ? "Accepted formats: JPEG, JPG, PNG (max 5MB)" 
+                          : "Accepted formats: JPEG, PNG, GIF, WebP, BMP (max 5MB)"
+                        }
+                      </small>
+                    </div>
                   </div>
                 )}
               </div>

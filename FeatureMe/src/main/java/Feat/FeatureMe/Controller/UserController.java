@@ -13,13 +13,18 @@ import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +39,14 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.nimbusds.jwt.EncryptedJWT;
+import com.resend.*;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
+
 
 
 
@@ -47,11 +60,44 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     
+    @Value("${resend.api.key}")
+    private Resend resend;
+
     public UserController(UserService userService, S3Service s3Service, JwtService jwtService) {
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
     }
+
+    @GetMapping("/auth/email/{email}")
+    public String VerifyEmail(@PathVariable String email) {
+
+
+        String code = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
+        String encryptedCode = Base64.getEncoder().encodeToString(code.getBytes());
+
+
+
+        
+ 
+        CreateEmailOptions params = CreateEmailOptions.builder()
+		.from("FeatureMe@resend.dev")
+		.to(email)
+		.subject("FeatureMe Verification Code")
+		.html("<p>Here is Your One Time Code: <strong>"+code+"</strong></p>")
+		.build();
+
+       
+        try {
+            CreateEmailResponse data = resend.emails().send(params);
+            System.out.println(data.getId());
+        } catch (ResendException e) {
+            e.printStackTrace();
+        }
+        
+        return encryptedCode;
+    }
+    
 
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public User createUser(@RequestPart User user,
@@ -107,7 +153,7 @@ public class UserController {
         return userService.createUser(user);
     }
     @PatchMapping("/update")
-    public User updateUser(@RequestPart("user") User userUpdateData,
+    public void updateUser(@RequestPart("user") User userUpdateData,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
@@ -174,7 +220,7 @@ public class UserController {
             userr.setBanner(userUpdateData.getBanner());
         }
         userService.saveUser(userr);
-        return userService.updateUser(userr.getId(), userUpdateData);
+        userService.updateUser(userr.getId(), userUpdateData);
     }
     @GetMapping("/get")
     public List<UserDTO> getAllUsers() {
@@ -219,7 +265,7 @@ public class UserController {
             sessionCookie.setPath("/");
             sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
             response.addCookie(sessionCookie);
-            
+                    
             Map<String, String> responseBody = new HashMap<>();
             responseBody.put("message", "Login successful");
             responseBody.put("username", user.getUserName());

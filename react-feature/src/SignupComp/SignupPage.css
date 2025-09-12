@@ -133,6 +133,89 @@
   border-color: #a259c6;
 }
 
+/* Verification Info */
+.verification-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(79, 209, 197, 0.15);
+  border: 1px solid rgba(79, 209, 197, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.info-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.info-text {
+  color: #4fd1c5;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.info-text strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Verification Actions */
+.verification-actions {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.resend-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #4fd1c5;
+  border: 1px solid rgba(79, 209, 197, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.resend-btn:hover:not(:disabled) {
+  background: rgba(79, 209, 197, 0.2);
+  border-color: #4fd1c5;
+  color: #fff;
+}
+
+.resend-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Input */
+.error-input {
+  border-color: #ff6b6b !important;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2) !important;
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+/* File Info */
+.file-info {
+  margin-top: 0.5rem;
+}
+
+.file-info small {
+  color: #bdbdbd;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
 /* Username Warning */
 .username-warning {
   display: flex;
