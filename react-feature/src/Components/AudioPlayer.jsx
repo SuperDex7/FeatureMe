@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { downloadPost, trackDownload } from "../services/PostsService";
+import { getCurrentUser } from "../services/AuthService";
 import "./AudioPlayer.css";
 
 function formatTime(secs) {
@@ -7,7 +9,7 @@ function formatTime(secs) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function AudioPlayer({ src, onClose, title }) {
+function AudioPlayer({ src, onClose, title, postId, freeDownload = false }) {
   const audioRef = useRef(new Audio(src));
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -17,6 +19,7 @@ function AudioPlayer({ src, onClose, title }) {
   const [fadeOut, setFadeOut] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [previousVolume, setPreviousVolume] = useState(1);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     setFadeIn(true);
@@ -38,6 +41,14 @@ function AudioPlayer({ src, onClose, title }) {
         audio.removeEventListener("loadedmetadata", setAudioDuration);
       };
     }
+  }, []);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
   }, []);
 
   const togglePlay = () => {
@@ -87,6 +98,77 @@ function AudioPlayer({ src, onClose, title }) {
     }, 350);
   };
 
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    
+    if (!currentUser) {
+      alert('Please log in to download this post');
+      return;
+    }
+
+    if (!postId) {
+      alert('Post ID not available for download');
+      return;
+    }
+
+    try {
+      // Get the post data to access the music file
+      const response = await downloadPost(postId);
+      const postData = response.data;
+      
+      if (postData.music) {
+        // Extract file extension from the URL
+        const url = new URL(postData.music);
+        const pathname = url.pathname;
+        const fileExtension = pathname.split('.').pop() || 'mp3';
+        
+        try {
+          // Method 1: Fetch as blob to force download
+          const fileResponse = await fetch(postData.music);
+          const blob = await fileResponse.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `${postData.title}.${fileExtension}`;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up the blob URL
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+          
+        } catch (fetchError) {
+          console.log('Blob download failed, trying direct link:', fetchError);
+          
+          // Method 2: Fallback to direct link with download attribute
+          const link = document.createElement('a');
+          link.href = postData.music;
+          link.download = `${postData.title}.${fileExtension}`;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        
+        // Track the download and notify the author
+        try {
+          await trackDownload(postId);
+          console.log('Download tracked and notification sent');
+        } catch (trackError) {
+          console.error('Error tracking download:', trackError);
+          // Don't show error to user as download was successful
+        }
+      } else {
+        alert('No music file available for download');
+      }
+    } catch (error) {
+      console.error('Error downloading post:', error);
+      alert('Failed to download post. Please try again.');
+    }
+  };
+
   return (
     <div className={`audio-player-card glassy${fadeIn ? ' audio-fade-in' : ''}${fadeOut ? ' audio-fade-out' : ''}`}>
       {/* Compact Header Row */}
@@ -100,7 +182,18 @@ function AudioPlayer({ src, onClose, title }) {
             <div className="audio-time-compact">{formatTime(currentTime)} / {formatTime(duration)}</div>
           </div>
         </div>
-        <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
+        <div className="audio-player-right">
+          {freeDownload && (
+            <button 
+              className="audio-download-btn" 
+              onClick={handleDownload} 
+              title="Download this track"
+            >
+              📥
+            </button>
+          )}
+          <button className="audio-close-btn" onClick={handleClose} title="Close">×</button>
+        </div>
       </div>
       
       {/* Compact Controls Row */}

@@ -6,7 +6,7 @@ import ViewsAnalytics from "./ViewsAnalytics";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0 }) {
+function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0, totalDownloads = 0, freeDownload = false }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -71,6 +71,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     }
   };
 
+
   return (
     <div className={`spotlight-modal-overlay${open ? '' : ' modal-closed'}`} onClick={onClose}>
       <div className={`spotlight-modal${open ? '' : ' modal-closed'}`} onClick={e => e.stopPropagation()}>
@@ -121,7 +122,13 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           )}
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+              <AudioPlayer 
+                src={music} 
+                onClose={() => setShowAudioPlayer(false)} 
+                title={title} 
+                postId={id}
+                freeDownload={freeDownload}
+              />
             </div>
           )}
           <div className="spotlight-modal-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
@@ -193,6 +200,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
             onClose={() => setShowViewsAnalytics(false)}
             currentUser={currentUser}
             postAuthor={author}
+            totalDownloads={totalDownloads}
           />
           
         </div>
@@ -201,7 +209,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
   );
 }
 
-function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0 }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, freeDownload = false }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -289,6 +297,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
   };
 
 
+
   return (
     <>
       <div
@@ -341,7 +350,13 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
           
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+              <AudioPlayer 
+                src={music} 
+                onClose={() => setShowAudioPlayer(false)} 
+                title={title} 
+                postId={id}
+                freeDownload={freeDownload}
+              />
             </div>
           )}
         </div>
@@ -364,6 +379,7 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
         currentUser={currentUser}
         totalViews={totalViews}
         totalComments={totalComments}
+        freeDownload={freeDownload}
       />
     </>
   );

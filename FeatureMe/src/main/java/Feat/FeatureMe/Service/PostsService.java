@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentDTO;
@@ -97,7 +98,8 @@ public class PostsService {
             posts.getGenre(),
             posts.getMusic(),
             LocalDateTime.now(),
-            0 // Initial totalViews
+            0, // Initial totalViews
+            posts.isFreeDownload()
         );
         
         // Set the new fields
@@ -122,6 +124,7 @@ public class PostsService {
             savedPost.getPendingFeatures(),
             savedPost.getStatus(),
             savedPost.getPrice(),
+            savedPost.isFreeDownload(),
             savedPost.getGenre(),
             savedPost.getMusic(),
             getCommentsForPost(savedPost.getId()),
@@ -129,7 +132,9 @@ public class PostsService {
             getLikesForPost(savedPost.getId()),
             getViewsForPost(savedPost.getId()),
             savedPost.getTotalViews(),
-            savedPost.getTotalComments()
+            savedPost.getTotalComments(),
+            savedPost.getTotalDownloads()
+            
         );
 
         // Update user's posts list
@@ -316,6 +321,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -323,7 +329,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         }).collect(java.util.stream.Collectors.toList());
     }
@@ -341,7 +348,8 @@ public class PostsService {
             updatedPosts.getGenre() != null && !updatedPosts.getGenre().isEmpty() ? updatedPosts.getGenre() : posts.getGenre(),
             updatedPosts.getMusic() != null && !updatedPosts.getMusic().isBlank() ? updatedPosts.getMusic() : posts.getMusic(),
             updatedPosts.getTime() != null ? updatedPosts.getTime() : posts.getTime(),
-            posts.getTotalViews() // Preserve existing totalViews
+            posts.getTotalViews(), // Preserve existing totalViews
+            posts.isFreeDownload()
         );
         return postsRepository.save(posts);
     }
@@ -367,6 +375,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -374,7 +383,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         }).toList();
     }
@@ -404,6 +414,7 @@ public class PostsService {
                 post.getPendingFeatures(),
                 post.getStatus(),
                 post.getPrice(),
+                post.isFreeDownload(),
                 post.getGenre(),
                 post.getMusic(),
                 getCommentsForPost(post.getId()),
@@ -411,7 +422,8 @@ public class PostsService {
                 getLikesForPost(post.getId()),
                 getViewsForPost(post.getId()),
                 post.getTotalViews(),
-                post.getTotalComments()
+                post.getTotalComments(),
+                post.getTotalDownloads()
             );
         } catch (Exception e) {
             throw e;
@@ -535,6 +547,7 @@ public class PostsService {
                     p.getPendingFeatures(),
                     p.getStatus(),
                     p.getPrice(),
+                    p.isFreeDownload(),
                     p.getGenre(),
                     p.getMusic(),
                     getCommentsForPost(p.getId()),
@@ -542,7 +555,8 @@ public class PostsService {
                     getLikesForPost(p.getId()),
                     getViewsForPost(p.getId()),
                     p.getTotalViews(),
-                    p.getTotalComments()
+                    p.getTotalComments(),
+                    p.getTotalDownloads()
                 );
             }).toList();
     
@@ -573,8 +587,9 @@ public class PostsService {
                 p.getDescription(),
                 p.getFeatures(),
                 p.getPendingFeatures(),
-                p.getStatus(),
+                p.getStatus(),  
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -582,7 +597,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -613,6 +629,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -620,7 +637,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -818,6 +836,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -825,7 +844,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -858,6 +878,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -865,7 +886,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -898,6 +920,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -905,7 +928,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -960,6 +984,7 @@ public class PostsService {
                 p.getPendingFeatures(),
                 p.getStatus(),
                 p.getPrice(),
+                p.isFreeDownload(),
                 p.getGenre(),
                 p.getMusic(),
                 getCommentsForPost(p.getId()),
@@ -967,7 +992,8 @@ public class PostsService {
                 getLikesForPost(p.getId()),
                 getViewsForPost(p.getId()),
                 p.getTotalViews(),
-                p.getTotalComments()
+                p.getTotalComments(),
+                p.getTotalDownloads()
             );
         });
         
@@ -1066,6 +1092,7 @@ public class PostsService {
                     p.getPendingFeatures(),
                     p.getStatus(),
                     p.getPrice(),
+                    p.isFreeDownload(),
                     p.getGenre(),
                     p.getMusic(),
                     getCommentsForPost(p.getId()),
@@ -1073,7 +1100,8 @@ public class PostsService {
                     getLikesForPost(p.getId()),
                     getViewsForPost(p.getId()),
                     p.getTotalViews(),
-                    p.getTotalComments()
+                    p.getTotalComments(),
+                    p.getTotalDownloads()
                 );
             })
             .toList();
@@ -1091,6 +1119,32 @@ public class PostsService {
         );
         
         return new PagedModel<PostsDTO>(postsDTOPage);
+    }
+
+
+    public ResponseEntity<List<NotificationsDTO>> notifyDownload(String id, String userName) {
+        Posts post = postsRepository.findById(id).get();
+        User author = post.getAuthor();
+
+        if (author.getNotifications() == null) {
+            author.setNotifications(new ArrayList<>());
+        }
+        author.getNotifications().add(new NotificationsDTO(
+            id, 
+            userName, 
+            "Downloaded Your Post '" + post.getTitle() + "'", 
+            LocalDateTime.now()
+        ));
+        userRepository.save(author);
+        
+        return ResponseEntity.ok(author.getNotifications());
+    }
+    
+    public void incrementTotalDownloads(String postId) {
+        Posts post = postsRepository.findById(postId)
+            .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        post.setTotalDownloads(post.getTotalDownloads() + 1);
+        postsRepository.save(post);
     }
    
     }

@@ -206,6 +206,7 @@ function ViewsAnalyticsCard() {
           }}
           currentUser={currentUser}
           postAuthor={selectedPost.author}
+          totalDownloads={selectedPost.totalDownloads || 0}
         />
       )}
     </>

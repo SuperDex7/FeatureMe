@@ -716,6 +716,7 @@ function Post() {
                 onClose={() => setShowViewsAnalytics(false)}
                 currentUser={currentUser}
                 postAuthor={post.author}
+                totalDownloads={post?.totalDownloads || 0}
             />
             <Footer />
         </div>

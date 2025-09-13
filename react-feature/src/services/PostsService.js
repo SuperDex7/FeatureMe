@@ -23,3 +23,19 @@ export const deletePost = (postId) => {
 export const addView = (id) => {
   return api.post(`/posts/view/${id}`);
 }
+
+export const downloadPost = (id) => {
+  return api.get(`/posts/get/id/${id}`);
+}
+
+export const trackDownload = (id) => {
+  return api.post(`/posts/download/${id}`);
+}
+
+export const getPostDownloads = (id) => {
+  return api.get(`/posts/downloads/${id}`);
+}
+
+export const getPostDownloadCount = (id) => {
+  return api.get(`/posts/downloads/${id}/count`);
+}
