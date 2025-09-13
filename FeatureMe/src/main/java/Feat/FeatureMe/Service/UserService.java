@@ -6,6 +6,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -13,8 +17,10 @@ import org.springframework.stereotype.Service;
 import Feat.FeatureMe.Dto.CommentedOnDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 import Feat.FeatureMe.Dto.UserDTO;
+import Feat.FeatureMe.Dto.UserSearchDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
+import Feat.FeatureMe.Dto.UserPostsDTO;
 
 @Service
 public class UserService {
@@ -40,7 +46,7 @@ public class UserService {
         }
         return userRepository.insert(user);
     }
-    public User updateUser(String id, User updatedUser) {
+    public void updateUser(String id, User updatedUser) {
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         user = new User(
@@ -67,7 +73,8 @@ public class UserService {
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments(),
             updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt() : user.getCreatedAt()    
         );
-        return userRepository.save(user);
+        userRepository.save(user);
+        
     }
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll()
@@ -116,7 +123,7 @@ public class UserService {
                 u.getRole(),
                 u.getBio(),
                 u.getAbout(),
-                null,
+                u.getDemo(),
                 u.getLocation(),
                 u.getSocialMedia(),
                 u.getBadges(),
@@ -182,7 +189,7 @@ public class UserService {
             user.getRole(),
             user.getBio(),
             user.getAbout(),
-            null,
+            user.getDemo(),
             user.getLocation(),
             user.getSocialMedia(),
             user.getBadges(),
@@ -196,9 +203,48 @@ public class UserService {
             sortedNotifications
         );
     }
-    public List<User> getUserByName(String userName) {
+    public PagedModel<UserPostsDTO> getUserByName(String userName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
        
-        return userRepository.findByUserNameStartingWithIgnoreCase(userName);
+        Page<User> users = userRepository.findByUserNameContainingIgnoreCase(userName, pageable);
+        
+        Page<UserPostsDTO> usersDTO = users.map(u -> {
+            return new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation()
+            );
+        });
+        return new PagedModel<UserPostsDTO>(usersDTO);
+    }
+
+    // Optimized search method with more data for enhanced search cards
+    public PagedModel<UserSearchDTO> getUserByNameEnhanced(String userName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+       
+        Page<User> users = userRepository.findByUserNameContainingIgnoreCase(userName, pageable);
+        
+        Page<UserSearchDTO> usersDTO = users.map(u -> {
+            return new UserSearchDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation(),
+                u.getRole(),
+                u.getBadges() != null ? u.getBadges() : Collections.emptyList(),
+                u.getDemo() != null ? u.getDemo() : Collections.emptyList(),
+                u.getSocialMedia() != null ? u.getSocialMedia() : Collections.emptyList(),
+                u.getFollowers() != null ? u.getFollowers().size() : 0,
+                u.getFollowing() != null ? u.getFollowing().size() : 0,
+                u.getPosts() != null ? u.getPosts().size() : 0
+            );
+        });
+        return new PagedModel<UserSearchDTO>(usersDTO);
     }
     public void deleteUser(String id) {
         userRepository.deleteById(id);
@@ -225,6 +271,10 @@ public class UserService {
         
         // If not found by username, try by email
         return userRepository.findByEmail(usernameOrEmail);
+    }
+    
+    public Optional<User> findByStripeCustomerId(String stripeCustomerId) {
+        return userRepository.findByStripeCustomerId(stripeCustomerId);
     }
     
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
@@ -284,7 +334,7 @@ public class UserService {
             user.getRole(),
             user.getBio(),
             user.getAbout(),
-            null,
+            user.getDemo(),
             user.getLocation(),
             user.getSocialMedia(),
             user.getBadges(),

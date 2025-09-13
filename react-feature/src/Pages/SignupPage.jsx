@@ -1,16 +1,20 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header2 from "../Components/Header2";
+import Footer from "../Components/Footer";
 import "../SignupComp/SignupPage.css";
 import "../Styling/Profile.css";
 import axios from 'axios';
 import api from '../services/AuthService';
 
 function SignupPage() {
-  const [step, setStep] = useState(1); // 1-4 = form steps, 5 = profile preview
-  const [activeTab, setActiveTab] = useState("about");
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1); // 1 = email/password, 2 = verification, 3 = username, 4 = about, 5 = profile pics, 6 = preview
+  const [activeTab, setActiveTab] = useState("demos");
   const [formData, setFormData] = useState({
     userName: "",
     password: "",
+    confirmPassword: "",
     email: "",
     role: "USER",
     bio: "",
@@ -29,46 +33,208 @@ function SignupPage() {
   });
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
+  
+  // Email verification state
+  const [verificationCode, setVerificationCode] = useState("");
+  const [encryptedCode, setEncryptedCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  
+  // Password validation state
+  const [passwordError, setPasswordError] = useState("");
+  
+  // File validation state
+  const [profilePicError, setProfilePicError] = useState("");
+  const [bannerError, setBannerError] = useState("");
 
   const handleInput = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+    // Clear password error when user starts typing
+    if (e.target.name === 'password' || e.target.name === 'confirmPassword') {
+      setPasswordError("");
+    }
+  };
+
+  // File validation function
+  const validateImageFile = (file) => {
+    if (!file) return { isValid: true, error: "" };
+    
+    // Check file type - only JPEG, JPG, and PNG
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      return { 
+        isValid: false, 
+        error: "Please select a valid image file (JPEG, JPG, or PNG only)" 
+      };
+    }
+    
+    // Check file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      return { 
+        isValid: false, 
+        error: "File size must be less than 5MB" 
+      };
+    }
+    
+    return { isValid: true, error: "" };
+  };
+
+  // Decrypt verification code (simple Base64 decode)
+  const decryptCode = (encryptedCode) => {
+    try {
+      return atob(encryptedCode);
+    } catch (error) {
+      console.error("Error decrypting code:", error);
+      return null;
+    }
+  };
+
+  // Handle verification code input
+  const handleVerificationCodeChange = (e) => {
+    setVerificationCode(e.target.value);
+    setVerificationError("");
+  };
+
+  // Verify the entered code
+  const handleVerifyCode = () => {
+    if (!verificationCode.trim()) {
+      setVerificationError("Please enter the verification code");
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerificationError("");
+
+    // Decrypt the stored encrypted code
+    const decryptedCode = decryptCode(encryptedCode);
+    
+    if (decryptedCode && verificationCode.trim() === decryptedCode) {
+      // Code matches, proceed to next step
+      setStep(3); // Go to username step
+    } else {
+      setVerificationError("Invalid verification code. Please try again.");
+    }
+    
+    setIsVerifying(false);
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    try {
+      setIsVerifying(true);
+      setVerificationError("");
+      
+      const response = await axios.get(`http://localhost:8080/api/user/auth/email/${formData.email}`);
+      setEncryptedCode(response.data);
+      
+      alert("Verification code sent! Check your email.");
+    } catch (error) {
+      console.error("Error resending code:", error);
+      setVerificationError("Failed to resend code. Please try again.");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleProfilePicChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate the file
+      const validation = validateImageFile(file);
+      if (!validation.isValid) {
+        setProfilePicError(validation.error);
+        // Clear the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Clear any previous errors
+      setProfilePicError("");
+      
       const picUrl = URL.createObjectURL(file);
       setFormData({ ...formData, profilePic: picUrl });
       setProfilePicFile(file);
+    } else {
+      // Clear error when no file is selected
+      setProfilePicError("");
     }
   };
 
   const handleBannerChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate the file
+      const validation = validateImageFile(file);
+      if (!validation.isValid) {
+        setBannerError(validation.error);
+        // Clear the file input
+        e.target.value = '';
+        return;
+      }
+      
+      // Clear any previous errors
+      setBannerError("");
+      
       const bannerUrl = URL.createObjectURL(file);
       setFormData({ ...formData, banner: bannerUrl });
       setBannerFile(file);
+    } else {
+      // Clear error when no file is selected
+      setBannerError("");
     }
   };
 
 
 
-  const handleNext = () => {
-    if (step === 1 && (!formData.email || !formData.password)) {
-      alert("Please fill in both email and password");
+  const handleNext = async () => {
+    if (step === 1) {
+      // Validate required fields
+      if (!formData.email || !formData.password || !formData.confirmPassword) {
+        alert("Please fill in all required fields");
+        return;
+      }
+      
+      // Validate password match
+      if (formData.password !== formData.confirmPassword) {
+        setPasswordError("Passwords do not match");
+        return;
+      }
+      
+      // Validate password strength (optional)
+      if (formData.password.length < 6) {
+        setPasswordError("Password must be at least 6 characters long");
+        return;
+      }
+      
+      // Send verification email and move to verification step
+      try {
+        const response = await axios.get(`http://localhost:8080/api/user/auth/email/${formData.email}`);
+        console.log("Verification code sent:", response.data);
+        setEncryptedCode(response.data);
+        setStep(2); // Go to verification step
+      } catch (error) {
+        console.error("Error sending verification email:", error);
+        alert("Failed to send verification email. Please try again.");
+      }
       return;
     }
-    if (step === 2 && !formData.userName) {
+    
+    if (step === 3 && !formData.userName) {
       alert("Please enter a username");
       return;
     }
-    setStep(step + 1);
+    
+    // For other steps, just move to next step
+    if (step !== 1) {
+      setStep(step + 1);
+    }
   };
 
   const handleBack = () => {
-    if (step === 5) {
-      setStep(4); // Go back to last form step
+    if (step === 6) {
+      setStep(5); // Go back to last form step
     } else {
       setStep(step - 1);
     }
@@ -78,8 +244,11 @@ function SignupPage() {
     e.preventDefault();
     console.log(formData);
     
+    // Create user data without confirmPassword
+    const { confirmPassword, ...userData } = formData;
+    
     const submitData = new FormData();
-    submitData.append("user", new Blob([JSON.stringify(formData)], { type: "application/json" }));
+    submitData.append("user", new Blob([JSON.stringify(userData)], { type: "application/json" }));
     
     if (profilePicFile) {
       submitData.append("pp", profilePicFile);
@@ -93,8 +262,9 @@ function SignupPage() {
     })
     .then(res => {
       console.log(res);
-      alert("Account created successfully!");
-      // Redirect to login or dashboard
+      alert("Account created successfully! Redirecting to login...");
+      // Redirect to login page after successful account creation
+      navigate('/login');
     })
     .catch(err => {
       console.log(err);
@@ -126,8 +296,12 @@ function SignupPage() {
                   value={formData.email}
                   onChange={handleInput}
                   placeholder="Enter your email"
+                  maxLength="100"
                   required
                 />
+                <div className="char-counter">
+                  {formData.email.length}/100 characters
+                </div>
               </div>
 
               <div className="form-group">
@@ -139,8 +313,31 @@ function SignupPage() {
                   value={formData.password}
                   onChange={handleInput}
                   placeholder="Create a strong password"
+                  maxLength="50"
+                  className={passwordError ? "error-input" : ""}
                   required
                 />
+                <div className="char-counter">
+                  {formData.password.length}/50 characters
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password *</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInput}
+                  placeholder="Confirm your password"
+                  maxLength="50"
+                  className={passwordError ? "error-input" : ""}
+                  required
+                />
+                {passwordError && (
+                  <div className="error-message">{passwordError}</div>
+                )}
               </div>
 
               <button type="button" className="next-btn" onClick={handleNext}>
@@ -153,7 +350,7 @@ function SignupPage() {
     );
   }
 
-  // Step 2: Username
+  // Step 2: Email Verification
   if (step === 2) {
     return (
       <div className="signup-page">
@@ -162,10 +359,88 @@ function SignupPage() {
           <div className="signup-form-card">
             <div className="step-indicator">
               <span className="step-number">2</span>
+              <span className="step-title">Verify Email</span>
+            </div>
+            <h2>Check Your Email</h2>
+            <p>We've sent a verification code to <strong>{formData.email}</strong></p>
+            
+            <div className="verification-info">
+              <div className="info-icon">📧</div>
+              <div className="info-text">
+                <strong>Didn't receive the email?</strong> Check your spam folder or click "Resend Code" below.
+              </div>
+            </div>
+            
+            <form className="signup-form">
+              <div className="form-group">
+                <label htmlFor="verificationCode">Verification Code *</label>
+                <input
+                  type="text"
+                  id="verificationCode"
+                  name="verificationCode"
+                  value={verificationCode}
+                  onChange={handleVerificationCodeChange}
+                  placeholder="Enter the 8-digit code"
+                  maxLength="8"
+                  className={verificationError ? "error-input" : ""}
+                  required
+                />
+                {verificationError && (
+                  <div className="error-message">{verificationError}</div>
+                )}
+              </div>
+
+              <div className="verification-actions">
+                <button 
+                  type="button" 
+                  className="resend-btn" 
+                  onClick={handleResendCode}
+                  disabled={isVerifying}
+                >
+                  {isVerifying ? "Sending..." : "Resend Code"}
+                </button>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="back-btn" onClick={handleBack}>
+                  Back
+                </button>
+                <button 
+                  type="button" 
+                  className="next-btn" 
+                  onClick={handleVerifyCode}
+                  disabled={isVerifying || !verificationCode.trim()}
+                >
+                  {isVerifying ? "Verifying..." : "Verify & Continue"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 3: Username
+  if (step === 3) {
+    return (
+      <div className="signup-page">
+        <Header2 />
+        <div className="signup-container">
+          <div className="signup-form-card">
+            <div className="step-indicator">
+              <span className="step-number">3</span>
               <span className="step-title">Choose Username</span>
             </div>
             <h2>Pick Your Username</h2>
             <p>This is how others will see you on the platform</p>
+            
+            <div className="username-warning">
+              <div className="warning-icon">⚠️</div>
+              <div className="warning-text">
+                <strong>Important:</strong> Your username cannot be changed after account creation until further notice. Choose carefully!
+              </div>
+            </div>
             
             <form className="signup-form">
               <div className="form-group">
@@ -177,8 +452,12 @@ function SignupPage() {
                   value={formData.userName}
                   onChange={handleInput}
                   placeholder="Enter your username"
+                  maxLength="30"
                   required
                 />
+                <div className="char-counter">
+                  {formData.userName.length}/30 characters
+                </div>
               </div>
 
               <div className="form-actions">
@@ -196,15 +475,15 @@ function SignupPage() {
     );
   }
 
-  // Step 3: Bio and About
-  if (step === 3) {
+  // Step 4: Bio and About
+  if (step === 4) {
     return (
       <div className="signup-page">
         <Header2 />
         <div className="signup-container">
           <div className="signup-form-card">
             <div className="step-indicator">
-              <span className="step-number">3</span>
+              <span className="step-number">4</span>
               <span className="step-title">About You</span>
             </div>
             <h2>Tell Us About Yourself</h2>
@@ -220,7 +499,27 @@ function SignupPage() {
                   value={formData.bio}
                   onChange={handleInput}
                   placeholder="Short description about yourself..."
+                  maxLength="50"
                 />
+                <div className="char-counter">
+                  {formData.bio.length}/50 characters
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="location">Location</label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInput}
+                  placeholder="City, State?"
+                  maxLength="20"
+                />
+                <div className="char-counter">
+                  {formData.location.length}/50 characters
+                </div>
               </div>
 
               <div className="form-group">
@@ -232,7 +531,11 @@ function SignupPage() {
                   onChange={handleInput}
                   placeholder="Tell me about yourself..."
                   rows="4"
+                  maxLength="250"
                 />
+                <div className="char-counter">
+                  {formData.about.length}/250 characters
+                </div>
               </div>
 
               <div className="form-actions">
@@ -250,15 +553,15 @@ function SignupPage() {
     );
   }
 
-  // Step 4: Profile Pictures
-  if (step === 4) {
+  // Step 5: Profile Pictures
+  if (step === 5) {
     return (
       <div className="signup-page">
         <Header2 />
         <div className="signup-container">
           <div className="signup-form-card">
             <div className="step-indicator">
-              <span className="step-number">4</span>
+              <span className="step-number">5</span>
               <span className="step-title">Profile Pictures</span>
             </div>
             <h2>Add Your Photos</h2>
@@ -270,9 +573,16 @@ function SignupPage() {
                 <input
                   type="file"
                   id="profilePic"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png"
                   onChange={handleProfilePicChange}
+                  className={profilePicError ? "error-input" : ""}
                 />
+                {profilePicError && (
+                  <div className="error-message">{profilePicError}</div>
+                )}
+                <div className="file-info">
+                  <small>Accepted formats: JPEG, JPG, PNG (max 5MB)</small>
+                </div>
               </div>
 
               <div className="form-group">
@@ -280,9 +590,16 @@ function SignupPage() {
                 <input
                   type="file"
                   id="banner"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png"
                   onChange={handleBannerChange}
+                  className={bannerError ? "error-input" : ""}
                 />
+                {bannerError && (
+                  <div className="error-message">{bannerError}</div>
+                )}
+                <div className="file-info">
+                  <small>Accepted formats: JPEG, JPG, PNG (max 5MB)</small>
+                </div>
               </div>
 
               <div className="form-actions">
@@ -300,7 +617,7 @@ function SignupPage() {
     );
   }
 
-  // Step 5: Profile Preview
+  // Step 6: Profile Preview
   return (
     <div className="profile-glass-root">
       <Header2 />
@@ -322,6 +639,26 @@ function SignupPage() {
         </div>
         <p className="profile-glass-bio">{formData.bio || "No bio yet"}</p>
         <p className="profile-glass-location">{formData.location || "Location not set"}</p>
+        {/* About Section - Moved to top */}
+        {formData.about && (
+          <div className="profile-glass-about-section">
+            <div className="about-preview">
+              <h4 className="about-title">📋 About</h4>
+              <p className="about-text">
+                {formData.about && formData.about.length > 150 ? `${formData.about.substring(0, 150)}...` : formData.about || 'No about information available'}
+              </p>
+              {formData.about && formData.about.length > 150 && (
+                <button 
+                  className="read-more-btn"
+                  onClick={() => alert('Full about: ' + formData.about)}
+                >
+                  Read More →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="profile-glass-stats">
           <div className="profile-glass-stat">
             <span className="stat-icon">📝</span>
@@ -349,16 +686,16 @@ function SignupPage() {
           Posts
         </button>
         <button 
-          className={`profile-glass-tab${activeTab === "about" ? " active" : ""}`} 
-          onClick={() => setActiveTab("about")}
+          className={`profile-glass-tab${activeTab === "demos" ? " active" : ""}`} 
+          onClick={() => setActiveTab("demos")}
         >
-          About
+          Demos
         </button>
         <button 
           className={`profile-glass-tab${activeTab === "friends" ? " active" : ""}`} 
           onClick={() => setActiveTab("friends")}
         >
-          Friends
+          Features
         </button>
       </div>
       
@@ -369,16 +706,16 @@ function SignupPage() {
             <p>No posts yet. Start sharing your content!</p>
           </div>
         )}
-        {activeTab === "about" && (
+        {activeTab === "demos" && (
           <div>
-            <h3>About You</h3>
-            <p>{formData.about || "No about information yet."}</p>
+            <h3>Your Demos</h3>
+            <p>No demos yet. Start showcasing your work!</p>
           </div>
         )}
         {activeTab === "friends" && (
           <div>
-            <h3>Your Friends</h3>
-            <p>No friends yet. Start connecting with others!</p>
+            <h3>Featured On</h3>
+            <p>No features yet. Collaborate with others to get featured!</p>
           </div>
         )}
       </div>
@@ -391,6 +728,7 @@ function SignupPage() {
           Create Account
         </button>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import api, { getCurrentUser } from "../services/AuthService";
 import { deleteComment, deletePost, addView } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
+import Footer from "../Components/Footer";
 import LikesSection from "../Components/LikesSection";
 import ViewsAnalytics from "../Components/ViewsAnalytics";
 
@@ -715,7 +716,9 @@ function Post() {
                 onClose={() => setShowViewsAnalytics(false)}
                 currentUser={currentUser}
                 postAuthor={post.author}
+                totalDownloads={post?.totalDownloads || 0}
             />
+            <Footer />
         </div>
     );
 }

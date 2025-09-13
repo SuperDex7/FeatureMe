@@ -16,6 +16,7 @@ import Post from './Pages/Post.jsx'
 import PendingFeatures from './Components/PendingFeatures.jsx'
 import MessagesPage from './Pages/MessagesPage.jsx'
 import SubscriptionPage from './Pages/SubscriptionPage.jsx'
+import UserSearch from './Pages/UserSearch.jsx'
 
 const router = createBrowserRouter([
   {path: '/', element: <App />},
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
   {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},
   {path: 'messages', element: <ProtectedRoute><MessagesPage /></ProtectedRoute>},
   {path: 'subscription', element: <ProtectedRoute><SubscriptionPage /></ProtectedRoute>},
+  {path: 'user-search', element: <ProtectedRoute><UserSearch /></ProtectedRoute>},
   {path: '*', element: <h1>404</h1>}
 ])
 const queryClient = new QueryClient()

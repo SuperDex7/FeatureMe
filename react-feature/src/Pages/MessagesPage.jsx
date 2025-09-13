@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Header from '../Components/Header';
+import Footer from '../Components/Footer';
 import '../Styling/Messages.css';
 
 const MessagesPage = () => {
@@ -216,6 +217,7 @@ const MessagesPage = () => {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

@@ -30,7 +30,8 @@ public class PostCommentService {
      * Add a comment to a post
      */
     public PostComment addComment(String postId, String userName, String commentText) {
-        User user = userRepository.findByUserName(userName)
+        // Verify user exists
+        userRepository.findByUserName(userName)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         LocalDateTime now = LocalDateTime.now();
@@ -38,7 +39,6 @@ public class PostCommentService {
         PostComment newComment = new PostComment(
             postId,
             userName,
-            user.getProfilePic(),
             commentText,
             now
         );
@@ -117,10 +117,15 @@ public class PostCommentService {
      * Convert PostComment entity to CommentDTO
      */
     private CommentDTO convertToCommentDTO(PostComment postComment) {
+        // Fetch current profile picture from User entity
+        String profilePic = userRepository.findByUserName(postComment.getUserName())
+            .map(User::getProfilePic)
+            .orElse(null); // Fallback to null if user not found
+        
         return new CommentDTO(
             postComment.getId(),
             postComment.getUserName(),
-            postComment.getProfilePic(),
+            profilePic,
             postComment.getComment(),
             postComment.getTime()
         );

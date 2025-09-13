@@ -15,6 +15,7 @@ function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Get the page user was trying to access before being redirected to login
   const from = location.state?.from?.pathname || '/home';
@@ -25,15 +26,21 @@ function LoginPage() {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error message when user starts typing
+    if (errorMessage) {
+      setErrorMessage('');
+    }
   };
- const loginGithub = () =>{
+ // const loginGithub = () =>{
   
-  window.location.href = "http://localhost:8080/login/oauth2/code/github"
+  // window.location.href = "http://localhost:8080/login/oauth2/code/github"
   
- }
+ // }
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(''); // Clear any previous error messages
     
     try {
       // Create base64 encoded credentials for basic auth
@@ -52,17 +59,45 @@ function LoginPage() {
         
         // Redirect to the page user was trying to access, or home if none
         navigate(from, { replace: true });
-      } else {
-        console.log('Login failed');
-        // Handle login error
+      } else if (response.status === 401) {
+        console.log('Login failed - 401 Unauthorized');
+        setErrorMessage('Invalid email/username or password. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Extract error message from response
+      if (error.response) {
+        // Server responded with error status
+        const errorData = error.response.data;
+        console.log('Error response data:', errorData);
+        
+        // Display the response data if available
+        if (errorData && typeof errorData === 'string') {
+          setErrorMessage(errorData);
+        } else if (errorData && errorData.message) {
+          setErrorMessage(errorData.message);
+        } else if (errorData && errorData.error) {
+          setErrorMessage(errorData.error);
+        } else if (error.response.status === 401) {
+          setErrorMessage('Invalid email/username or password. Please try again.');
+        } else if (error.response.status === 403) {
+          setErrorMessage('Account is disabled or access denied.');
+        } else if (error.response.status === 404) {
+          setErrorMessage('User not found. Please check your credentials.');
+        } else {
+          setErrorMessage(`Login failed: ${error.response.status} ${error.response.statusText}`);
+        }
+      } else if (error.request) {
+        // Network error
+        setErrorMessage('Network error. Please check your connection and try again.');
+      } else {
+        // Other error
+        setErrorMessage('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
-  
-    
   };
 
   return (
@@ -132,6 +167,14 @@ function LoginPage() {
             <a href="/forgot-password" className="forgot-password">Forgot Password?</a>
           </div>
 
+          {/* Error Message Display */}
+          {errorMessage && (
+            <div className="error-message-container">
+              <div className="error-icon">⚠️</div>
+              <div className="error-text">{errorMessage}</div>
+            </div>
+          )}
+
           <button 
             type="submit" 
             className={`login-button ${isLoading ? 'loading' : ''}`}
@@ -147,7 +190,7 @@ function LoginPage() {
             )}
           </button>
 
-          <div className="divider">
+          {/* <div className="divider">
             <span>or</span>
           </div>
 
@@ -158,7 +201,7 @@ function LoginPage() {
             <button onClick={loginGithub} type="button" className="social-btn github">
               Continue with Github
             </button>
-          </div>
+          </div> */}
 
           <div className="signup-link">
             Don't have an account? <a href="/signup">Sign up</a>

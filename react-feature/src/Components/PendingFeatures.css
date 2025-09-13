@@ -2,12 +2,15 @@
 .pending-features-page {
   background: linear-gradient(135deg, #181a20 0%, #232946 100%);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   margin-top: 60px;
 }
 
 /* Pending Features Component */
 .pending-features {
+  flex: 1;
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem 1rem;

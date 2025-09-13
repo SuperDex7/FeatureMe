@@ -18,17 +18,14 @@ public class PostComment {
     @Indexed
     private String userName;      // User who made the comment
     
-    private String profilePic;    // User's profile picture
     private String comment;       // The comment text
     private LocalDateTime time;   // When the comment was made
     
     public PostComment() {}
     
-    public PostComment(String postId, String userName, String profilePic, 
-                      String comment, LocalDateTime time) {
+    public PostComment(String postId, String userName, String comment, LocalDateTime time) {
         this.postId = postId;
         this.userName = userName;
-        this.profilePic = profilePic;
         this.comment = comment;
         this.time = time;
     }
@@ -58,13 +55,6 @@ public class PostComment {
         this.userName = userName;
     }
     
-    public String getProfilePic() {
-        return profilePic;
-    }
-    
-    public void setProfilePic(String profilePic) {
-        this.profilePic = profilePic;
-    }
     
     public String getComment() {
         return comment;

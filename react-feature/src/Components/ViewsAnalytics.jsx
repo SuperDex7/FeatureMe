@@ -1,29 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/AuthService';
+import { getPostDownloads } from '../services/PostsService';
 import './ViewsAnalytics.css';
 
-function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
+function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor, totalDownloads: postTotalDownloads = 0 }) {
   const [views, setViews] = useState([]);
+  const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState('lastView'); // 'lastView', 'firstView', 'viewCount', 'userName'
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
+  
+  // Pagination state
+  const [viewsPage, setViewsPage] = useState(0);
+  const [downloadsPage, setDownloadsPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [viewsTotalPages, setViewsTotalPages] = useState(0);
+  const [downloadsTotalPages, setDownloadsTotalPages] = useState(0);
+  const [viewsTotalElements, setViewsTotalElements] = useState(0);
+  const [downloadsTotalElements, setDownloadsTotalElements] = useState(0);
+
+  useEffect(() => {
+    if (isOpen && postId) {
+      setViewsPage(0);
+      setDownloadsPage(0);
+      fetchViews();
+      fetchDownloads();
+    }
+  }, [isOpen, postId]);
 
   useEffect(() => {
     if (isOpen && postId) {
       fetchViews();
     }
-  }, [isOpen, postId]);
+  }, [viewsPage, pageSize, isOpen, postId]);
+
+  useEffect(() => {
+    if (isOpen && postId) {
+      fetchDownloads();
+    }
+  }, [downloadsPage, pageSize, isOpen, postId]);
 
   const fetchViews = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/posts/views/${postId}`);
-      setViews(response.data);
+      const response = await api.get(`/posts/views/${postId}/paginated?page=${viewsPage}&size=${pageSize}`);
+      setViews(response.data.content || []);
+      setViewsTotalPages(response.data.totalPages || 0);
+      setViewsTotalElements(response.data.totalElements || 0);
     } catch (error) {
       console.error('Error fetching views:', error);
       setViews([]);
+      setViewsTotalPages(0);
+      setViewsTotalElements(0);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDownloads = async () => {
+    try {
+      const response = await api.get(`/posts/downloads/${postId}/paginated?page=${downloadsPage}&size=${pageSize}`);
+      setDownloads(response.data.content || []);
+      setDownloadsTotalPages(response.data.totalPages || 0);
+      setDownloadsTotalElements(response.data.totalElements || 0);
+    } catch (error) {
+      console.error('Error fetching downloads:', error);
+      setDownloads([]);
+      setDownloadsTotalPages(0);
+      setDownloadsTotalElements(0);
     }
   };
 
@@ -58,7 +102,8 @@ function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
   });
 
   const totalViews = views.reduce((sum, view) => sum + view.viewCount, 0);
-  const uniqueViewers = views.length;
+  const uniqueViewers = viewsTotalElements;
+  const totalDownloads = postTotalDownloads; // Use the totalDownloads from post data
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -113,6 +158,10 @@ function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
             <span className="views-stat-label">Unique Viewers</span>
           </div>
           <div className="views-stat">
+            <span className="views-stat-number">{totalDownloads}</span>
+            <span className="views-stat-label">Downloads</span>
+          </div>
+          <div className="views-stat">
             <span className="views-stat-number">{uniqueViewers > 0 ? (totalViews / uniqueViewers).toFixed(1) : 0}</span>
             <span className="views-stat-label">Avg Views/User</span>
           </div>
@@ -133,6 +182,15 @@ function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
             >
               {sortOrder === 'desc' ? '↓' : '↑'}
             </button>
+          </div>
+          <div className="views-pagination-controls">
+            <label>Items per page:</label>
+            <select value={pageSize} onChange={(e) => setPageSize(parseInt(e.target.value))}>
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
           </div>
         </div>
 
@@ -170,6 +228,118 @@ function ViewsAnalytics({ postId, isOpen, onClose, currentUser, postAuthor }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* Views Pagination */}
+          {viewsTotalPages > 1 && (
+            <div className="pagination-controls">
+              <div className="pagination-info">
+                Showing {viewsPage * pageSize + 1}-{Math.min((viewsPage + 1) * pageSize, viewsTotalElements)} of {viewsTotalElements} views
+              </div>
+              <div className="pagination-buttons">
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setViewsPage(0)}
+                  disabled={viewsPage === 0}
+                >
+                  First
+                </button>
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setViewsPage(viewsPage - 1)}
+                  disabled={viewsPage === 0}
+                >
+                  Previous
+                </button>
+                <span className="pagination-page">
+                  Page {viewsPage + 1} of {viewsTotalPages}
+                </span>
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setViewsPage(viewsPage + 1)}
+                  disabled={viewsPage >= viewsTotalPages - 1}
+                >
+                  Next
+                </button>
+                <button 
+                  className="pagination-btn"
+                  onClick={() => setViewsPage(viewsTotalPages - 1)}
+                  disabled={viewsPage >= viewsTotalPages - 1}
+                >
+                  Last
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Downloads Section */}
+          {totalDownloads > 0 && (
+            <div className="downloads-section">
+              <h4 className="downloads-section-title">📥 Downloads ({totalDownloads})</h4>
+              <div className="downloads-list">
+                {downloads.map((download, index) => (
+                  <div key={`${download.userName}-${download.downloadTime}`} className="download-item">
+                    <div className="download-user">
+                      <a href={`/profile/${download.userName}`}>
+                        <img 
+                          className="download-user-avatar" 
+                          src={download.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
+                          alt={download.userName}
+                        />
+                      </a>
+                      <div className="download-user-info">
+                        <a href={`/profile/${download.userName}`}>
+                          <span className="download-username">{download.userName}</span>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="download-time">{getTimeSince(download.downloadTime)}</div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Downloads Pagination */}
+              {downloadsTotalPages > 1 && (
+                <div className="pagination-controls">
+                  <div className="pagination-info">
+                    Showing {downloadsPage * pageSize + 1}-{Math.min((downloadsPage + 1) * pageSize, downloadsTotalElements)} of {downloadsTotalElements} downloads
+                  </div>
+                  <div className="pagination-buttons">
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setDownloadsPage(0)}
+                      disabled={downloadsPage === 0}
+                    >
+                      First
+                    </button>
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setDownloadsPage(downloadsPage - 1)}
+                      disabled={downloadsPage === 0}
+                    >
+                      Previous
+                    </button>
+                    <span className="pagination-page">
+                      Page {downloadsPage + 1} of {downloadsTotalPages}
+                    </span>
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setDownloadsPage(downloadsPage + 1)}
+                      disabled={downloadsPage >= downloadsTotalPages - 1}
+                    >
+                      Next
+                    </button>
+                    <button 
+                      className="pagination-btn"
+                      onClick={() => setDownloadsPage(downloadsTotalPages - 1)}
+                      disabled={downloadsPage >= downloadsTotalPages - 1}
+                    >
+                      Last
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

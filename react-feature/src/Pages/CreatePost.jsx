@@ -1,6 +1,7 @@
 import "../Styling/CreatePost.css"
 import React, { useState, useRef, useEffect } from "react";
 import Header from "../Components/Header";
+import Footer from "../Components/Footer";
 import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
 const GENRES = [
@@ -26,7 +27,8 @@ function CreatePost(){
     description: "",
     features: [],
     genre: [],
-    music:""
+    music: "",
+    freeDownload: false
   })
 
   const navigate = useNavigate();
@@ -59,6 +61,10 @@ function CreatePost(){
     }
   }
 
+  const handleFreeDownloadToggle = () => {
+    setPost({...post, freeDownload: !post.freeDownload})
+  }
+
   const removeFeature = (name) =>
     setFeatures(features.filter((f) => f !== name));
 
@@ -68,6 +74,11 @@ function CreatePost(){
       : [...genres, g];
     setGenres(newGenres);
     setPost({ ...post, genre: newGenres });
+    
+    // Clear genre error when a genre is selected
+    if (newGenres.length > 0 && errors.genre) {
+      setErrors(prev => ({ ...prev, genre: '' }));
+    }
   };
 
   const handleGenrePopupClose = () => {
@@ -105,6 +116,9 @@ function CreatePost(){
     const newErrors = {};
     if (!post.title || post.title.trim() === '') {
       newErrors.title = 'Song name is required';
+    }
+    if (genres.length === 0) {
+      newErrors.genre = 'At least one genre is required';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -240,66 +254,76 @@ function CreatePost(){
   };
 
   const renderStepIndicator = () => (
-    <div className="step-indicator">
-      <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>
-        <span className="step-number">1</span>
-        <span className="step-label">Song Details</span>
+    <div className="create-post-step-indicator">
+      <div className={`create-post-step ${currentStep >= 1 ? 'active' : ''}`}>
+        <span className="create-post-step-number">1</span>
+        <span className="create-post-step-label">Song Details</span>
       </div>
-      <div className={`step ${currentStep >= 2 ? 'active' : ''}`}>
-        <span className="step-number">2</span>
-        <span className="step-label">Features</span>
+      <div className={`create-post-step ${currentStep >= 2 ? 'active' : ''}`}>
+        <span className="create-post-step-number">2</span>
+        <span className="create-post-step-label">Features</span>
       </div>
-      <div className={`step ${currentStep >= 3 ? 'active' : ''}`}>
-        <span className="step-number">3</span>
-        <span className="step-label">Upload</span>
+      <div className={`create-post-step ${currentStep >= 3 ? 'active' : ''}`}>
+        <span className="create-post-step-number">3</span>
+        <span className="create-post-step-label">Upload & Download</span>
       </div>
-      <div className={`step ${currentStep >= 4 ? 'active' : ''}`}>
-        <span className="step-number">4</span>
-        <span className="step-label">Preview</span>
+      <div className={`create-post-step ${currentStep >= 4 ? 'active' : ''}`}>
+        <span className="create-post-step-number">4</span>
+        <span className="create-post-step-label">Preview</span>
       </div>
     </div>
   );
 
   const renderStep1 = () => (
-    <div className="step-content">
-      <h3 className="step-title">Song Details</h3>
-      <p className="step-description">Tell us about your song</p>
+    <div className="create-post-step-content">
+      <h3 className="create-post-step-title">Song Details</h3>
+      <p className="create-post-step-description">Tell us about your song</p>
       
-      <div className="input-group">
-        <label className="input-label">Song Name *</label>
+      <div className="create-post-input-group">
+        <label className="create-post-input-label">Song Name *</label>
         <input
           name="title"
           type="text"
-          className={`text-input ${errors.title ? 'error' : ''}`}
+          className={`create-post-text-input ${errors.title ? 'error' : ''}`}
           placeholder="Format Suggestion: Song Name or Instrument - BPM"
+          maxLength="50"
           onChange={handleInput}
         />
-        {errors.title && <span className="error-message">{errors.title}</span>}
+        <div className="create-post-char-counter">
+          {post.title.length}/50 characters
+        </div>
+        {errors.title && <span className="create-post-error-message">{errors.title}</span>}
       </div>
 
-      <div className="input-group">
-        <label className="input-label">Description</label>
+      <div className="create-post-input-group">
+        <label className="create-post-input-label">Description</label>
         <textarea
           name="description"
           rows={4}
-          className="text-area"
+          className="create-post-text-area"
           placeholder="Describe your song, inspiration, or any special notes..."
+          maxLength="80"
           onChange={handleInput}
         />
+        <div className="create-post-char-counter">
+          {post.description.length}/80 characters
+        </div>
       </div>
 
-      <div className="input-group">
-        <label className="input-label">Genre</label>
+
+      <div className="create-post-input-group">
+        <label className="create-post-input-label">Genre *</label>
         <button
           type="button"
-          className="genre-selector-button"
+          className={`create-post-genre-selector-button ${errors.genre ? 'error' : ''}`}
           onClick={handleGenrePopupOpen}
         >
-          <span className="genre-button-text">
+          <span className="create-post-genre-button-text">
             {genres.length === 0 ? 'Select genres…' : `${genres.length} genre${genres.length > 1 ? 's' : ''} selected`}
           </span>
-          <span className="genre-button-icon">🎵</span>
+          <span className="create-post-genre-button-icon">🎵</span>
         </button>
+        {errors.genre && <span className="create-post-error-message">{errors.genre}</span>}
         {genres.length > 0 && (
           <div className="selected-genres-preview">
             {genres.map((genre, index) => (
@@ -321,9 +345,9 @@ function CreatePost(){
   );
 
   const renderStep2 = () => (
-    <div className="step-content">
-      <h3 className="step-title">Features & Collaborators</h3>
-      <p className="step-description">Add any featured artists or collaborators</p>
+    <div className="create-post-step-content">
+      <h3 className="create-post-step-title">Features & Collaborators</h3>
+      <p className="create-post-step-description">Add any featured artists or collaborators</p>
       
       <div className="approval-notice">
         <div className="notice-icon">⚠️</div>
@@ -335,36 +359,36 @@ function CreatePost(){
         </div>
       </div>
       
-      <div className="input-group">
-        <label className="input-label">Features</label>
+      <div className="create-post-input-group">
+        <label className="create-post-input-label">Features</label>
         <input
           name="features"
           type="text"
-          className="text-input"
+          className="create-post-text-input"
           placeholder="Press Enter to add a feature"
           value={featureInput}
           onChange={(e) => setFeatureInput(e.target.value)}
           onKeyDown={handleFeatureKeyDown}
         />
-        <div className="tag-list">
+        <div className="create-post-tag-list">
           {features.map((f) => (
-            <span key={f} className="tag" onClick={() => removeFeature(f)}>
+            <span key={f} className="create-post-tag" onClick={() => removeFeature(f)}>
               {f} ×
             </span>
           ))}
         </div>
       </div>
 
-      <div className="features-preview">
+      <div className="create-post-features-preview">
         <h4>Current Features:</h4>
         {features.length === 0 ? (
           <p className="no-features">No features added yet</p>
         ) : (
-          <div className="features-grid">
+          <div className="create-post-features-grid">
             {features.map((feature, index) => (
-              <div key={index} className="feature-card">
-                <span className="feature-icon">🎤</span>
-                <span className="feature-name">{feature}</span>
+              <div key={index} className="create-post-feature-card">
+                <span className="create-post-feature-icon">🎤</span>
+                <span className="create-post-feature-name">{feature}</span>
               </div>
             ))}
           </div>
@@ -380,17 +404,17 @@ function CreatePost(){
     const supportedFormats = userRole === 'USERPLUS' ? 'MP3, WAV' : 'MP3 only';
     
     return (
-      <div className="step-content">
-        <h3 className="step-title">Upload Audio File</h3>
-        <p className="step-description">
+      <div className="create-post-step-content">
+        <h3 className="create-post-step-title">Upload Audio File & Download Settings</h3>
+        <p className="create-post-step-description">
           {userRole === 'USERPLUS' 
-            ? 'Upload your audio file (.mp3 or .wav)' 
-            : 'Upload your MP3 file (.mp3 only - Upgrade to Plus for WAV support!)'
+            ? 'Upload your audio file (.mp3 or .wav) and configure download settings' 
+            : 'Upload your MP3 file (.mp3 only - Upgrade to Plus for WAV support!) and configure download settings'
           }
         </p>
         
         {userRole === 'USER' && (
-          <div className="upgrade-notice">
+          <div className="create-post-upgrade-notice">
             <div className="notice-icon">⭐</div>
             <div className="notice-content">
               <strong>Upgrade to Plus for more formats!</strong>
@@ -399,101 +423,124 @@ function CreatePost(){
           </div>
         )}
         
-        <div className="upload-section">
-          <div className="file-upload-area">
+        <div className="create-post-upload-section">
+          <div className="create-post-file-upload-area">
             <input
               type="file"
               accept={acceptedTypes}
-              className="file-input"
+              className="create-post-file-input"
               onChange={handleFileChange}
               id="audio-upload"
             />
-            <label htmlFor="audio-upload" className={`file-upload-label ${errors.file ? 'error' : ''}`}>
-              <div className="upload-icon">🎵</div>
-              <div className="upload-text">
+            <label htmlFor="audio-upload" className={`create-post-file-upload-label ${errors.file ? 'error' : ''}`}>
+              <div className="create-post-upload-icon">🎵</div>
+              <div className="create-post-upload-text">
                 {file ? (
                   <>
                     <strong>File Selected:</strong>
                     <span>{file.name}</span>
-                    <span className="file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <span className="create-post-file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                   </>
                 ) : (
                   <>
                     <strong>Click to upload</strong>
                     <span>or drag and drop</span>
-                    <span className="file-types">{supportedFormats} up to {maxFileSize}MB</span>
+                    <span className="create-post-file-types">{supportedFormats} up to {maxFileSize}MB</span>
                   </>
                 )}
               </div>
             </label>
           </div>
-          {errors.file && <span className="error-message">{errors.file}</span>}
+          {errors.file && <span className="create-post-error-message">{errors.file}</span>}
         </div>
 
         {file && (
-          <div className="file-preview">
+          <div className="create-post-file-preview">
             <h4>File Preview:</h4>
-            <div className="file-info">
-              <span className="file-name">{file.name}</span>
-              <span className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-              <span className="file-type">{file.type}</span>
+            <div className="create-post-file-info">
+              <span className="create-post-file-name">{file.name}</span>
+              <span className="create-post-file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="create-post-file-type">{file.type}</span>
             </div>
           </div>
         )}
+
+        <div className="create-post-input-group">
+          <div className="create-post-toggle-container">
+            <label className="create-post-toggle-label">
+              <input
+                type="checkbox"
+                checked={post.freeDownload}
+                onChange={handleFreeDownloadToggle}
+                className="create-post-toggle-checkbox"
+              />
+              <span className="create-post-toggle-slider"></span>
+              <span className="create-post-toggle-text">Enable Download</span>
+            </label>
+            <p className="create-post-toggle-description">
+              Allow users to download your track.
+            </p>
+          </div>
+        </div>
       </div>
     );
   };
 
   const renderStep4 = () => (
-    <div className="step-content">
-      <h3 className="step-title">Preview Your Post</h3>
-      <p className="step-description">Review your post before publishing</p>
+    <div className="create-post-step-content">
+      <h3 className="create-post-step-title">Preview Your Post</h3>
+      <p className="create-post-step-description">Review your post before publishing</p>
       
-      <div className="post-preview">
-        <div className="preview-card">
-          <div className="preview-header">
-            <div className="preview-profile">
-              <div className="preview-avatar">👤</div>
-              <div className="preview-user-info">
-                <span className="preview-username">{currentUser?.userName || 'User'}</span>
-                <span className="preview-time">Just now</span>
+      <div className="create-post-preview">
+        <div className="create-post-preview-card">
+          <div className="create-post-preview-header">
+            <div className="create-post-preview-profile">
+              <div className="create-post-preview-avatar">👤</div>
+              <div className="create-post-preview-user-info">
+                <span className="create-post-preview-username">{currentUser?.userName || 'User'}</span>
+                <span className="create-post-preview-time">Just now</span>
               </div>
             </div>
           </div>
           
-          <div className="preview-content">
-            <h3 className="preview-title">{post.title || "Song Title"}</h3>
-            <p className="preview-description">{post.description || "No description provided"}</p>
+          <div className="create-post-preview-content">
+            <h3 className="create-post-preview-title">{post.title || "Song Title"}</h3>
+            <p className="create-post-preview-description">{post.description || "No description provided"}</p>
             
             {features.length > 0 && (
-              <div className="preview-features">
-                <span className="preview-feat-label">Feat:</span>
-                <span className="preview-feat-list">{features.join(", ")}</span>
+              <div className="create-post-preview-features">
+                <span className="create-post-preview-feat-label">Feat:</span>
+                <span className="create-post-preview-feat-list">{features.join(", ")}</span>
               </div>
             )}
             
             {genres.length > 0 && (
-              <div className="preview-genres">
+              <div className="create-post-preview-genres">
                 {genres.map((genre, index) => (
-                  <span key={index} className="preview-genre-tag">{genre}</span>
+                  <span key={index} className="create-post-preview-genre-tag">{genre}</span>
                 ))}
               </div>
             )}
             
             {file && (
-              <div className="preview-audio">
-                <div className="audio-player-preview">
-                  <span className="audio-icon">🎵</span>
-                  <span className="audio-name">{file.name}</span>
-                  <span className="audio-duration">--:--</span>
+              <div className="create-post-preview-audio">
+                <div className="create-post-audio-player-preview">
+                  <span className="create-post-audio-icon">🎵</span>
+                  <span className="create-post-audio-name">{file.name}</span>
+                  <span className="create-post-audio-duration">--:--</span>
+                </div>
+                <div className="create-post-preview-download-status">
+                  <span className={`download-badge ${post.freeDownload ? 'free' : 'paid'}`}>
+                    {post.freeDownload ? '🆓 Free Download' : ''}
+                  </span>
                 </div>
               </div>
             )}
           </div>
           
-          <div className="preview-stats">
-            <span className="preview-likes">❤️ 0</span>
-            <span className="preview-comments">💬 0</span>
+          <div className="create-post-preview-stats">
+            <span className="create-post-preview-likes">❤️ 0</span>
+            <span className="create-post-preview-comments">💬 0</span>
           </div>
         </div>
       </div>
@@ -587,11 +634,11 @@ function CreatePost(){
             <form onSubmit={handleSubmit} className="create-post-form">
               {renderCurrentStep()}
               
-              <div className="step-navigation">
+              <div className="create-post-step-navigation">
                 {currentStep > 1 && (
                   <button 
                     type="button" 
-                    className="nav-button prev-button"
+                    className="create-post-nav-button create-post-prev-button"
                     onClick={prevStep}
                   >
                     ← Previous
@@ -601,16 +648,16 @@ function CreatePost(){
                 {currentStep < 4 ? (
                   <button 
                     type="button" 
-                    className={`nav-button next-button ${(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
+                    className={`create-post-nav-button create-post-next-button ${(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
                     onClick={(e) => nextStep(e)}
-                    disabled={(currentStep === 1 && !post.title.trim()) || (currentStep === 3 && !file)}
+                    disabled={(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file)}
                   >
                     Next →
                   </button>
                 ) : (
                   <button 
                     type="submit" 
-                    className="submit-button"
+                    className="create-post-submit-button"
                   >
                     Publish Post
                   </button>
@@ -622,6 +669,7 @@ function CreatePost(){
       </div>
       
       {renderGenrePopup()}
+      <Footer />
     </div>
   );
 }

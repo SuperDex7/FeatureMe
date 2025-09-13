@@ -6,7 +6,7 @@ import ViewsAnalytics from "./ViewsAnalytics";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 
-function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0 }) {
+function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0, totalDownloads = 0, freeDownload = false }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -72,6 +72,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
     }
   };
 
+
   return (
     <div className={`feed-card-modal-overlay${open ? '' : ' modal-closed'}`} onClick={onClose}>
       <div className={`feed-card-modal${open ? '' : ' modal-closed'}`} onClick={e => e.stopPropagation()}>
@@ -120,7 +121,13 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
           
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+              <AudioPlayer 
+                src={music} 
+                onClose={() => setShowAudioPlayer(false)} 
+                title={title} 
+                postId={id}
+                freeDownload={freeDownload}
+              />
             </div>
           )}
           
@@ -192,6 +199,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             onClose={() => setShowViewsAnalytics(false)}
             currentUser={currentUser}
             postAuthor={author}
+            totalDownloads={totalDownloads}
           />
           
         </div>
@@ -200,7 +208,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
   );
 }
 
-function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0 }) {
+function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, freeDownload = false }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -288,6 +296,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
     }
   };
 
+
   return (
     <>
       <div
@@ -330,7 +339,13 @@ function FeedItem({ id, author, description, time, title, features, genre, music
           )}
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer src={music} onClose={() => setShowAudioPlayer(false)} title={title} />
+              <AudioPlayer 
+                src={music} 
+                onClose={() => setShowAudioPlayer(false)} 
+                title={title} 
+                postId={id}
+                freeDownload={freeDownload}
+              />
             </div>
           )}
           <div className="feed-card-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
@@ -358,6 +373,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
         currentUser={currentUser}
         totalViews={totalViews}
         totalComments={totalComments}
+        freeDownload={freeDownload}
       />
     </>
   );

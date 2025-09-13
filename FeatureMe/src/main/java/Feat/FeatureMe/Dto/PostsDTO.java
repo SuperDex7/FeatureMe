@@ -11,6 +11,8 @@ public record PostsDTO(
         List<String> features,
         List<String> pendingFeatures,
         String status,
+        double price,
+        boolean freeDownload,
         List<String> genre,
         String music,
         List<CommentDTO> comments,
@@ -18,7 +20,8 @@ public record PostsDTO(
         List<LikesDTO> likes,
         List<ViewsDTO> views,
         int totalViews,
-        int totalComments
+        int totalComments,
+        int totalDownloads
         
 ) {
 

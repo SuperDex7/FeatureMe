@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,11 +28,12 @@ import Feat.FeatureMe.Dto.PostsDTO;
 import Feat.FeatureMe.Dto.ViewsDTO;
 import Feat.FeatureMe.Dto.CommentDTO;
 import Feat.FeatureMe.Dto.LikesDTO;
+import Feat.FeatureMe.Dto.PostDownloadDTO;
 import Feat.FeatureMe.Entity.Posts;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.PostsService;
 import Feat.FeatureMe.Service.PostViewService;
-import Feat.FeatureMe.Service.PostCommentService;
+import Feat.FeatureMe.Service.PostDownloadService;
 import Feat.FeatureMe.Service.PostLikeService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
@@ -47,11 +49,13 @@ public class PostsController {
     private final PostsService postsService;
     private final S3Service s3Service;
     private final UserService userService;
+    private final PostDownloadService postDownloadService;
     
-    public PostsController(PostsService postsService, S3Service s3Service, UserService userService) {
+    public PostsController(PostsService postsService, S3Service s3Service, UserService userService, PostDownloadService postDownloadService) {
         this.postsService = postsService;
         this.s3Service = s3Service;
         this.userService = userService;
+        this.postDownloadService = postDownloadService;
     }
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
@@ -110,6 +114,48 @@ public class PostsController {
     public List<ViewsDTO> getPostViews(@PathVariable String id) {
         return postsService.getPostViews(id);
     }
+
+    @PostMapping("/download/{id}")
+    public ResponseEntity<String> trackDownload(@PathVariable String id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Create download record
+        postDownloadService.createDownload(id, user.getId(), user.getUserName());
+        
+        // Increment total downloads counter
+        postsService.incrementTotalDownloads(id);
+        
+        // Still send notification to post author
+        postsService.notifyDownload(id, user.getUserName());
+        
+        return ResponseEntity.ok("Download tracked successfully");
+    }
+    
+    @GetMapping("/downloads/{id}")
+    public List<PostDownloadDTO> getPostDownloads(@PathVariable String id) {
+        return postDownloadService.getDownloadsForPost(id);
+    }
+    
+    @GetMapping("/downloads/{id}/count")
+    public long getPostDownloadCount(@PathVariable String id) {
+        return postDownloadService.getDownloadCountForPost(id);
+    }
+    
+    @GetMapping("/downloads/{id}/paginated")
+    public PagedModel<PostDownloadDTO> getPostDownloadsPaginated(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return postDownloadService.getDownloadsForPostPaginated(id, page, size);
+    }
+    
     
     @GetMapping("/views/{id}/paginated")
     public PagedModel<ViewsDTO> getPostViewsPaginated(

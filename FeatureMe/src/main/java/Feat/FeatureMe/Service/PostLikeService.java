@@ -30,7 +30,8 @@ public class PostLikeService {
      * Returns true if liked, false if unliked
      */
     public boolean toggleLike(String postId, String userName) {
-        User user = userRepository.findByUserName(userName)
+        // Verify user exists
+        userRepository.findByUserName(userName)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         // Check if user has already liked this post
@@ -41,7 +42,7 @@ public class PostLikeService {
         } else {
             // Like - add new like
             LocalDateTime now = LocalDateTime.now();
-            PostLike newLike = new PostLike(postId, userName, user.getProfilePic(), now);
+            PostLike newLike = new PostLike(postId, userName, now);
             postLikeRepository.save(newLike);
             return true; // Liked
         }
@@ -55,11 +56,12 @@ public class PostLikeService {
             return false; // Already liked
         }
         
-        User user = userRepository.findByUserName(userName)
+        // Verify user exists
+        userRepository.findByUserName(userName)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         LocalDateTime now = LocalDateTime.now();
-        PostLike newLike = new PostLike(postId, userName, user.getProfilePic(), now);
+        PostLike newLike = new PostLike(postId, userName, now);
         postLikeRepository.save(newLike);
         return true; // Successfully liked
     }
@@ -149,9 +151,14 @@ public class PostLikeService {
      * Convert PostLike entity to LikesDTO
      */
     private LikesDTO convertToLikesDTO(PostLike postLike) {
+        // Fetch current profile picture from User entity
+        String profilePic = userRepository.findByUserName(postLike.getUserName())
+            .map(User::getProfilePic)
+            .orElse(null); // Fallback to null if user not found
+        
         return new LikesDTO(
             postLike.getUserName(),
-            postLike.getProfilePic(),
+            profilePic,
             postLike.getLikedAt()
         );
     }
