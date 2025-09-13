@@ -226,7 +226,7 @@ public class StripeController {
                             
                             if ("canceled".equals(status)) {
                                 // Subscription is fully canceled
-                                user.setRole("free");
+                                user.setRole("USER");
                                 user.setSubscriptionStatus("canceled");
                                 System.out.println("❌ User " + user.getEmail() + " subscription canceled! Subscription ID: " + subscription.getId());
                             } else if (Boolean.TRUE.equals(cancelAtPeriodEnd)) {
@@ -258,7 +258,7 @@ public class StripeController {
                         
                         if (user != null) {
                             // Downgrade user to free plan
-                            user.setRole("free");
+                            user.setRole("USER");
                             user.setSubscriptionStatus("canceled");
                             userService.saveUser(user);
                             

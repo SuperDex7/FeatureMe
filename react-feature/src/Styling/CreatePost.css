@@ -7,6 +7,7 @@
   color: #f3f3f7;
   overflow-x: hidden;
   padding-top: 64px; /* Account for fixed header */
+  overflow-y: hidden;
 }
 
 .create-post-main {

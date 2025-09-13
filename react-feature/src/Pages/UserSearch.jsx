@@ -216,7 +216,7 @@ function UserSearch() {
     };
     
     return (
-        <div>
+        <div className="user-search-page">
             <Header />
             <div className="user-search-container">
             <div className="user-search-header">

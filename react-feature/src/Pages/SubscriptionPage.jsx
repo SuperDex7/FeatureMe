@@ -220,9 +220,8 @@ const handlePlanAction = async (planType) => {
             padding: '15px', 
             borderRadius: '8px',
             border: '1px solid #e0e0e0',
-            marginBottom: '20px',
-            textAlign: 'center',
-            marginBottom: '50px'
+            marginBottom: '50px',
+            textAlign: 'center'
           }}>
             <p style={{ fontSize: '16px', margin: '0' }}>{message}</p>
           </div>

@@ -1,9 +1,15 @@
 /* User Search Page Styles */
-.user-search-container {
-  min-height: 100vh;
+.user-search-page {
   background: linear-gradient(120deg, #181a20 0%, #232946 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   color: #f3f3f7;
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
+
+.user-search-container {
+  flex: 1;
   padding: 2rem;
   padding-top: 100px; /* Account for header */
 }
