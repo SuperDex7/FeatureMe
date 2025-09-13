@@ -54,6 +54,98 @@
     position: relative;
     background: linear-gradient(135deg, rgba(162,89,198,0.16) 0%, rgba(95,95,217,0.13) 100%);
   }
+
+  /* UserPlus Premium Card Styling */
+  .profile-glass-info-card.userplus-card {
+    background: linear-gradient(135deg, 
+      rgba(127,83,172,0.15) 0%, 
+      rgba(100,125,222,0.15) 25%,
+      rgba(255,107,107,0.1) 50%,
+      rgba(255,165,0,0.1) 75%,
+      rgba(127,83,172,0.15) 100%
+    );
+    border: 2px solid rgba(127,83,172,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-glass-info-card.userplus-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, 
+      rgba(127,83,172,0.1) 0%, 
+      rgba(100,125,222,0.1) 25%,
+      rgba(255,107,107,0.05) 50%,
+      rgba(255,165,0,0.05) 75%,
+      rgba(127,83,172,0.1) 100%
+    );
+    opacity: 0;
+    transform: translateX(-100%);
+    transition: all 0.3s ease;
+    pointer-events: none;
+  }
+
+  .profile-glass-info-card.userplus-card:hover::before {
+    opacity: 0.6;
+    transform: translateX(100%);
+    transition: all 0.8s ease;
+  }
+
+  .profile-glass-info-card.userplus-card:hover {
+    border-color: rgba(127,83,172,0.5);
+    box-shadow: 0 8px 32px rgba(127,83,172,0.25);
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-avatar {
+    border: 3px solid rgba(127,83,172,0.6);
+    box-shadow: 0 0 20px rgba(127,83,172,0.3);
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-edit {
+    background: linear-gradient(90deg, #7f53ac 0%, #647dee 100%);
+    box-shadow: 0 4px 20px rgba(127,83,172,0.3);
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-edit:hover {
+    background: linear-gradient(90deg, #a084e8 0%, #4f8cff 100%);
+    box-shadow: 0 6px 25px rgba(127,83,172,0.4);
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-badge {
+    box-shadow: 0 0 15px rgba(127,83,172,0.4);
+    transition: all 0.3s ease;
+  }
+
+  .profile-glass-info-card.userplus-card:hover .profile-glass-badge {
+    box-shadow: 0 0 25px rgba(127,83,172,0.6);
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-stat {
+    transition: all 0.3s ease;
+  }
+
+  .profile-glass-info-card.userplus-card .profile-glass-stat:hover {
+    transform: translateY(-2px);
+  }
+
+  .profile-glass-info-card.userplus-card .stat-value {
+    color: #7f53ac;
+    font-weight: 800;
+  }
+
+  .profile-glass-info-card.userplus-card .stat-label {
+    color: #9ca8b8;
+    font-weight: 600;
+  }
+
+  .profile-glass-info-card.userplus-card .stat-label.clickable:hover {
+    color: #7f53ac;
+    background: rgba(127,83,172,0.1);
+  }
   .profile-glass-edit {
     position: absolute;
     top: 1.5rem;
@@ -72,13 +164,32 @@
   .profile-glass-edit:hover {
     background: linear-gradient(90deg,#7d3bbd,#3a3ad9);
   }
+  .profile-glass-username-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+    margin-top: 40px;
+  }
+
   .profile-glass-username {
     font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 0.2rem;
-    margin-top: 40px;
+    margin: 0;
     color: #fff;
     letter-spacing: 1px;
+  }
+
+  .premium-indicator {
+    font-size: 1.5rem;
+    filter: drop-shadow(0 0 8px rgba(255,215,0,0.6));
+    transition: all 0.3s ease;
+  }
+
+  .profile-glass-info-card.userplus-card:hover .premium-indicator {
+    filter: drop-shadow(0 0 15px rgba(255,215,0,0.8));
+    transform: scale(1.1);
   }
   .profile-glass-bio {
     font-size: 1.2rem;
@@ -1199,5 +1310,241 @@
 
   .no-demos p {
     margin-bottom: 0.5rem;
+  }
+
+  /* Posts Section Styling */
+  .posts-container {
+    width: 100%;
+  }
+
+  .posts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .posts-header h3 {
+    color: #e0e0e0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .create-post-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  }
+
+  .create-post-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  .no-posts {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #b8b8b8;
+  }
+
+  .no-posts-content {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .no-posts-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+  }
+
+  .no-posts h4 {
+    color: #e0e0e0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .no-posts p {
+    color: #b8b8b8;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  .create-first-post-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  }
+
+  .create-first-post-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  /* Features Section Styling */
+  .features-container {
+    width: 100%;
+  }
+
+  .features-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .features-header h3 {
+    color: #e0e0e0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .features-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .features-count {
+    background: linear-gradient(135deg, rgba(255,165,0,0.2) 0%, rgba(255,107,107,0.2) 100%);
+    color: #ffa500;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid rgba(255,165,0,0.3);
+  }
+
+  .no-features {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #b8b8b8;
+  }
+
+  .no-features-content {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .no-features-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+  }
+
+  .no-features h4 {
+    color: #e0e0e0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .no-features p {
+    color: #b8b8b8;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  .features-tips {
+    background: linear-gradient(135deg, rgba(255,165,0,0.1) 0%, rgba(255,107,107,0.1) 100%);
+    border: 1px solid rgba(255,165,0,0.2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: left;
+  }
+
+  .features-tips p {
+    color: #e0e0e0;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+
+  .features-tips ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .features-tips li {
+    color: #b8b8b8;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    padding-left: 1rem;
+    position: relative;
+  }
+
+  .features-tips li:before {
+    content: "•";
+    color: #ffa500;
+    font-weight: bold;
+    position: absolute;
+    left: 0;
+  }
+
+  /* Responsive Design for New Sections */
+  @media (max-width: 768px) {
+    .posts-header, .features-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .posts-header h3, .features-header h3 {
+      font-size: 1.3rem;
+    }
+
+    .create-post-btn {
+      width: 100%;
+      padding: 0.8rem 1.5rem;
+    }
+
+    .create-first-post-btn {
+      width: 100%;
+      padding: 1rem 1.5rem;
+    }
+
+    .features-info {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .features-tips {
+      padding: 1rem;
+    }
+
+    .no-posts, .no-features {
+      padding: 2rem 1rem;
+    }
   }
   

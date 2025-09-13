@@ -497,7 +497,7 @@ function Profile() {
           <img className="profile-glass-avatar" src={user?.profilePic || '/default-avatar.jpg'} alt="User Avatar" />
         </div>
       </div>
-      <div className="profile-glass-info-card overlap-margin">
+      <div className={`profile-glass-info-card overlap-margin ${user?.role === 'USERPLUS' ? 'userplus-card' : ''}`}>
         {currentUser?.userName === username ? (
           <button className="profile-glass-edit" onClick={isEditing ? handleCancelEdit : handleEditClick}>
             {isEditing ? 'Cancel' : 'Edit Profile'}
@@ -831,7 +831,12 @@ function Profile() {
           </form>
         ) : (
           <>
-            <h2 className="profile-glass-username">{user?.userName || 'Unknown User'}</h2>
+            <div className="profile-glass-username-container">
+              <h2 className="profile-glass-username">{user?.userName || 'Unknown User'}</h2>
+              {user?.role === 'USERPLUS' && (
+                <span className="premium-indicator">⭐</span>
+              )}
+            </div>
             <div className="profile-glass-badges-row">
               {user?.badges?.map((badge, i) => {
                 const badgeInfo = BadgeService.getBadgeInfo(badge);
@@ -965,18 +970,48 @@ function Profile() {
       </div>
       <div className="profile-glass-content">
         {activeTab === "posts" && (
-          <div>
-            <h3>Your Recent Posts</h3>
-             <div className="profilePosts">
+          <div className="posts-container">
+            <div className="posts-header">
+              <h3>📝 Posts</h3>
+              {currentUser?.userName === username && (
+                <button 
+                  className="create-post-btn"
+                  onClick={() => window.location.href = '/create-post'}
+                >
+                  ➕ Create Post
+                </button>
+              )}
+            </div>
             
-           {posts.map((item) => (
-             <FeedItem key={item.id} {...item} />
-           ))}
-         </div>
-         <div id="pageButtons">
-        <button className="section-more-btn" onClick={prevPage} hidden={totalPages < 2 ? true:false} disabled={page == 0 || page == null? true: false}>Previous Page</button>
-        <button className="section-more-btn" onClick={nextPage} hidden={totalPages < 2 ? true:false}  disabled={page == totalPages-1 || page == null? true: false}>Next Page</button>
-        </div>
+            {posts.length > 0 ? (
+              <>
+                <div className="profilePosts">
+                  {posts.map((item) => (
+                    <FeedItem key={item.id} {...item} />
+                  ))}
+                </div>
+                <div id="pageButtons">
+                  <button className="section-more-btn" onClick={prevPage} hidden={totalPages < 2 ? true:false} disabled={page == 0 || page == null? true: false}>Previous Page</button>
+                  <button className="section-more-btn" onClick={nextPage} hidden={totalPages < 2 ? true:false}  disabled={page == totalPages-1 || page == null? true: false}>Next Page</button>
+                </div>
+              </>
+            ) : (
+              <div className="no-posts">
+                <div className="no-posts-content">
+                  <div className="no-posts-icon">📝</div>
+                  <h4>No posts yet</h4>
+                  <p>Share your musical journey with the world!</p>
+                  {currentUser?.userName === username && (
+                    <button 
+                      className="create-first-post-btn"
+                      onClick={() => window.location.href = '/create-post'}
+                    >
+                      Create Your First Post
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {activeTab === "demos" && (
@@ -999,35 +1034,46 @@ function Profile() {
           </div>
         )}
         {activeTab === "friends" && (
-          <div>
-          <h3>Featured On</h3>
-           <div className="profilePosts">
-            
-           {featuredOn.map((item) => (
-             <FeedItem key={item.id} {...item} />
-           ))}
-         </div>
-         <div id="pageButtons">
-        <button className="section-more-btn" onClick={prevFeatPage} hidden={featTotalPages < 2 ? true:false} disabled={featPage == 0 || featPage == null? true: false}>Previous Page</button>
-        <button className="section-more-btn" onClick={nextFeatPage} hidden={featTotalPages < 2 ? true:false}  disabled={featPage == featTotalPages-1 || featPage == null? true: false}>Next Page</button>
-        </div>
-         </div>
-          /*
-          <div>
-            
-            {featuredOn.length > 0 && 
-            <h4>{Array.from(new Map(featuredOn.map(featuredOn => [featuredOn.id, featuredOn])).values())?.map((featuredOn, i) => (
-              <div key={featuredOn.id}>
-                <h3>{featuredOn.title}</h3>
-                <p>{featuredOn.description}</p>
+          <div className="features-container">
+            <div className="features-header">
+              <h3>⭐ Featured On</h3>
+              <div className="features-info">
+                <span className="features-count">{featuredOn.length} features</span>
               </div>
-            ))} </h4>
-            || "List or grid of featured on posts go here."}
+            </div>
+            
+            {featuredOn.length > 0 ? (
+              <>
+                <div className="profilePosts">
+                  {featuredOn.map((item) => (
+                    <FeedItem key={item.id} {...item} />
+                  ))}
+                </div>
+                <div id="pageButtons">
+                  <button className="section-more-btn" onClick={prevFeatPage} hidden={featTotalPages < 2 ? true:false} disabled={featPage == 0 || featPage == null? true: false}>Previous Page</button>
+                  <button className="section-more-btn" onClick={nextFeatPage} hidden={featTotalPages < 2 ? true:false}  disabled={featPage == featTotalPages-1 || featPage == null? true: false}>Next Page</button>
+                </div>
+              </>
+            ) : (
+              <div className="no-features">
+                <div className="no-features-content">
+                  <div className="no-features-icon">⭐</div>
+                  <h4>No features yet</h4>
+                  <p>Collaborate with other artists to get featured on their tracks!</p>
+                  <div className="features-tips">
+                    <p>💡 <strong>Tips to get featured:</strong></p>
+                    <ul>
+                      <li>Connect with other artists in the community</li>
+                      <li>Share your demos and showcase your talent</li>
+                      <li>Engage with other users' content</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          */
         )}
       </div>
-      <Footer />
     </div>
   );
 }
