@@ -12,6 +12,7 @@ public class ChatMessage {
    private String id;
     private String message;
    private String sender;
+   private String addedBy; // For JOIN messages, who added the user
    private String chatRoomId;
 
    @DateTimeFormat
@@ -20,7 +21,7 @@ public class ChatMessage {
     private MessageType type;
 
    public enum MessageType{
-    CHAT, PRIVATE_MESSAGE, JOIN, LEAVE, TYPING, CREATE
+    CHAT, PRIVATE_MESSAGE, JOIN, LEAVE, TYPING, CREATE, FILE
    }
 
    public ChatMessage() { }
@@ -58,6 +59,13 @@ public class ChatMessage {
     this.sender = sender;
    }
 
+   public String getAddedBy() {
+    return addedBy;
+   }
+
+   public void setAddedBy(String addedBy) {
+    this.addedBy = addedBy;
+   }
 
    public LocalDateTime getTime() {
     return time;

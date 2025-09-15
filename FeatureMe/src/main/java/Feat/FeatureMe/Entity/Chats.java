@@ -10,6 +10,9 @@ import Feat.FeatureMe.Dto.MostRecentChatDTO;
 public class Chats {
     @Id
     private String chatRoomId;
+    private String chatName;
+    private String chatPhoto;
+    
     private List<String> users;
     private List<ChatMessage> messages;
     private MostRecentChatDTO mostRecentChat;
@@ -20,8 +23,10 @@ public Chats() { }
 
 
 
-    public Chats(String chatRoomId, List<String> users, List<ChatMessage> messages, MostRecentChatDTO mostRecentChat) {
+    public Chats(String chatRoomId, String chatName, String chatPhoto, List<String> users, List<ChatMessage> messages, MostRecentChatDTO mostRecentChat) {
     this.chatRoomId = chatRoomId;
+    this.chatName = chatName;
+    this.chatPhoto = chatPhoto;
     this.users = users;
     this.messages = messages;
     this.mostRecentChat = mostRecentChat;
@@ -41,7 +46,23 @@ public Chats() { }
     }
 
 
+    public String getChatName() {
+            return chatName;
+        }
 
+
+
+    public void setChatName(String chatName) {
+        this.chatName = chatName;
+    }
+
+    public String getChatPhoto() {
+        return chatPhoto;
+    }
+
+    public void setChatPhoto(String chatPhoto) {
+        this.chatPhoto = chatPhoto;
+    }
 
     public MostRecentChatDTO getMostRecentChat() {
         return mostRecentChat;
