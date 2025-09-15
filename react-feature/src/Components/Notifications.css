@@ -23,6 +23,21 @@
 .notification-item:hover {
   background: rgba(100,125,222,0.10);
 }
+
+/* Chat notification specific styles */
+.chat-notification {
+  border-left: 3px solid #7eaaff;
+  background: rgba(126, 170, 255, 0.05);
+}
+
+.chat-notification:hover {
+  background: rgba(126, 170, 255, 0.15);
+}
+
+.chat-notification-text {
+  color: #f3f3f7;
+  font-weight: 500;
+}
 .notification-text {
   display: flex;
   align-items: center;

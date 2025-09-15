@@ -234,7 +234,7 @@ public class UserRelationService {
      */
     private void addFollowNotification(User following, String followerUserName) {
         NotificationsDTO notification = new NotificationsDTO(
-            null, followerUserName, "Started Following You!", LocalDateTime.now());
+            null, followerUserName, "Started Following You!", LocalDateTime.now(), NotificationsDTO.NotiType.PROFILE);
         
         if (following.getNotifications() == null) {
             following.setNotifications(new ArrayList<>());

@@ -158,7 +158,8 @@ public class PostsService {
                     postDto.id(), 
                     author.getUserName(), 
                     "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.", 
-                    LocalDateTime.now()
+                    LocalDateTime.now(),
+                    NotificationsDTO.NotiType.POST
                 ));
                 userRepository.save(featuredUser);
             }
@@ -206,7 +207,8 @@ public class PostsService {
                 postId, 
                 "System", 
                 "Your post '" + post.getTitle() + "' is now published! All featured users have approved.", 
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                NotificationsDTO.NotiType.POST
             ));
             userRepository.save(author);
         } else {
@@ -221,7 +223,8 @@ public class PostsService {
             postId, 
             post.getAuthor().getUserName(), 
             "You approved the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now()
+            LocalDateTime.now(),
+            NotificationsDTO.NotiType.POST
         ));
         
         postsRepository.save(post);
@@ -259,7 +262,8 @@ public class PostsService {
                 postId, 
                 "System", 
                 "Your post '" + post.getTitle() + "' is now published with approved features only.", 
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                NotificationsDTO.NotiType.POST
             ));
             userRepository.save(author);
         } else if (!post.getFeatures().isEmpty()) {
@@ -274,7 +278,8 @@ public class PostsService {
             postId, 
             post.getAuthor().getUserName(), 
             "You rejected the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now()
+            LocalDateTime.now(),
+            NotificationsDTO.NotiType.POST
         ));
         
         // Notify post author about rejection
@@ -286,7 +291,8 @@ public class PostsService {
             postId, 
             rejecterUserName, 
             rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now()
+            LocalDateTime.now(),
+            NotificationsDTO.NotiType.POST
         ));
         
         postsRepository.save(post);
@@ -487,7 +493,8 @@ public class PostsService {
                         null, // No post ID since it's deleted
                         author.getUserName(),
                         "Deleted their post '" + post.getTitle() + "' before you could approve/reject the feature request.",
-                        LocalDateTime.now()
+                        LocalDateTime.now(),
+                        NotificationsDTO.NotiType.POST
                     ));
                     userRepository.save(pendingUser);
                 }
@@ -497,8 +504,7 @@ public class PostsService {
         // Delete the associated S3 file before deleting the post
         if (post.getMusic() != null && !post.getMusic().isEmpty()) {
             try {
-                s3Service.extractKeyFromUrl(post.getMusic());
-                /* String s3Key = s3Service.extractKeyFromUrl(post.getMusic());
+                String s3Key = s3Service.extractKeyFromUrl(post.getMusic());
                 
                 boolean deleted = s3Service.deleteFile(s3Key);
                 if (deleted) {
@@ -506,7 +512,6 @@ public class PostsService {
                 } else {
                     System.err.println("Failed to delete S3 file: " + s3Key);
                 }
-                */
             } catch (Exception e) {
                 System.err.println("Error deleting S3 file for post " + id + ": " + e.getMessage());
             }
@@ -683,7 +688,7 @@ public class PostsService {
             
             if (isLiked) {
                 // User liked the post
-                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now());
+                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now(), NotificationsDTO.NotiType.POST);
                 user.getLikedPosts().add(id);
                 author.getNotifications().add(noti);
                 
@@ -727,7 +732,7 @@ public class PostsService {
             foundPost.setTotalComments(foundPost.getTotalComments() + 1);
             
             // Handle notifications and user comment history
-            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", LocalDateTime.now());
+            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", LocalDateTime.now(),NotificationsDTO.NotiType.POST);
             
             if(author.getNotifications() == null){
                 author.setNotifications(new ArrayList<>());
@@ -1133,7 +1138,8 @@ public class PostsService {
             id, 
             userName, 
             "Downloaded Your Post '" + post.getTitle() + "'", 
-            LocalDateTime.now()
+            LocalDateTime.now(),
+            NotificationsDTO.NotiType.POST
         ));
         userRepository.save(author);
         

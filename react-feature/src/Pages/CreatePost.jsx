@@ -1,9 +1,10 @@
 import "../Styling/CreatePost.css"
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
+import { listUsers } from "../services/UserService";
 const GENRES = [
   "Song","Beat","Loop","Instrument","Open","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
   'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
@@ -22,6 +23,12 @@ function CreatePost(){
   const [errors, setErrors] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   
+  // User search state
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [searchedUsers, setSearchedUsers] = useState([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  
   const [post, setPost] = useState({
     title: "",
     description: "",
@@ -34,13 +41,66 @@ function CreatePost(){
   const navigate = useNavigate();
   const ddRef = useRef(null);
 
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    (() => {
+      let timeoutId;
+      return (term) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          searchUsers(term);
+        }, 300);
+      };
+    })(),
+    [currentUser, selectedUsers]
+  );
+
   useEffect(() => {
     const fetchUser = async () => {
       const user = await getCurrentUser();
       setCurrentUser(user);
     };
     fetchUser();
-  }, []); 
+  }, []);
+
+  // Handle user search
+  useEffect(() => {
+    debouncedSearch(userSearchTerm);
+  }, [userSearchTerm, debouncedSearch]);
+
+  // Search for users by username
+  const searchUsers = async (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setSearchedUsers([]);
+      return;
+    }
+
+    setSearchingUsers(true);
+    try {
+      const response = await api.get(`/user/get/search/${searchTerm}?page=0&size=20`);
+      const users = response.data.content || [];
+      // Filter out current user and already selected users
+      const filteredUsers = users.filter(user => 
+        user.userName !== currentUser?.userName && 
+        !selectedUsers.includes(user.userName)
+      );
+      setSearchedUsers(filteredUsers);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchedUsers([]);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  // Add user to selected users
+  const toggleUserSelection = (user) => {
+    setSelectedUsers(prev => 
+      prev.includes(user.userName) 
+        ? prev.filter(u => u !== user.userName)
+        : [...prev, user.userName]
+    );
+  };
 
   const handleFeatureKeyDown = (e) => {
     if (e.key === 'Enter' && featureInput.trim()) {
@@ -166,8 +226,15 @@ function CreatePost(){
       return;
     }
 
+    // Combine selected users with manual features
+    const allFeatures = [...selectedUsers, ...features];
+    
     const formData = new FormData();
-    formData.append("post", new Blob([JSON.stringify(post)], {type: "application/json"}) )
+    const postData = {
+      ...post,
+      features: allFeatures
+    };
+    formData.append("post", new Blob([JSON.stringify(postData)], {type: "application/json"}) )
     if (file) {
       /*
       if (file.type !== "audio/mpeg") {
@@ -353,19 +420,99 @@ function CreatePost(){
         <div className="notice-icon">⚠️</div>
         <div className="notice-content">
           <strong>Feature Approval Required</strong>
-          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. Make sure to spell their
-            username correctly. Case sensitive!
+          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. You can search for users or type usernames manually.
           </p>
         </div>
       </div>
       
+      {/* User Search Section */}
       <div className="create-post-input-group">
-        <label className="create-post-input-label">Features</label>
+        <label className="create-post-input-label">Search and Select Users</label>
+        <div className="create-post-user-search-container">
+          <input
+            type="text"
+            value={userSearchTerm}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
+            placeholder="Search by username..."
+            className="create-post-user-search-input"
+          />
+          {searchingUsers && (
+            <div className="create-post-search-loading">
+              <div className="create-post-search-spinner"></div>
+            </div>
+          )}
+        </div>
+        
+        {/* Selected Users */}
+        {selectedUsers.length > 0 && (
+          <div className="create-post-selected-users-section">
+            <label className="create-post-selected-users-label">Selected Users ({selectedUsers.length})</label>
+            <div className="create-post-selected-users-list">
+              {selectedUsers.map((username) => {
+                const user = searchedUsers.find(u => u.userName === username);
+                return (
+                  <div key={username} className="create-post-selected-user-item">
+                    <img src={user?.profilePic || "/dpp.jpg"} alt={username} />
+                    <span>{username}</span>
+                    <button 
+                      type="button"
+                      className="create-post-remove-user-btn"
+                      onClick={() => toggleUserSelection({ userName: username })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Search Results */}
+        {userSearchTerm && (
+          <div className="create-post-search-results-section">
+            <label className="create-post-search-results-label">Search Results</label>
+            <div className="create-post-users-list">
+              {searchedUsers.length > 0 ? (
+                searchedUsers.map((user) => (
+                  <div
+                    key={user.userName}
+                    className={`create-post-user-item ${selectedUsers.includes(user.userName) ? 'selected' : ''}`}
+                    onClick={() => toggleUserSelection(user)}
+                  >
+                    <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
+                    <div className="create-post-user-info">
+                      <span className="create-post-user-name">{user.userName}</span>
+                      {user.bio && <span className="create-post-user-bio">{user.bio}</span>}
+                    </div>
+                    {selectedUsers.includes(user.userName) && <span className="create-post-check">✓</span>}
+                  </div>
+                ))
+              ) : !searchingUsers ? (
+                <div className="create-post-no-search-results">
+                  <span>No users found for "{userSearchTerm}"</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
+        
+        {/* Search Hint when no search term */}
+        {!userSearchTerm && (
+          <div className="create-post-search-hint">
+            <span>💡 Start typing a username to search for collaborators</span>
+          </div>
+        )}
+      </div>
+
+      {/* Manual Feature Input (Alternative) */}
+      <div className="create-post-input-group">
+        <label className="create-post-input-label">Or Add Features Manually</label>
         <input
           name="features"
           type="text"
           className="create-post-text-input"
-          placeholder="Press Enter to add a feature"
+          placeholder="Type username and press Enter to add manually"
           value={featureInput}
           onChange={(e) => setFeatureInput(e.target.value)}
           onKeyDown={handleFeatureKeyDown}
@@ -381,12 +528,18 @@ function CreatePost(){
 
       <div className="create-post-features-preview">
         <h4>Current Features:</h4>
-        {features.length === 0 ? (
+        {features.length === 0 && selectedUsers.length === 0 ? (
           <p className="no-features">No features added yet</p>
         ) : (
           <div className="create-post-features-grid">
+            {selectedUsers.map((username, index) => (
+              <div key={`selected-${username}`} className="create-post-feature-card">
+                <span className="create-post-feature-icon">👤</span>
+                <span className="create-post-feature-name">{username}</span>
+              </div>
+            ))}
             {features.map((feature, index) => (
-              <div key={index} className="create-post-feature-card">
+              <div key={`manual-${feature}`} className="create-post-feature-card">
                 <span className="create-post-feature-icon">🎤</span>
                 <span className="create-post-feature-name">{feature}</span>
               </div>
@@ -507,10 +660,12 @@ function CreatePost(){
             <h3 className="create-post-preview-title">{post.title || "Song Title"}</h3>
             <p className="create-post-preview-description">{post.description || "No description provided"}</p>
             
-            {features.length > 0 && (
+            {(features.length > 0 || selectedUsers.length > 0) && (
               <div className="create-post-preview-features">
                 <span className="create-post-preview-feat-label">Feat:</span>
-                <span className="create-post-preview-feat-list">{features.join(", ")}</span>
+                <span className="create-post-preview-feat-list">
+                  {[...selectedUsers, ...features].join(", ")}
+                </span>
               </div>
             )}
             
