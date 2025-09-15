@@ -40,8 +40,7 @@ function Homepage() {
         
         // Get latest post if user has posts
         if (response.data.posts && response.data.posts.length > 0) {
-          const len = response.data.posts.length - 1;
-          const postResponse = await api.get(`/posts/get/id/${response.data.posts[len]}`);
+          const postResponse = await api.get(`/posts/get/id/${response.data.posts[0]}`);
           setLatestPostt(postResponse.data);
         }
         
@@ -92,18 +91,7 @@ function Homepage() {
     { id: 2, text: 'AK2003 liked your post' },
     { id: 3, text: 'Over9000 commented on your post' },
   ];
-  const latestPostt = {
-    title: 'My New Track',
-    date: '2 days ago',
-    description: 'Check out my latest synthwave track!',
-    likes: 128,
-    shares: 42,
-    comments: [
-      { id: 1, user: 'LoFiCat', text: 'Love this vibe!' },
-      { id: 2, user: 'SynthMaster', text: 'Amazing production!' },
-      { id: 3, user: 'AK2003', text: 'On repeat!' },
-    ],
-  };
+  
 
   // Modal close handler (click outside or close button)
   const handleModalClose = (e) => {
