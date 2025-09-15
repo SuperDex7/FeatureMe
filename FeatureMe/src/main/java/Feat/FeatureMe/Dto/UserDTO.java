@@ -19,6 +19,7 @@ public record UserDTO(
         List<String> following,
         List<String> featuredOn,
         List<String> posts,
+        List<String> chats,
         List<String> likedPosts,
         List<CommentedOnDTO> comments,
         List<NotificationsDTO> notifications

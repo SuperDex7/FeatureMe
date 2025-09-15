@@ -44,6 +44,8 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .authorizeHttpRequests(registry ->{
                 registry.requestMatchers("/api/user/**").permitAll();
                 registry.requestMatchers("/api/posts/**").authenticated();
+                //registry.requestMatchers("/api/chats/**").authenticated();
+                registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
                 registry.anyRequest().permitAll();
             })
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)

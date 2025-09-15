@@ -12,9 +12,7 @@ public class ChatMessage {
    private String id;
     private String message;
    private String sender;
-   private String recipiant;
-   private String color;
-
+   private String chatRoomId;
 
    @DateTimeFormat
    private LocalDateTime time;
@@ -22,9 +20,19 @@ public class ChatMessage {
     private MessageType type;
 
    public enum MessageType{
-    CHAT, PRIVATE_MESSAGE, JOIN, LEAVE, TYPING
+    CHAT, PRIVATE_MESSAGE, JOIN, LEAVE, TYPING, CREATE
    }
 
+   public ChatMessage() { }
+
+   public ChatMessage(String id, String message, String sender, String chatRoomId, LocalDateTime time, MessageType type) {
+    this.id = id;
+    this.message = message;
+    this.sender = sender;
+    this.chatRoomId = chatRoomId;
+    this.time = time;
+    this.type = type;
+}
 
    public String getId() {
     return id;
@@ -50,13 +58,6 @@ public class ChatMessage {
     this.sender = sender;
    }
 
-   public String getRecipiant() {
-    return recipiant;
-   }
-
-   public void setRecipiant(String recipiant) {
-    this.recipiant = recipiant;
-   }
 
    public LocalDateTime getTime() {
     return time;
@@ -72,6 +73,14 @@ public class ChatMessage {
 
    public void setType(MessageType type) {
     this.type = type;
+   }
+
+   public String getChatRoomId() {
+    return chatRoomId;
+   }
+
+   public void setChatRoomId(String chatRoomId) {
+    this.chatRoomId = chatRoomId;
    }
 
    

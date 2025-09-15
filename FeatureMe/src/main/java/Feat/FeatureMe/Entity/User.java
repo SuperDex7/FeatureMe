@@ -49,6 +49,7 @@ public class User implements UserDetails{
     private List<String> featuredOn;
     private List<String> likedPosts;
     private List<String> posts;
+    private List<String> chats;
     private List<NotificationsDTO> notifications;
     private List<CommentedOnDTO> comments;
     @CreatedDate
@@ -76,6 +77,7 @@ public class User implements UserDetails{
                 List<String> featuredOn,
                 List<String> likedPosts,
                 List<String> posts,
+                List<String> chats,
                 List<NotificationsDTO> notifications,
                 List<CommentedOnDTO> comments,
                 LocalDateTime createdAt) {
@@ -98,6 +100,7 @@ public class User implements UserDetails{
         this.featuredOn = featuredOn;   
         this.likedPosts = likedPosts;
         this.posts = posts;
+        this.chats = chats;
         this.notifications = notifications;
         this.comments = comments;
         this.createdAt = LocalDateTime.now();
@@ -293,6 +296,14 @@ public class User implements UserDetails{
 
     public void setComments(List<CommentedOnDTO> comments) {
         this.comments = comments;
+    }
+
+    public List<String> getChats() {
+        return chats;
+    }
+
+    public void setChats(List<String> chats) {
+        this.chats = chats;
     }
 
     public List<NotificationsDTO> getNotifications() {

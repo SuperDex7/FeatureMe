@@ -1,11 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect} from 'react';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
+import Stomp from 'stompjs'
+import SockJS from 'sockjs-client'
 import '../Styling/Messages.css';
 
 const MessagesPage = () => {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageText, setMessageText] = useState('');
+
+  const [messages, setMessages] = useState([])
+  const [message, setMessage] = useState('')
+  const [username, setUsername] = useState('')
+  const [stompClient, setStompClient] = useState(null)
+
+  useEffect(()=>{
+    const socket = new SockJS('http:/localhost:8080/ws')
+    const client = Stomp.over(socket)
+    client.connect({}, ()=>{
+      client.subscribe('/topic/messages', (message) =>{
+        const recievedMessage = JSON.parse(message.body);
+        setMessage((prevMessages) => [...prevMessages, recievedMessage]);
+      }) 
+    })
+    setStompClient(client);
+
+    return () => {
+      client.disconnect();
+    }
+  })
+
+  const handleNickNameChange = (e) =>{
+    setUsername(e.target.value);
+  }
+  const handleMessageChange = (e) =>{
+    setMessage(e.target.value);
+  }
+
+  const sendMessage = () =>{
+    if(message.trim()){
+      const chatMessage ={
+        username,
+        content: message
+      };
+      stompClient.send('/app/chat', {}, JSON.stringify(chatMessage));
+    }
+  }
 
   // Dummy conversation data
   const conversations = [
