@@ -37,6 +37,7 @@ import Feat.FeatureMe.Service.PostDownloadService;
 import Feat.FeatureMe.Service.PostLikeService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
+import Feat.FeatureMe.Service.FileUploadService;
 
 
 
@@ -50,12 +51,14 @@ public class PostsController {
     private final S3Service s3Service;
     private final UserService userService;
     private final PostDownloadService postDownloadService;
+    private final FileUploadService fileUploadService;
     
-    public PostsController(PostsService postsService, S3Service s3Service, UserService userService, PostDownloadService postDownloadService) {
+    public PostsController(PostsService postsService, S3Service s3Service, UserService userService, PostDownloadService postDownloadService, FileUploadService fileUploadService) {
         this.postsService = postsService;
         this.s3Service = s3Service;
         this.userService = userService;
         this.postDownloadService = postDownloadService;
+        this.fileUploadService = fileUploadService;
     }
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
@@ -73,11 +76,12 @@ public class PostsController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Validate file type based on user role
+        // Validate file type and size based on user role
         validateFileTypeForUser(file, user);
+        fileUploadService.validateFileForUserByCategory(file, user, "audio"); // Role-based size limits and file types
         
-        // Upload file to S3 bucket
-        String keyName = file.getOriginalFilename();
+        // Upload file to S3 bucket with unique filename and folder organization
+        String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/posts");
         File tempFile = File.createTempFile("temp", null);
         file.transferTo(tempFile);
         String filePath = tempFile.getAbsolutePath();

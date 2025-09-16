@@ -6,7 +6,13 @@ public record NotificationsDTO(
     String id,
     String userName,
     String noti,
-    LocalDateTime time
+    LocalDateTime time,
+    NotiType notiType
 ) {
+    public enum NotiType{
+        POST,
+        CHAT,
+        PROFILE
+    }
     
 }

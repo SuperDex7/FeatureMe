@@ -15,13 +15,10 @@ import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-
+import Feat.FeatureMe.Service.FileUploadService;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +41,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.nimbusds.jwt.EncryptedJWT;
 import com.resend.*;
 import com.resend.core.exception.ResendException;
 import com.resend.services.emails.model.CreateEmailOptions;
@@ -62,14 +58,16 @@ public class UserController {
     private final S3Service s3Service;
     private final UserService userService;
     private final JwtService jwtService;
+    private final FileUploadService fileUploadService;
     
     @Value("${resend.api.key}")
     private Resend resend;
 
-    public UserController(UserService userService, S3Service s3Service, JwtService jwtService) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService) {
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
+        this.fileUploadService = fileUploadService;
     }
 
     @GetMapping("/auth/email/{email}")
@@ -126,17 +124,12 @@ public class UserController {
             throw new IllegalArgumentException("Banner is required");
         }
         
-        String bannerContentType = banner.getContentType();
-        if (bannerContentType == null || !bannerContentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Banner must be an image file");
-        }
+        // Validate files with role-based size limits and file types
+        fileUploadService.validateFileForUserByCategory(pp, user, "image");
+        fileUploadService.validateFileForUserByCategory(banner, user, "image");
         
-        if (banner.getSize() > 10 * 1024 * 1024) {
-            throw new IllegalArgumentException("Banner size must be less than 10MB");
-        }
-        
-        String ppName = pp.getOriginalFilename();
-        String bannerName = banner.getOriginalFilename();
+        String ppName = fileUploadService.generateUniqueFilenameWithFolder(pp, "images/profiles");
+        String bannerName = fileUploadService.generateUniqueFilenameWithFolder(banner, "images/banners");
         File ppTemp = File.createTempFile("pptemp", null);
         File bannerTemp = File.createTempFile("bannerTemp", null);
         pp.transferTo(ppTemp);
@@ -172,17 +165,10 @@ public class UserController {
         // Handle profile picture upload if provided
         if (pp != null && !pp.isEmpty()) {
             // Validate file type
-            String contentType = pp.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                throw new IllegalArgumentException("Profile picture must be an image file");
-            }
+            // Validate file with role-based size limits and file types
+            fileUploadService.validateFileForUserByCategory(pp, userr, "image");
             
-            // Validate file size (5MB limit)
-            if (pp.getSize() > 5 * 1024 * 1024) {
-                throw new IllegalArgumentException("Profile picture size must be less than 5MB");
-            }
-            
-            String ppName = pp.getOriginalFilename();
+            String ppName = fileUploadService.generateUniqueFilenameWithFolder(pp, "images/profiles");
             File ppTemp = File.createTempFile("pptemp", null);
             pp.transferTo(ppTemp);
             String ppPath = ppTemp.getAbsolutePath();
@@ -199,17 +185,10 @@ public class UserController {
         // Handle banner upload if provided
         if (banner != null && !banner.isEmpty()) {
             // Validate file type
-            String contentType = banner.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                throw new IllegalArgumentException("Banner must be an image file");
-            }
+            // Validate file with role-based size limits and file types
+            fileUploadService.validateFileForUserByCategory(banner, userr, "image");
             
-            // Validate file size (10MB limit for banners)
-            if (banner.getSize() > 10 * 1024 * 1024) {
-                throw new IllegalArgumentException("Banner size must be less than 10MB");
-            }
-            
-            String bannerName = banner.getOriginalFilename();
+            String bannerName = fileUploadService.generateUniqueFilenameWithFolder(banner, "images/banners");
             File bannerTemp = File.createTempFile("bannerTemp", null);
             banner.transferTo(bannerTemp);
             String bannerPath = bannerTemp.getAbsolutePath();

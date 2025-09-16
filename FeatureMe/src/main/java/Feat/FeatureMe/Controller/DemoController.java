@@ -20,11 +20,10 @@ import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.DemoService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
+import Feat.FeatureMe.Service.FileUploadService;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 
 
 
@@ -35,12 +34,14 @@ public class DemoController {
     private final S3Service s3Service;
     private final UserService userService;
     private final DemoService demoService;
+    private final FileUploadService fileUploadService;
     
-    public DemoController(S3Service s3Service, UserService userService, DemoService demoService) {
+    public DemoController(S3Service s3Service, UserService userService, DemoService demoService, FileUploadService fileUploadService) {
         
         this.s3Service = s3Service;
         this.userService = userService;
         this.demoService = demoService;
+        this.fileUploadService = fileUploadService;
     }
 
     @PostMapping("/create")
@@ -55,8 +56,11 @@ public class DemoController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
-         // Upload file to S3 bucket
-         String keyName = file.getOriginalFilename();
+         // Validate file with role-based size limits and file types
+         fileUploadService.validateFileForUserByCategory(file, user, "audio");
+         
+         // Upload file to S3 bucket with unique filename and folder organization
+         String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/demos");
          File tempFile = File.createTempFile("temp", null);
          file.transferTo(tempFile);
          String filePath = tempFile.getAbsolutePath();
