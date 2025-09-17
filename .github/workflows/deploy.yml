@@ -73,15 +73,23 @@ jobs:
 
     - name: Deploy to EC2
       run: |
-        # Create deployment script
-        cat > deploy_script.sh << 'EOF'
-        #!/bin/bash
-        cd /home/ubuntu/FeatureMe
-        git pull origin main
+        # Send individual commands to EC2
+        aws ssm send-command \
+          --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy FeatureMe application" \
+          --parameters 'commands=["cd /home/ubuntu/FeatureMe","git pull origin main"]'
+        
+        # Wait a moment for the first command to complete
+        sleep 10
         
         # Create docker-compose.prod.yml
-        cat > docker-compose.prod.yml << 'DOCKER_EOF'
-        version: "3.9"
+        aws ssm send-command \
+          --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Create docker-compose.prod.yml" \
+          --parameters 'commands=["cat > /home/ubuntu/FeatureMe/docker-compose.prod.yml << '\''EOF'\''
+        version: \"3.9\"
         
         services:
           app:
@@ -93,13 +101,13 @@ jobs:
               - STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY }}
               - AWS_REGION=${{ env.AWS_REGION }}
             expose:
-              - "8080"
+              - \"8080\"
             restart: unless-stopped
         
           frontend:
             image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_FRONTEND }}:latest
             expose:
-              - "80"
+              - \"80\"
             restart: unless-stopped
         
           nginx:
@@ -108,29 +116,20 @@ jobs:
               - app
               - frontend
             ports:
-              - "443:443"
-              - "80:80"
+              - \"443:443\"
+              - \"80:80\"
             volumes:
               - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
               - ./docker/certs:/etc/nginx/certs:ro
             restart: unless-stopped
-        DOCKER_EOF
+        EOF"]'
         
-        # Login to ECR
-        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+        # Wait for file creation
+        sleep 5
         
-        # Deploy
-        docker compose -f docker-compose.prod.yml down
-        docker compose -f docker-compose.prod.yml pull
-        docker compose -f docker-compose.prod.yml up -d
-        
-        # Clean up old images
-        docker image prune -f
-        EOF
-        
-        # Send command to EC2
+        # Deploy the application
         aws ssm send-command \
           --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
-          --comment "Deploy FeatureMe application" \
-          --parameters commands="$(cat deploy_script.sh)"
+          --comment "Deploy application" \
+          --parameters 'commands=["cd /home/ubuntu/FeatureMe","aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}","docker compose -f docker-compose.prod.yml down","docker compose -f docker-compose.prod.yml pull","docker compose -f docker-compose.prod.yml up -d","docker image prune -f"]'
