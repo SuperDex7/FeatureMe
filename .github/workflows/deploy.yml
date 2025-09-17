@@ -100,6 +100,8 @@ jobs:
               - MONGODB_URI=${{ secrets.MONGODB_URI }}
               - STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY }}
               - AWS_REGION=${{ env.AWS_REGION }}
+              - ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+              - FRONTEND_URL=${{ secrets.FRONTEND_URL }}
             expose:
               - \"8080\"
             restart: unless-stopped
