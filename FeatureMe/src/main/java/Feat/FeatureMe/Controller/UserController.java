@@ -295,7 +295,7 @@ public class UserController {
             // Create HttpOnly cookie for the JWT token
             Cookie sessionCookie = new Cookie("sessionToken", token);
             sessionCookie.setHttpOnly(true);
-            sessionCookie.setSecure(false); // Set to true in production with HTTPS
+            sessionCookie.setSecure(true); // Set to true in production with HTTPS
             sessionCookie.setPath("/");
             sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
             response.addCookie(sessionCookie);
@@ -347,7 +347,7 @@ public class UserController {
         // Create an empty cookie to clear the session token
         Cookie sessionCookie = new Cookie("sessionToken", "");
         sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(false); // Set to true in production with HTTPS
+        sessionCookie.setSecure(true); // Set to true in production with HTTPS
         sessionCookie.setPath("/");
         sessionCookie.setMaxAge(0); // Expire immediately
         response.addCookie(sessionCookie);
