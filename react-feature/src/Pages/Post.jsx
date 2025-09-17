@@ -518,8 +518,11 @@ function Post() {
                                 Overview
                             </button>
                             <button 
-                                className={`nav-tab ${activeTab === 'licensing' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('licensing')}
+                                className={`nav-tab disabled ${activeTab === 'licensing' ? 'active' : ''}`}
+                                onClick={(e) => e.preventDefault()}
+                                disabled
+                                aria-disabled="true"
+                                title="Licensing is currently unavailable"
                             >
                                 Licensing
                             </button>

@@ -81,6 +81,7 @@ const SubscriptionPage = () => {
         '90mb file upload limit | MP3 and Wave File Uploads'
       ],
       comingSoon: [
+        'Better Spotlight Customization',
         'TBD',
        
       ],

@@ -67,22 +67,22 @@ public class ChatController {
         }
     }
 
-    @GetMapping("/{chatRoomId}/messages")
-    public Chats getChatMessages(@PathVariable String chatRoomId) {
+    
+
+    @GetMapping("/{chatRoomId}/messages/paged")
+    public java.util.List<ChatMessage> getChatMessagesPaged(@PathVariable String chatRoomId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "15") int size) {
         try {
-            // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication == null || !authentication.isAuthenticated()) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
-            
-            String email = authentication.getName(); // This is the email from JWT token
+            String email = authentication.getName();
             User user = userService.findByUsernameOrEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email + " - account may have been deleted"));
-            
-            return chatService.getChatMessages(chatRoomId, user);
+
+            return chatService.getChatMessagesPaged(chatRoomId, user, page, size);
         } catch (Exception e) {
-            System.err.println("Error getting chat messages for room " + chatRoomId + ": " + e.getMessage());
+            System.err.println("Error getting paged chat messages for room " + chatRoomId + ": " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Failed to retrieve chat messages: " + e.getMessage());
         }

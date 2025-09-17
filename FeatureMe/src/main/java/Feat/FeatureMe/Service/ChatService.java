@@ -295,20 +295,23 @@ return newChat;
         return message;
     }
 
-    public Chats getChatMessages(String chatRoomId, User user) {
+    
+
+    public List<ChatMessage> getChatMessagesPaged(String chatRoomId, User user, int page, int size) {
         try {
-            // Find the chat room
             Chats chat = chatsRepository.findById(chatRoomId)
                 .orElseThrow(() -> new RuntimeException("Chat room not found: " + chatRoomId + " - room may have been deleted"));
-            
-            // Check if user is part of this chat
+
             if (!chat.getUsers().contains(user.getUserName())) {
                 throw new SecurityException("User " + user.getUserName() + " is not authorized to access chat room " + chatRoomId);
             }
-            
-            return chat;
+
+            PageRequest pageable = PageRequest.of(page, size);
+            List<ChatMessage> pageDesc = chatMessageRepository.findByChatRoomIdOrderByTimeDesc(chatRoomId, pageable);
+            java.util.Collections.reverse(pageDesc);
+            return pageDesc;
         } catch (Exception e) {
-            System.err.println("Error retrieving messages for chat room " + chatRoomId + " for user " + user.getUserName() + ": " + e.getMessage());
+            System.err.println("Error retrieving paged messages for chat room " + chatRoomId + " for user " + user.getUserName() + ": " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Failed to retrieve chat messages: " + e.getMessage());
         }

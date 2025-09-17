@@ -7,8 +7,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -50,7 +48,7 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
                 registry.anyRequest().permitAll();
             })
-            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter(userDetailsService()), UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exception -> exception
             .authenticationEntryPoint((request, response, authException) -> {
                 // Redirect to React login page
@@ -104,17 +102,14 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         .orElseThrow(() -> new UsernameNotFoundException("User " + username + " not found")));
     }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    // PasswordEncoder is provided by PasswordConfig
 
     @Bean
-public UserDetailsService userDetailsService() {
-    return username -> userService.loadUserByUsername(username);
-}
+    public UserDetailsService userDetailsService() {
+        return username -> userService.loadUserByUsername(username);
+    }
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtService, userDetailsService());
+    public JwtAuthenticationFilter jwtAuthenticationFilter(UserDetailsService userDetailsService) {
+        return new JwtAuthenticationFilter(jwtService, userDetailsService);
     }
 }

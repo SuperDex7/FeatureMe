@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentedOnDTO;
@@ -43,12 +44,14 @@ public class UserService {
     private final PostDownloadRepository postDownloadRepository;
     private final UserRelationRepository userRelationRepository;
     private final ChatsRepository chatsRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository, UserRelationService userRelationService, 
                       PostsRepository postsRepository, DemoRepository demoRepository,
                       PostLikeRepository postLikeRepository, PostCommentRepository postCommentRepository,
                       PostViewRepository postViewRepository, PostDownloadRepository postDownloadRepository,
-                      UserRelationRepository userRelationRepository, ChatsRepository chatsRepository) {
+                      UserRelationRepository userRelationRepository, ChatsRepository chatsRepository,
+                      PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
         this.postsRepository = postsRepository;
@@ -59,6 +62,7 @@ public class UserService {
         this.postDownloadRepository = postDownloadRepository;
         this.userRelationRepository = userRelationRepository;
         this.chatsRepository = chatsRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public void saveUser(User user){
@@ -72,6 +76,8 @@ public class UserService {
         if(userRepository.existsByEmail(user.getEmail())){
             throw new IllegalArgumentException("User already exists with this email");
         }
+        // Encode the password before saving
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.insert(user);
     }
     public void updateUser(String id, User updatedUser) {
@@ -80,7 +86,7 @@ public class UserService {
         user = new User(
             user.getId(),
             updatedUser.getUserName() != null && !updatedUser.getUserName().isBlank() ? updatedUser.getUserName() : user.getUserName(),
-            updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank() ? updatedUser.getPassword() : user.getPassword(),
+            updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank() ? passwordEncoder.encode(updatedUser.getPassword()) : user.getPassword(),
             updatedUser.getEmail() != null && !updatedUser.getEmail().isBlank() ? updatedUser.getEmail() : user.getEmail(),
             updatedUser.getRole() != null && !updatedUser.getRole().isBlank() ? updatedUser.getRole() : user.getRole(),
             updatedUser.getBio() != null && !updatedUser.getBio().isBlank() ? updatedUser.getBio() : user.getBio(),
@@ -368,8 +374,8 @@ public class UserService {
         User user = findByUsernameOrEmail(usernameOrEmail)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
-        // For now, simple password comparison (you should hash passwords later)
-        if (password.equals(user.getPassword())) {
+        // Use password encoder to match the provided password with the stored encoded password
+        if (passwordEncoder.matches(password, user.getPassword())) {
             return user;
         } else {
             throw new IllegalArgumentException("Invalid password");

@@ -392,6 +392,17 @@
     box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
 }
 
+/* Disabled Licensing Tab */
+.nav-tab.disabled[disabled],
+.nav-tab.disabled[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(100%);
+    background: rgba(255, 255, 255, 0.06);
+    color: #9aa0a6;
+    box-shadow: none;
+}
+
 .tab-content {
     min-height: 400px;
 }

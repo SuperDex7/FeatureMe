@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.resend.*;
 import com.resend.core.exception.ResendException;
+import com.resend.services.domains.model.CreateDomainOptions;
 import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.emails.model.CreateEmailResponse;
 
@@ -78,11 +79,11 @@ public class UserController {
         String encryptedCode = Base64.getEncoder().encodeToString(code.getBytes());
 
 
-
         
- 
+        
+        
         CreateEmailOptions params = CreateEmailOptions.builder()
-		.from("FeatureMe@resend.dev")
+		.from("Signup@featureme.co")
 		.to(email)
 		.subject("FeatureMe Verification Code")
 		.html("<p>Here is Your One Time Code: <strong>"+code+"</strong></p>")

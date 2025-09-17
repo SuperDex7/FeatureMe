@@ -14,6 +14,10 @@ const MessagesPage = () => {
   const [messageText, setMessageText] = useState('');
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,6 +69,14 @@ const MessagesPage = () => {
     return () => {
       chatWebSocketService.disconnect();
     };
+  }, []);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Handle user search
@@ -178,12 +190,13 @@ const MessagesPage = () => {
       const chatRoomId = conversation.ChatId || conversation.chatRoomId;
       console.log('Loading messages for conversation:', conversation);
       console.log('ChatRoomId:', chatRoomId);
-      const response = await ChatService.getChatMessages(chatRoomId);
-      console.log('Messages response:', response);
-      const chatData = response.data;
-      console.log('Chat data from messages:', chatData);
-      console.log('Messages array:', chatData.messages);
-      setMessages(chatData.messages || []);
+      // reset paging
+      setPage(0);
+      setHasMore(true);
+      const response = await ChatService.getChatMessagesPaged(chatRoomId, 0, 15);
+      const pageData = response.data || [];
+      setMessages(pageData);
+      setHasMore(pageData.length === 15);
       
       // Subscribe to real-time updates for this chat
       chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
@@ -214,6 +227,61 @@ const MessagesPage = () => {
     console.log('Users:', conversation.users);
     setSelectedConversation(conversation);
     loadMessages(conversation);
+  };
+
+  // Infinite scroll: fetch older messages when scrolled to top
+  const handleScroll = async () => {
+    if (!messagesContainerRef.current || !selectedConversation || isFetchingMore || !hasMore) return;
+    if (messagesContainerRef.current.scrollTop <= 0) {
+      try {
+        setIsFetchingMore(true);
+        const nextPage = page + 1;
+        const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
+        const prevHeight = messagesContainerRef.current.scrollHeight;
+        const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
+        const older = response.data || [];
+        setMessages(prev => [...older, ...prev]);
+        setPage(nextPage);
+        setHasMore(older.length === 15);
+        // maintain scroll position after prepending
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const newHeight = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.scrollTop = newHeight - prevHeight;
+          }
+        });
+      } catch (e) {
+        console.error('Error loading older messages', e);
+      } finally {
+        setIsFetchingMore(false);
+      }
+    }
+  };
+
+  // Manual load older for mobile (button)
+  const loadOlderManually = async () => {
+    if (!selectedConversation || isFetchingMore || !hasMore) return;
+    try {
+      setIsFetchingMore(true);
+      const nextPage = page + 1;
+      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
+      const prevHeight = messagesContainerRef.current?.scrollHeight || 0;
+      const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
+      const older = response.data || [];
+      setMessages(prev => [...older, ...prev]);
+      setPage(nextPage);
+      setHasMore(older.length === 15);
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          const newHeight = messagesContainerRef.current.scrollHeight;
+          messagesContainerRef.current.scrollTop = newHeight - prevHeight;
+        }
+      });
+    } catch (e) {
+      console.error('Error loading older messages (manual)', e);
+    } finally {
+      setIsFetchingMore(false);
+    }
   };
 
   // Send a message
@@ -742,10 +810,20 @@ const MessagesPage = () => {
               </div>
 
               {/* Messages */}
-              <div className="messaging-messages-area" ref={messagesContainerRef}>
+              {isMobile && hasMore && (
+                <div className="messaging-load-earlier-container">
+                  <button className="messaging-load-earlier-btn" onClick={loadOlderManually} disabled={isFetchingMore}>
+                    {isFetchingMore ? 'Loading…' : 'Load earlier'}
+                  </button>
+                </div>
+              )}
+              <div className="messaging-messages-area" ref={messagesContainerRef} onScroll={!isMobile ? handleScroll : undefined}>
+                {isFetchingMore && (
+                  <div className="messaging-loading-older">Loading older messages...</div>
+                )}
                 {messages.map((message) => (
                   <div
-                    key={message.messageId}
+                    key={message.messageId || message.id || Math.random()}
                     className={`messaging-message ${message.sender === currentUser?.userName ? 'messaging-message-sent' : 'messaging-message-received'}`}
                   >
                     <div className="messaging-message-bubble">

@@ -6,11 +6,19 @@ import api, { logout, getCurrentUser } from "../services/AuthService";
 function Header() {
   const [displayNoti, setDisplayNoti] = useState(false);
   const [displayUserMenu, setDisplayUserMenu] = useState(false);
+  const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
   const [noti, setNoti] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const userMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+  const notiRef = useRef(null);
   const showNoti = () => setDisplayNoti((v) => !v);
   const toggleUserMenu = () => setDisplayUserMenu((v) => !v);
+  const toggleMobileMenu = () => {
+    setDisplayMobileMenu((v) => !v);
+    // Dispatch custom event for sidebar toggle
+    window.dispatchEvent(new CustomEvent('mobileMenuToggle'));
+  };
   
   const handleLogout = async () => {
     await logout();
@@ -35,22 +43,28 @@ function Header() {
     }
   }, [currentUser]);
   
-  // Close user menu when clicking outside
+  // Close user menu, notifications, and mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setDisplayUserMenu(false);
       }
+      if (notiRef.current && !notiRef.current.contains(event.target)) {
+        setDisplayNoti(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setDisplayMobileMenu(false);
+      }
     };
     
-    if (displayUserMenu) {
+    if (displayUserMenu || displayMobileMenu || displayNoti) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [displayUserMenu]);
+  }, [displayUserMenu, displayMobileMenu, displayNoti]);
   
   return (
     <header className="main-header">
@@ -61,15 +75,45 @@ function Header() {
             <span className="gradient-logo-hover">FeatureMe</span>
           </a>
         </div>
-        <nav className="header-nav">
-          <a href="/feed" className="nav-link">Feed</a>
-          <a href="/user-search" className="nav-link">Search</a>
+        
+        {/* Mobile hamburger menu button for sidebar */}
+        <button 
+          className="mobile-menu-btn" 
+          onClick={toggleMobileMenu}
+          aria-label="Toggle sidebar"
+        >
+          <span className={`hamburger ${displayMobileMenu ? 'active' : ''}`}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+        </button>
+        
+        <nav className={`header-nav ${displayMobileMenu ? 'mobile-open' : ''}`}>
+          <a href="/feed" className="nav-link" onClick={() => setDisplayMobileMenu(false)}>Feed</a>
+          <a href="/user-search" className="nav-link" onClick={() => setDisplayMobileMenu(false)}>Search</a>
         </nav>
+        
         <div className="header-actions">
-          <button className="noti-btn" onClick={showNoti} aria-label="Show notifications">
-            <span className="noti-icon">🔔</span>
-            <span className="noti-label">Notifications</span>
-          </button>
+          <div ref={notiRef}>
+            <button className="noti-btn" onClick={showNoti} aria-label="Show notifications">
+              <span className="noti-icon">🔔</span>
+              <span className="noti-label">Notifications</span>
+            </button>
+            {displayNoti && (
+              <div className="noti-dropdown">
+                <div className="noti-dropdown-title">Notifications</div>
+                {noti && Array.isArray(noti) && noti.length > 0 ? (
+                  <div>
+                    <Notifications notifications={noti} className="activity-modal-list"/>
+                    <button className="see-all-btn">See All</button>
+                  </div>
+                ) : (
+                  "No Notifications Yet"
+                )}
+              </div>
+            )}
+          </div>
           
           <div className="user-menu-container" ref={userMenuRef}>
             <button className="user-menu-btn" onClick={toggleUserMenu} aria-label="User menu">
@@ -84,25 +128,25 @@ function Header() {
             
             {displayUserMenu && (
               <div className="user-dropdown">
-                <a href={`/profile/${currentUser?.userName || ''}`} className="user-dropdown-item">
+                <a href={`/profile/${currentUser?.userName || ''}`} className="user-dropdown-item" onClick={() => setDisplayUserMenu(false)}>
                   <span className="dropdown-icon">👤</span>
                   <span className="dropdown-label">View Profile</span>
                 </a>
-                <a href="/pending-features" className="user-dropdown-item">
+                <a href="/pending-features" className="user-dropdown-item" onClick={() => setDisplayUserMenu(false)}>
                   <span className="dropdown-icon">⏳</span>
                   <span className="dropdown-label">Feature Requests</span>
                 </a>
-                <a href="/create-post" className="user-dropdown-item"  > 
+                <a href="/create-post" className="user-dropdown-item" onClick={() => setDisplayUserMenu(false)}> 
                   <span className="dropdown-icon">✍️</span>
                   <span className="dropdown-label">
                     Create Post
                   </span>
                 </a>
-                <a href="/messages" className="user-dropdown-item">
+                <a href="/messages" className="user-dropdown-item" onClick={() => setDisplayUserMenu(false)}>
                   <span className="dropdown-icon">💬</span>
                   <span className="dropdown-label">Messaging</span>
                 </a>
-                <a href="/subscription" className="user-dropdown-item">
+                <a href="/subscription" className="user-dropdown-item" onClick={() => setDisplayUserMenu(false)}>
                   <span className="dropdown-icon">⭐</span>
                   <span className="dropdown-label">{currentUser?.role === 'USER' ? 'Upgrade Plan' : 'Your Plan'}</span>
                 </a>
@@ -115,19 +159,8 @@ function Header() {
             )}
           </div>
         </div>
-        {displayNoti && (
-          <div className="noti-dropdown">
-            <div className="noti-dropdown-title">Notifications</div>
-            {noti && Array.isArray(noti) && noti.length > 0 ? (
-              <div>
-                <Notifications notifications={noti} className="activity-modal-list"/>
-                <button className="see-all-btn">See All</button>
-              </div>
-            ) : (
-              "No Notifications Yet"
-            )}
-          </div>
-        )}
+        
+        
       </div>
     </header>
   );

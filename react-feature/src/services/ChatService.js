@@ -21,6 +21,11 @@ export const ChatService = {
         return api.get(`/chats/${chatRoomId}/messages`);
     },
 
+    // Get paged messages for infinite scroll (oldest-first order within page)
+    getChatMessagesPaged: (chatRoomId, page = 0, size = 15) => {
+        return api.get(`/chats/${chatRoomId}/messages/paged?page=${page}&size=${size}`);
+    },
+
     // Add a user to a chat
     addUserToChat: (chatRoomId, username) => {
         return api.post(`/chats/${chatRoomId}/users?username=${username}`);
