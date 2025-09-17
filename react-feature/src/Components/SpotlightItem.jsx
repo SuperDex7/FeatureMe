@@ -30,7 +30,6 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
       const timeSinceLastView = now - parseInt(lastViewTime);
       if (timeSinceLastView < oneMinute) {
         shouldAddView = false;
-        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
       }
     }
     
@@ -38,7 +37,6 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
       try {
         await addView(id);
         localStorage.setItem(cooldownKey, now.toString());
-        console.log("View added for post:", id);
       } catch (error) {
         console.error("Error adding view:", error);
       }
@@ -59,7 +57,6 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     
     try {
       await deletePost(id);
-      console.log('Post deleted successfully');
       // Close modal and reload page
       onClose();
       window.location.reload();
@@ -241,7 +238,6 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
       const timeSinceLastView = now - parseInt(lastViewTime);
       if (timeSinceLastView < oneMinute) {
         shouldAddView = false;
-        console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
       }
     }
     
@@ -249,7 +245,6 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
       try {
         await addView(id);
         localStorage.setItem(cooldownKey, now.toString());
-        console.log("View added for post:", id);
       } catch (error) {
         console.error("Error adding view:", error);
       }
@@ -284,7 +279,6 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     
     try {
       await deletePost(id);
-      console.log('Post deleted successfully');
       // You might want to call a callback to remove this post from the parent component's list
       // For now, we'll just reload the page
       window.location.reload();

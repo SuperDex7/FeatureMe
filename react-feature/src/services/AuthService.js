@@ -24,12 +24,11 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  /* 
+  
   (error) => {
     if (error.response) {
       // Handle 401 Unauthorized (JWT expired or invalid)
       if (error.response.status === 401) {
-        console.log('JWT token expired or invalid, redirecting to login...');
         
         // Redirect to login page
         window.location.href = '/login';
@@ -38,7 +37,6 @@ api.interceptors.response.use(
       
       // Handle 403 Forbidden
       if (error.response.status === 403) {
-        console.log('Access forbidden, redirecting to login...');
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -53,7 +51,6 @@ api.interceptors.response.use(
           errorMessage.includes('Invalid JWT token') ||
           errorMessage.includes('JWT authentication failed')
         )) {
-          console.log('JWT-related 500 error detected, redirecting to login...');
           
           // Redirect to login page
           window.location.href = '/login';
@@ -64,7 +61,7 @@ api.interceptors.response.use(
     
     return Promise.reject(error);
   }
-  */
+  
 );
 
 // Helper functions

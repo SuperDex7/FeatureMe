@@ -293,7 +293,6 @@ function SignupPage() {
       // Send verification email and move to verification step
       try {
         const response = await axios.get(`${baseURL}/user/auth/email/${formData.email}`);
-        console.log("Verification code sent:", response.data);
         setEncryptedCode(response.data);
         setStep(2); // Go to verification step
       } catch (error) {
@@ -339,7 +338,6 @@ function SignupPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log(formData);
     
     // Create user data without confirmPassword
     const { confirmPassword, ...userData } = formData;
@@ -358,13 +356,11 @@ function SignupPage() {
       headers: { "Content-Type": "multipart/form-data" }
     })
     .then(res => {
-      console.log(res);
       alert("Account created successfully! Redirecting to login...");
       // Redirect to login page after successful account creation
       navigate('/login');
     })
     .catch(err => {
-      console.log(err);
       alert("Error creating account. Please try again.");
     });
   };

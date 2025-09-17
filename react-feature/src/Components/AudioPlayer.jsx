@@ -140,7 +140,6 @@ function AudioPlayer({ src, onClose, title, postId, freeDownload = false }) {
           setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
           
         } catch (fetchError) {
-          console.log('Blob download failed, trying direct link:', fetchError);
           
           // Method 2: Fallback to direct link with download attribute
           const link = document.createElement('a');
@@ -155,7 +154,6 @@ function AudioPlayer({ src, onClose, title, postId, freeDownload = false }) {
         // Track the download and notify the author
         try {
           await trackDownload(postId);
-          console.log('Download tracked and notification sent');
         } catch (trackError) {
           console.error('Error tracking download:', trackError);
           // Don't show error to user as download was successful
