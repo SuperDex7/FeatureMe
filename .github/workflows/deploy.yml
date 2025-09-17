@@ -72,60 +72,61 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
 
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v1.0.3
+      uses: aws-actions/aws-ssm-send-command@v1
       with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          # Update deployment script
-          cd /home/ubuntu/FeatureMe
-          git pull origin main
-          
-          # Update docker-compose to use ECR images
-          cat > docker-compose.prod.yml << 'EOF'
-          version: "3.9"
-          
-          services:
-            app:
-              image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest
-              environment:
-                - SERVER_PORT=8080
-                - SPRING_PROFILES_ACTIVE=prod
-                - MONGODB_URI=${{ secrets.MONGODB_URI }}
-                - STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY }}
-                - AWS_REGION=${{ env.AWS_REGION }}
-              expose:
-                - "8080"
-              restart: unless-stopped
-          
-            frontend:
-              image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_FRONTEND }}:latest
-              expose:
-                - "80"
-              restart: unless-stopped
-          
-            nginx:
-              image: nginx:1.27-alpine
-              depends_on:
-                - app
-                - frontend
-              ports:
-                - "443:443"
-                - "80:80"
-              volumes:
-                - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-                - ./docker/certs:/etc/nginx/certs:ro
-              restart: unless-stopped
-          EOF
-          
-          # Login to ECR
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
-          
-          # Deploy
-          docker compose -f docker-compose.prod.yml down
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml up -d
-          
-          # Clean up old images
-          docker image prune -f
+        instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
+        document-name: AWS-RunShellScript
+        comment: Deploy FeatureMe application
+        parameters: |
+          commands: |
+            # Update deployment script
+            cd /home/ubuntu/FeatureMe
+            git pull origin main
+            
+            # Update docker-compose to use ECR images
+            cat > docker-compose.prod.yml << 'EOF'
+            version: "3.9"
+            
+            services:
+              app:
+                image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_BACKEND }}:latest
+                environment:
+                  - SERVER_PORT=8080
+                  - SPRING_PROFILES_ACTIVE=prod
+                  - MONGODB_URI=${{ secrets.MONGODB_URI }}
+                  - STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY }}
+                  - AWS_REGION=${{ env.AWS_REGION }}
+                expose:
+                  - "8080"
+                restart: unless-stopped
+            
+              frontend:
+                image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_FRONTEND }}:latest
+                expose:
+                  - "80"
+                restart: unless-stopped
+            
+              nginx:
+                image: nginx:1.27-alpine
+                depends_on:
+                  - app
+                  - frontend
+                ports:
+                  - "443:443"
+                  - "80:80"
+                volumes:
+                  - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+                  - ./docker/certs:/etc/nginx/certs:ro
+                restart: unless-stopped
+            EOF
+            
+            # Login to ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            
+            # Deploy
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            
+            # Clean up old images
+            docker image prune -f
