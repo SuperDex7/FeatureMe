@@ -44,6 +44,13 @@ function SignupPage() {
   
   // Password validation state
   const [passwordError, setPasswordError] = useState("");
+  const PASSWORD_MIN = 6;
+  const passwordCounterClass = (() => {
+    const len = formData.password.length;
+    if (len >= PASSWORD_MIN) return "";
+    if (len >= Math.max(0, PASSWORD_MIN - 2)) return "password-counter--warn";
+    return "password-counter--error";
+  })();
   
   // File validation state
   const [profilePicError, setProfilePicError] = useState("");
@@ -425,7 +432,7 @@ function SignupPage() {
                   className={passwordError ? "error-input" : ""}
                   required
                 />
-                <div className="char-counter">
+                <div className={`char-counter password-counter ${passwordCounterClass}`}>
                   {formData.password.length}/50 characters
                 </div>
               </div>
@@ -761,13 +768,8 @@ function SignupPage() {
       </div>
       
       <div className="profile-glass-info-card overlap-margin">
-        <button className="profile-glass-edit" onClick={handleBack}>Back to Form</button>
-        <h2 className="profile-glass-username">{formData.userName}</h2>
-        <div className="profile-glass-badges-row">
-          <span className="profile-glass-badge" style={{ background: "#4fd1c5" }} title="New User">
-            🆕
-          </span>
-        </div>
+        <h2 className="cprofile-glass-username">{formData.userName}</h2>
+        
         <p className="profile-glass-bio">{formData.bio || "No bio yet"}</p>
         <p className="profile-glass-location">{formData.location || "Location not set"}</p>
         {/* About Section - Moved to top */}
