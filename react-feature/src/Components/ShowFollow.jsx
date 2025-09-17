@@ -114,11 +114,11 @@ function ShowFollow({ userName, isOpen, onClose, type }) {
                                     >
                                         <div className="follow-user-info">
                                             <img 
-                                                src={user.profilePic || '/default-avatar.png'} 
+                                                src={user.profilePic || '/dpp.jpg'} 
                                                 alt={user.userName}
                                                 className="follow-user-avatar"
                                                 onError={(e) => {
-                                                    e.target.src = '/default-avatar.png'
+                                                    e.target.src = '/dpp.jpg'
                                                 }}
                                             />
                                             <div className="follow-user-details">

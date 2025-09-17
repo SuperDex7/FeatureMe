@@ -100,14 +100,21 @@ public class UserRelationService {
             .findByFollowingUserNameAndStatusOrderByCreatedAtDesc(
                 userName, UserRelation.RelationStatus.ACTIVE, pageable);
         
-        Page<UserRelationDTO> relationDTOPage = relations.map(relation -> UserRelationDTO.fromFollower(
-            relation.getId(),
-            relation.getFollowerUserName(),
-            relation.getFollowerProfilePic(),
-            relation.getCreatedAt(),
-            relation.getRelationType().toString(),
-            relation.getStatus().toString()
-        ));
+        Page<UserRelationDTO> relationDTOPage = relations.map(relation -> {
+            // Fetch current profile picture from User entity instead of using stored one
+            String currentProfilePic = userRepository.findByUserName(relation.getFollowerUserName())
+                .map(User::getProfilePic)
+                .orElse(relation.getFollowerProfilePic()); // Fallback to stored if user not found
+            
+            return UserRelationDTO.fromFollower(
+                relation.getId(),
+                relation.getFollowerUserName(),
+                currentProfilePic,
+                relation.getCreatedAt(),
+                relation.getRelationType().toString(),
+                relation.getStatus().toString()
+            );
+        });
         
         return new PagedModel<>(relationDTOPage);
     }
@@ -121,14 +128,21 @@ public class UserRelationService {
             .findByFollowerUserNameAndStatusOrderByCreatedAtDesc(
                 userName, UserRelation.RelationStatus.ACTIVE, pageable);
         
-        Page<UserRelationDTO> relationDTOPage = relations.map(relation -> UserRelationDTO.fromFollowing(
-            relation.getId(),
-            relation.getFollowingUserName(),
-            relation.getFollowingProfilePic(),
-            relation.getCreatedAt(),
-            relation.getRelationType().toString(),
-            relation.getStatus().toString()
-        ));
+        Page<UserRelationDTO> relationDTOPage = relations.map(relation -> {
+            // Fetch current profile picture from User entity instead of using stored one
+            String currentProfilePic = userRepository.findByUserName(relation.getFollowingUserName())
+                .map(User::getProfilePic)
+                .orElse(relation.getFollowingProfilePic()); // Fallback to stored if user not found
+            
+            return UserRelationDTO.fromFollowing(
+                relation.getId(),
+                relation.getFollowingUserName(),
+                currentProfilePic,
+                relation.getCreatedAt(),
+                relation.getRelationType().toString(),
+                relation.getStatus().toString()
+            );
+        });
         
         return new PagedModel<>(relationDTOPage);
     }
@@ -218,14 +232,21 @@ public class UserRelationService {
         
         return suggestions.stream()
             .limit(limit)
-            .map(relation -> UserRelationDTO.fromFollowing(
-                relation.getId(),
-                relation.getFollowingUserName(),
-                relation.getFollowingProfilePic(),
-                relation.getCreatedAt(),
-                relation.getRelationType().toString(),
-                relation.getStatus().toString()
-            ))
+            .map(relation -> {
+                // Fetch current profile picture from User entity instead of using stored one
+                String currentProfilePic = userRepository.findByUserName(relation.getFollowingUserName())
+                    .map(User::getProfilePic)
+                    .orElse(relation.getFollowingProfilePic()); // Fallback to stored if user not found
+                
+                return UserRelationDTO.fromFollowing(
+                    relation.getId(),
+                    relation.getFollowingUserName(),
+                    currentProfilePic,
+                    relation.getCreatedAt(),
+                    relation.getRelationType().toString(),
+                    relation.getStatus().toString()
+                );
+            })
             .collect(Collectors.toList());
     }
     

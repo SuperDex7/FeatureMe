@@ -62,11 +62,11 @@ function FriendSuggestions({ limit = 5 }) {
                     <div key={user.id} className="suggestion-item">
                         <div className="suggestion-user-info" onClick={() => handleUserClick(user.userName)}>
                             <img 
-                                src={user.profilePic || '/default-avatar.png'} 
+                                src={user.profilePic || '/dpp.jpg'} 
                                 alt={user.userName}
                                 className="suggestion-avatar"
                                 onError={(e) => {
-                                    e.target.src = '/default-avatar.png'
+                                    e.target.src = '/dpp.jpg'
                                 }}
                             />
                             <div className="suggestion-details">

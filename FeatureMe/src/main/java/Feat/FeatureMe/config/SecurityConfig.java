@@ -42,6 +42,8 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(registry ->{
+                registry.requestMatchers("/api/user/auth/**").permitAll();
+                registry.requestMatchers("/api/user/me").authenticated();
                 registry.requestMatchers("/api/user/**").permitAll();
                 registry.requestMatchers("/api/posts/**").authenticated();
                 //registry.requestMatchers("/api/chats/**").authenticated();
@@ -54,16 +56,31 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 // Redirect to React login page
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Authentication required\",\"redirect\":\"http://localhost:5173/login\"}");
+                response.getWriter().write("{\"error\":\"Authentication required\",\"redirect\":\"http://localhost:3000/login\"}");
             })
         )
-            .build();
+        .build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        
+        // Get allowed origins from environment or use defaults
+        String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            // Production: use environment variable
+            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        } else {
+            // Development: use localhost origins
+            configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:3000",  // React frontend (HTTP setup)
+                "http://localhost:5173",  // Vite dev server
+                "https://localhost",      // HTTPS setup with nginx
+                "http://localhost"        // HTTP setup with nginx
+            ));
+        }
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

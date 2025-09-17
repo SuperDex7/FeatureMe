@@ -1,4 +1,5 @@
 import api from './AuthService';
+import { wsURL } from '../config/api';
 
 // Chat Service for handling all chat-related API calls
 export const ChatService = {
@@ -69,7 +70,7 @@ export class ChatWebSocketService {
                 // Import SockJS and Stomp dynamically
                 import('sockjs-client').then(SockJS => {
                     import('stompjs').then(Stomp => {
-                        this.socket = new SockJS.default('http://localhost:8080/ws');
+                        this.socket = new SockJS.default(wsURL);
                         this.stompClient = Stomp.default.over(this.socket);
                         
                         // Disable debug logging in production

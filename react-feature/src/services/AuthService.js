@@ -1,9 +1,10 @@
 import axios from 'axios';
+import { apiConfig } from '../config/api';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
-  timeout: 60000, // Increased to 60 seconds for file uploads
+  baseURL: apiConfig.baseURL,
+  timeout: apiConfig.timeout, // Increased to 60 seconds for file uploads
   withCredentials: true, // Enable cookies for all requests
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header2 from "../Components/Header2";
 import Footer from "../Components/Footer";
@@ -6,6 +6,8 @@ import "../SignupComp/SignupPage.css";
 import "../Styling/Profile.css";
 import axios from 'axios';
 import api from '../services/AuthService';
+import { baseURL } from '../config/api';
+import ValidationService from '../services/ValidationService';
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -46,6 +48,25 @@ function SignupPage() {
   // File validation state
   const [profilePicError, setProfilePicError] = useState("");
   const [bannerError, setBannerError] = useState("");
+  
+  // Real-time validation state
+  const [usernameValidation, setUsernameValidation] = useState({ 
+    isValidating: false, 
+    available: null, 
+    error: null 
+  });
+  const [emailValidation, setEmailValidation] = useState({ 
+    isValidating: false, 
+    available: null, 
+    error: null 
+  });
+
+  // Cleanup validation timeouts on unmount
+  useEffect(() => {
+    return () => {
+      ValidationService.clearAllValidations();
+    };
+  }, []);
 
   const handleInput = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,6 +74,30 @@ function SignupPage() {
     // Clear password error when user starts typing
     if (e.target.name === 'password' || e.target.name === 'confirmPassword') {
       setPasswordError("");
+    }
+    
+    // Real-time validation for username
+    if (e.target.name === 'userName') {
+      setUsernameValidation({ isValidating: true, available: null, error: null });
+      ValidationService.checkUsernameAvailability(e.target.value, (result) => {
+        setUsernameValidation({ 
+          isValidating: false, 
+          available: result.available, 
+          error: result.error 
+        });
+      });
+    }
+    
+    // Real-time validation for email
+    if (e.target.name === 'email') {
+      setEmailValidation({ isValidating: true, available: null, error: null });
+      ValidationService.checkEmailAvailability(e.target.value, (result) => {
+        setEmailValidation({ 
+          isValidating: false, 
+          available: result.available, 
+          error: result.error 
+        });
+      });
     }
   };
 
@@ -126,7 +171,7 @@ function SignupPage() {
       setIsVerifying(true);
       setVerificationError("");
       
-      const response = await axios.get(`http://localhost:8080/api/user/auth/email/${formData.email}`);
+      const response = await axios.get(`${baseURL}/user/auth/email/${formData.email}`);
       setEncryptedCode(response.data);
       
       alert("Verification code sent! Check your email.");
@@ -196,6 +241,18 @@ function SignupPage() {
         return;
       }
       
+      // Validate email availability
+      if (emailValidation.available === false) {
+        alert("Please choose a different email address");
+        return;
+      }
+      
+      // Wait for email validation to complete
+      if (emailValidation.isValidating) {
+        alert("Please wait while we check email availability");
+        return;
+      }
+      
       // Validate password match
       if (formData.password !== formData.confirmPassword) {
         setPasswordError("Passwords do not match");
@@ -210,7 +267,7 @@ function SignupPage() {
       
       // Send verification email and move to verification step
       try {
-        const response = await axios.get(`http://localhost:8080/api/user/auth/email/${formData.email}`);
+        const response = await axios.get(`${baseURL}/user/auth/email/${formData.email}`);
         console.log("Verification code sent:", response.data);
         setEncryptedCode(response.data);
         setStep(2); // Go to verification step
@@ -221,9 +278,24 @@ function SignupPage() {
       return;
     }
     
-    if (step === 3 && !formData.userName) {
-      alert("Please enter a username");
-      return;
+    if (step === 3) {
+      // Validate username
+      if (!formData.userName) {
+        alert("Please enter a username");
+        return;
+      }
+      
+      // Validate username availability
+      if (usernameValidation.available === false) {
+        alert("Please choose a different username");
+        return;
+      }
+      
+      // Wait for username validation to complete
+      if (usernameValidation.isValidating) {
+        alert("Please wait while we check username availability");
+        return;
+      }
     }
     
     // For other steps, just move to next step
@@ -257,7 +329,7 @@ function SignupPage() {
       submitData.append("banner", bannerFile);
     }
 
-    axios.post("http://localhost:8080/api/user/auth/create", submitData, {
+    axios.post(`${baseURL}/user/auth/create`, submitData, {
       headers: { "Content-Type": "multipart/form-data" }
     })
     .then(res => {
@@ -289,16 +361,34 @@ function SignupPage() {
             <form className="signup-form">
               <div className="form-group">
                 <label htmlFor="email">Email Address *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInput}
-                  placeholder="Enter your email"
-                  maxLength="100"
-                  required
-                />
+                <div className="input-with-validation">
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInput}
+                    placeholder="Enter your email"
+                    maxLength="100"
+                    required
+                    className={emailValidation.available === false ? 'error-input' : emailValidation.available === true ? 'success-input' : ''}
+                  />
+                  {emailValidation.isValidating && (
+                    <div className="validation-indicator">
+                      <span className="spinner">⏳</span> Checking...
+                    </div>
+                  )}
+                  {emailValidation.available === true && !emailValidation.isValidating && (
+                    <div className="validation-indicator success">
+                      <span>✅</span> Available
+                    </div>
+                  )}
+                  {emailValidation.available === false && !emailValidation.isValidating && (
+                    <div className="validation-indicator error">
+                      <span>❌</span> {emailValidation.error || 'Email is already taken'}
+                    </div>
+                  )}
+                </div>
                 <div className="char-counter">
                   {formData.email.length}/100 characters
                 </div>
@@ -445,16 +535,34 @@ function SignupPage() {
             <form className="signup-form">
               <div className="form-group">
                 <label htmlFor="userName">Username *</label>
-                <input
-                  type="text"
-                  id="userName"
-                  name="userName"
-                  value={formData.userName}
-                  onChange={handleInput}
-                  placeholder="Enter your username"
-                  maxLength="30"
-                  required
-                />
+                <div className="input-with-validation">
+                  <input
+                    type="text"
+                    id="userName"
+                    name="userName"
+                    value={formData.userName}
+                    onChange={handleInput}
+                    placeholder="Enter your username"
+                    maxLength="30"
+                    required
+                    className={usernameValidation.available === false ? 'error-input' : usernameValidation.available === true ? 'success-input' : ''}
+                  />
+                  {usernameValidation.isValidating && (
+                    <div className="validation-indicator">
+                      <span className="spinner">⏳</span> Checking...
+                    </div>
+                  )}
+                  {usernameValidation.available === true && !usernameValidation.isValidating && (
+                    <div className="validation-indicator success">
+                      <span>✅</span> Available
+                    </div>
+                  )}
+                  {usernameValidation.available === false && !usernameValidation.isValidating && (
+                    <div className="validation-indicator error">
+                      <span>❌</span> {usernameValidation.error || 'Username is already taken'}
+                    </div>
+                  )}
+                </div>
                 <div className="char-counter">
                   {formData.userName.length}/30 characters
                 </div>

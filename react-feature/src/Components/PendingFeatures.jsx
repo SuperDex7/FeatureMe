@@ -119,7 +119,7 @@ const PendingFeatures = () => {
             <div className="request-header">
               <div className="author-info">
                 <a href={`/profile/${request.author.userName}`}><img 
-                  src={request.author.profilePic || '/default-avatar.png'} 
+                  src={request.author.profilePic || '/dpp.jpg'} 
                   alt={request.author.userName}
                   className="author-avatar"
                 /></a>

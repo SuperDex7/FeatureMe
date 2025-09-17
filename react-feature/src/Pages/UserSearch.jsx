@@ -266,7 +266,7 @@ function UserSearch() {
                             <div key={user.id} className={`user-card ${user.role === 'USERPLUS' ? 'userplus-card' : ''}`}>
                                 <div className="user-card-header">
                                     <img
-                                        src={user.profilePic || '/default-avatar.png'}
+                                        src={user.profilePic || '/dpp.jpg'}
                                         alt={user.userName}
                                         className="search-user-avatar search-clickable"
                                         onClick={() => handleProfileClick(user.userName)}

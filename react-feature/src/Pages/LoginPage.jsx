@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { redirect, redirectDocument } from 'react-router-dom';
 import api from '../services/AuthService';
 import axios from 'axios';
+import { baseURL } from '../config/api';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ function LoginPage() {
       // Create base64 encoded credentials for basic auth
       const credentials = btoa(`${formData.email}:${formData.password}`);
       
-      const response = await axios.post('http://localhost:8080/api/user/auth/login', {
+      const response = await axios.post(`${baseURL}/user/auth/login`, {
         username: formData.email,
         password: formData.password
       }, {

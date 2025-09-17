@@ -8,6 +8,53 @@
   align-items: center;
 }
 
+/* Real-time Validation Styles */
+.input-with-validation {
+  position: relative;
+  width: 100%;
+}
+
+.validation-indicator {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.validation-indicator.success {
+  color: #10b981;
+}
+
+.validation-indicator.error {
+  color: #ef4444;
+}
+
+.validation-indicator .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.success-input {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+.error-input {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
 .signup-container {
   display: flex;
   justify-content: center;

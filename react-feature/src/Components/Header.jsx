@@ -74,7 +74,7 @@ function Header() {
           <div className="user-menu-container" ref={userMenuRef}>
             <button className="user-menu-btn" onClick={toggleUserMenu} aria-label="User menu">
               <img 
-                src={currentUser?.profilePic || '/default-avatar.png'} 
+                src={currentUser?.profilePic || '/dpp.jpg'} 
                 alt={currentUser?.userName || 'User'} 
                 className="user-avatar"
               />

@@ -494,7 +494,7 @@ function Profile() {
         <img className="profile-glass-banner" src={user?.banner || '/default-banner.jpg'} alt="Profile Banner" />
         
         <div className="profile-glass-avatar-wrap overlap-half">
-          <img className="profile-glass-avatar" src={user?.profilePic || '/default-avatar.jpg'} alt="User Avatar" />
+          <img className="profile-glass-avatar" src={user?.profilePic || '/dpp.jpg'} alt="User Avatar" />
         </div>
       </div>
       <div className={`profile-glass-info-card overlap-margin ${user?.role === 'USERPLUS' ? 'userplus-card' : ''}`}>
