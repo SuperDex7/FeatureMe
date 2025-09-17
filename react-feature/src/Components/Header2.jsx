@@ -14,7 +14,7 @@ function Header2(){
         <div className="header-actions">
           <button className="noti-btn">
             
-            <a href='/login' className="noti-label">Log In</a>
+            <a href='/login' className="login-text">Log In</a>
           </button>
           <a href="/signup" className="profile-link">Signup</a>
         </div>

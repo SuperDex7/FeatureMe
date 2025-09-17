@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import Feedf from "../Components/Feedf";
@@ -10,6 +10,21 @@ import MyPosts from "../Components/MyPosts";
 
 function Feed() {
   const [activeTab, setActiveTab] = useState('spotlight');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Listen for mobile menu toggle from Header
+  useEffect(() => {
+    const handleMobileMenuToggle = () => {
+      setSidebarOpen(prev => !prev);
+    };
+
+    // Add event listener for mobile menu toggle
+    window.addEventListener('mobileMenuToggle', handleMobileMenuToggle);
+    
+    return () => {
+      window.removeEventListener('mobileMenuToggle', handleMobileMenuToggle);
+    };
+  }, []);
   
 
   return (
@@ -18,7 +33,7 @@ function Feed() {
         <Header />
         
         <div className="feed-layout">
-          <Sidebar />
+          <Sidebar isOpen={sidebarOpen} />
           
           <div className="feed-main-content">
             {/* Tab Navigation */}

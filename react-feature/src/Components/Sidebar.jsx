@@ -14,7 +14,7 @@ const playlists = [
   { name: "Discover Weekly", icon: "✨" },
 ];
 
-function Sidebar() {
+function Sidebar({ isOpen = false }) {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ function Sidebar() {
     fetchUser();
   }, []);
   return (
-    <aside className="sidebar sidebar-dark">
+    <aside className={`sidebar sidebar-dark ${isOpen ? 'open' : ''}`}>
       <div className="sidebar__logo">
         <a href="/home" className="sidebar__logo-link">FeatureMe</a>
         <div className="sidebar__username"><a href={`/profile/${currentUser?.userName || ''}`}>{currentUser?.userName || 'User'}</a></div>
@@ -35,7 +35,7 @@ function Sidebar() {
           <li><a href="/home">Home</a></li>
           <li><a href={`/profile/${currentUser?.userName || ''}`}>Profile</a></li>
           <li><a href="/messages">Messages</a></li>
-          <li><a href="/notifications">Notifications</a></li>
+
         </ul>
       </nav>
       <div className="sidebar__library">

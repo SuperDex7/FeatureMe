@@ -390,10 +390,7 @@
     .feed-cards-grid {
       grid-template-columns: 1fr;
       gap: 1rem;
-    }
-    
-    .feed-layout {
-      margin-left: 0; /* Remove sidebar margin on mobile */
+      padding: 0 0.5rem; /* Add some padding for better mobile spacing */
     }
     
     .feed-search-filter-bar {
@@ -416,6 +413,184 @@
     .feed-search-clear {
       right: 0.8rem;
       font-size: 1.1rem;
+    }
+
+    /* Mobile-specific feed card improvements */
+    .feed-card-glass {
+      min-width: unset; /* Remove fixed min-width on mobile */
+      max-width: 100%; /* Ensure cards don't exceed container width */
+      margin: 0 auto; /* Center cards on mobile */
+      width: 100%;
+    }
+
+    .feed-card-banner {
+      height: 80px; /* Reduce banner height on mobile */
+    }
+
+    .feed-card-content {
+      padding: 1rem 0.8rem; /* Reduce padding on mobile */
+    }
+
+    .feed-card-title {
+      font-size: 1.2rem; /* Reduce title size on mobile */
+      line-height: 1.3;
+    }
+
+    .feed-card-desc {
+      font-size: 0.9rem; /* Reduce description size on mobile */
+      line-height: 1.4;
+    }
+
+    .feed-card-author {
+      font-size: 1rem; /* Reduce author name size */
+    }
+
+    .feed-card-time {
+      font-size: 0.8rem; /* Reduce time size */
+    }
+
+    .feed-card-stats-row {
+      gap: 0.8rem !important; /* Reduce gap between stats */
+      font-size: 0.9rem;
+    }
+
+    .feed-card-play-btn {
+      width: 44px; /* Reduce play button size */
+      height: 44px;
+      font-size: 1.6rem;
+    }
+
+    .feed-card-profile-pic {
+      width: 36px; /* Reduce profile pic size */
+      height: 36px;
+    }
+
+    /* Improve genre tags on mobile */
+    .feed-card-genres {
+      margin-bottom: 0.5rem;
+    }
+
+    .feed-card-genre-tag {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+    }
+
+    /* Mobile modal improvements */
+    .feed-card-modal {
+      min-width: unset;
+      max-width: 95vw;
+      width: 95vw;
+      margin: 1rem;
+      max-height: 90vh;
+    }
+
+    .feed-card-modal-close {
+      top: 0.8rem;
+      right: 1rem;
+      font-size: 2rem;
+    }
+
+    .feed-card-modal .feed-card-banner {
+      height: 100px;
+    }
+
+    .feed-card-modal .feed-card-content {
+      padding: 1rem;
+    }
+
+    .feed-card-modal .feed-card-title {
+      font-size: 1.3rem;
+    }
+
+    .feed-card-modal .feed-card-desc {
+      font-size: 1rem;
+    }
+
+    .feed-card-actions-row {
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .feed-card-action-btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+
+  /* Extra small mobile devices (phones in portrait) */
+  @media (max-width: 480px) {
+    .feed-page {
+      padding-top: 55px;
+    }
+
+    .feed-tab-content {
+      padding: 0.5rem;
+    }
+
+    .feed-section {
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .feed-cards-grid {
+      gap: 0.8rem;
+      padding: 0 0.25rem;
+    }
+
+    .feed-card-glass {
+      border-radius: 1.5rem; /* Reduce border radius on very small screens */
+    }
+
+    .feed-card-banner {
+      height: 70px; /* Further reduce banner height */
+    }
+
+    .feed-card-content {
+      padding: 0.8rem 0.6rem;
+    }
+
+    .feed-card-title {
+      font-size: 1.1rem;
+    }
+
+    .feed-card-desc {
+      font-size: 0.85rem;
+      line-height: 1.3;
+    }
+
+    .feed-card-profile-pic {
+      width: 32px;
+      height: 32px;
+    }
+
+    .feed-card-play-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 1.4rem;
+    }
+
+    .feed-card-stats-row {
+      gap: 0.6rem !important;
+      font-size: 0.8rem;
+    }
+
+    .feed-card-modal {
+      max-width: 98vw;
+      width: 98vw;
+      margin: 0.5rem;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+    }
+
+    .feed-tabs {
+      padding: 0 0.5rem;
+    }
+
+    .feed-tab {
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
     }
   }
 
@@ -504,6 +679,13 @@
     overflow: hidden; /* Prevent extra scrollbars */
     height: calc(100vh - 64px); /* Subtract header height */
     margin-left: 250px; /* Account for fixed sidebar width */
+  }
+
+  /* Mobile responsive layout - remove sidebar margin */
+  @media (max-width: 768px) {
+    .feed-layout {
+      margin-left: 0; /* Remove sidebar margin on mobile */
+    }
   }
   #play-section{
     display: flex;

@@ -180,6 +180,14 @@
     color: #fff;
     letter-spacing: 1px;
   }
+  .cprofile-glass-username {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+    letter-spacing: 1px;
+    margin-top: 40px;
+  }
 
   .premium-indicator {
     font-size: 1.5rem;
@@ -273,6 +281,11 @@
     min-height: 200px;
     font-size: 1.15rem;
   }
+  
+  .profile-glass-banner-wrap.taller {
+    height: 420px;
+  }
+  
   @media (max-width: 900px) {
     .profile-glass-info-card, .profile-glass-content, .profile-glass-tabs {
       width: 97vw;
@@ -284,7 +297,144 @@
   }
   @media (max-width: 600px) {
     .profile-glass-banner {
-      height: 160px;
+      height: 200px; /* Increased height for better mobile appearance */
+    }
+    .profile-glass-banner-wrap.taller {
+      height: 280px; /* Keep taller height until 1000px */
+    }
+    .profile-glass-avatar {
+      width: 100px;
+      height: 100px;
+    }
+    .profile-glass-info-card {
+      margin-top: 60px; /* Adjusted for new avatar size */
+      padding: 1.5rem 1rem; /* Better padding for mobile */
+      width: 95vw; /* Better width for mobile */
+      max-width: none; /* Remove max-width constraint */
+    }
+    .profile-glass-content {
+      padding: 1.5rem 1rem; /* Better padding for mobile */
+      min-width: unset; /* Remove min-width constraint */
+      width: 95vw; /* Better width for mobile */
+      max-width: none; /* Remove max-width constraint */
+    }
+    .profile-glass-tabs {
+      width: 95vw;
+      gap: 1rem; /* Reduce gap between tabs */
+    }
+    .profile-glass-tab {
+      padding: 0.6rem 1.2rem; /* Smaller padding for mobile */
+      font-size: 1rem; /* Smaller font size */
+    }
+
+    /* Mobile profile stats */
+    .profile-glass-stats {
+      gap: 1.5rem; /* Reduce gap between stats on mobile */
+      flex-wrap: wrap; /* Allow wrapping on very small screens */
+      justify-content: center;
+    }
+
+    .profile-glass-stat {
+      flex-direction: column; /* Stack icon, value, label vertically */
+      text-align: center;
+      gap: 0.2rem;
+    }
+
+    .stat-icon {
+      font-size: 1.1rem;
+      margin-right: 0;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+    }
+
+    /* Mobile username */
+    .profile-glass-username {
+      font-size: 1.8rem; /* Smaller username on mobile */
+      margin-bottom: 0.5rem;
+    }
+
+    /* Mobile bio and location */
+    .profile-glass-bio {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .profile-glass-location {
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Mobile badges */
+    .profile-glass-badges-row {
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .profile-glass-badge {
+      width: 32px;
+      height: 32px;
+      font-size: 1.1rem;
+    }
+
+    /* Mobile edit button */
+    .profile-glass-edit {
+      position: relative; /* Change from absolute to relative on mobile */
+      top: auto;
+      right: auto;
+      margin: 1rem auto 0 auto; /* Center the button */
+      display: block;
+      width: fit-content;
+      font-size: 1rem;
+      padding: 0.7rem 1.5rem;
+    }
+
+    /* Mobile about section */
+    .profile-glass-about-section {
+      margin: 1rem 0;
+      padding: 1rem;
+    }
+
+    .about-title {
+      font-size: 1rem;
+    }
+
+    .about-text {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* Mobile social links */
+    .profile-glass-social-links {
+      width: 90%;
+      margin: 1rem auto;
+      padding: 1rem;
+    }
+
+    .social-links-grid {
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+    }
+
+    .social-link {
+      padding: 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
+
+  /* Extra small mobile devices (phones in portrait) */
+  @media (max-width: 480px) {
+    .profile-glass-banner {
+      height: 180px; /* Slightly smaller for very small screens */
+    }
+    .profile-glass-banner-wrap.taller {
+      height: 261px; /* Keep taller height until 1000px */
     }
     .profile-glass-avatar {
       width: 90px;
@@ -292,19 +442,33 @@
     }
     .profile-glass-info-card {
       margin-top: 50px;
-      padding: 1rem 0.2rem;
+      padding: 1rem 0.8rem;
+      width: 98vw;
     }
     .profile-glass-content {
-      padding: 1rem 0.2rem;
+      padding: 1rem 0.8rem;
+      width: 98vw;
     }
     .profile-glass-tabs {
-      width: 100vw;
+      width: 98vw;
+      gap: 0.5rem;
+    }
+    .profile-glass-tab {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.9rem;
+    }
+    .profile-glass-username {
+      font-size: 1.5rem;
+    }
+    .profile-glass-stats {
+      gap: 1rem;
+    }
+    .profile-glass-edit {
+      font-size: 0.9rem;
+      padding: 0.6rem 1.2rem;
     }
   }
   
-  .profile-glass-banner-wrap.taller {
-    height: 420px;
-  }
   .profile-glass-avatar-wrap.lower {
     bottom: -100px;
   }
@@ -1076,6 +1240,22 @@
     gap: 50px;
   }
 
+  /* Mobile posts layout */
+  @media (max-width: 768px) {
+    .profilePosts {
+      gap: 1.5rem; /* Reduce gap for mobile */
+      justify-content: center; /* Center posts on mobile */
+    }
+  }
+
+  @media (max-width: 480px) {
+    .profilePosts {
+      gap: 1rem; /* Even smaller gap for small mobile */
+      flex-direction: column; /* Stack posts vertically on very small screens */
+      align-items: center;
+    }
+  }
+
   /* About Section Styles */
   .profile-glass-about-section {
     margin: 1.5rem 0;
@@ -1262,6 +1442,14 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
+  }
+
+  /* Mobile demos grid */
+  @media (max-width: 768px) {
+    .demos-grid {
+      grid-template-columns: 1fr; /* Single column on mobile */
+      gap: 1rem;
+    }
   }
 
   .demo-item {
