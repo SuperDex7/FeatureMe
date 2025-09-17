@@ -24,6 +24,7 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
+  /* 
   (error) => {
     if (error.response) {
       // Handle 401 Unauthorized (JWT expired or invalid)
@@ -63,6 +64,7 @@ api.interceptors.response.use(
     
     return Promise.reject(error);
   }
+  */
 );
 
 // Helper functions

@@ -50,8 +50,8 @@ http {
         listen 443 ssl http2;
         server_name _;
 
-        ssl_certificate     /etc/nginx/certs/localhost.pem;
-        ssl_certificate_key /etc/nginx/certs/localhost-key.pem;
+        ssl_certificate     /etc/letsencrypt/live/featureme.co/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/featureme.co/privkey.pem;
 
         # React static site
         location / {

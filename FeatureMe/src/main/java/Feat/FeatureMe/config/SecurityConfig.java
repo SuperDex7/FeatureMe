@@ -54,7 +54,14 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 // Redirect to React login page
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Authentication required\",\"redirect\":\"http://localhost:3000/login\"}");
+                
+                // Get frontend URL from environment or use default
+                String frontendUrl = System.getenv("FRONTEND_URL");
+                if (frontendUrl == null || frontendUrl.isEmpty()) {
+                    frontendUrl = "https://featureme.co"; // Default to production domain
+                }
+                
+                response.getWriter().write("{\"error\":\"Authentication required\",\"redirect\":\"" + frontendUrl + "/login\"}");
             })
         )
         .build();

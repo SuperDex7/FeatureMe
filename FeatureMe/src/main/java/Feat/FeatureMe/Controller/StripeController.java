@@ -39,10 +39,14 @@ public class StripeController {
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
 
+    //@Value("${https://featureme.co}")
+    //private String frontendUrl;
+
     public StripeController(UserService userService){
         this.userService = userService;
     }
-
+    private String frontendUrl = "https://featureme.co";
+    
     @PostMapping("/create-checkout-session")
     public Map<String, Object> createCheckoutSession() throws StripeException {
         // Get the authenticated user
@@ -74,8 +78,8 @@ public class StripeController {
         SessionCreateParams sessionParams = SessionCreateParams.builder()
             .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-            .setSuccessUrl("http://localhost:5173/subscription?success=true")
-            .setCancelUrl("http://localhost:5173/subscription?canceled=true")
+            .setSuccessUrl(frontendUrl + "/subscription?success=true")
+            .setCancelUrl(frontendUrl + "/subscription?canceled=true")
             .setCustomer(customerId)
             
             .addLineItem(
@@ -141,8 +145,8 @@ public class StripeController {
         SessionCreateParams sessionParams = SessionCreateParams.builder()
             .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-            .setSuccessUrl("http://localhost:5173/subscription?success=true")
-            .setCancelUrl("http://localhost:5173/subscription?canceled=true")
+            .setSuccessUrl(frontendUrl + "/subscription?success=true")
+            .setCancelUrl(frontendUrl + "/subscription?canceled=true")
             .setCustomer(customerId)
             
             .addLineItem(
