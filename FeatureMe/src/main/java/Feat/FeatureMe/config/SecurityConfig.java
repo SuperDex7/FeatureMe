@@ -42,7 +42,7 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .authorizeHttpRequests(registry ->{
                 registry.requestMatchers("/api/user/auth/**").permitAll();
                 registry.requestMatchers("/api/user/me").authenticated();
-                registry.requestMatchers("/api/user/**").permitAll();
+                registry.requestMatchers("/api/user/**").authenticated();
                 registry.requestMatchers("/api/posts/**").authenticated();
                 //registry.requestMatchers("/api/chats/**").authenticated();
                 registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections

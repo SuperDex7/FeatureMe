@@ -55,7 +55,7 @@ public class StripeController {
             throw new RuntimeException("User not authenticated");
         }
         
-        String email = authentication.getName();
+        String email = "superdexter7@gmail.com";
         // Verify user exists and get user object
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
