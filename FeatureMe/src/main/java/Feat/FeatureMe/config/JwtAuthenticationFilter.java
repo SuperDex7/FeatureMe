@@ -38,7 +38,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Skip JWT filtering for these endpoints
         return path.startsWith("/api/user/auth/") || 
                path.startsWith("/api/user/auth/create") ||
-               path.startsWith("/api/payment") ||
                path.equals("/api/user/auth/login") ||
                path.equals("/api/user/auth/logout") ||
                path.equals("/api/payment/webhook");

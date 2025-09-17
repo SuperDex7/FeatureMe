@@ -23,14 +23,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 
 @RestController
-@CrossOrigin("*")
 @RequestMapping("/api/payment")
 public class StripeController {
     
@@ -55,7 +53,7 @@ public class StripeController {
             throw new RuntimeException("User not authenticated");
         }
         
-        String email = "superdexter7@gmail.com";
+        String email = authentication.getName();
         // Verify user exists and get user object
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));

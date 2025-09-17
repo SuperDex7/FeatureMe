@@ -6,7 +6,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import api from "../services/AuthService";
 
 // Initialize Stripe with your publishable key
-const stripePromise = loadStripe("pk_test_51S5y0GLO45fsGuqjeHM8dO08ZOBgyHQuRBfygq43IAkyledXi9Z9T3TK4XtVGXTnVuxKzx3rhSbCtQRNQ91X1Pjb00MFiCqvqF");
+const stripePromise = loadStripe("pk_live_51S5y09LFlQ9r3bfIljUeY5CMdPOtEbcM3q7UBPMb2ZBvs7hkK80XwYPcg4BJ3kkIzwl3dHGGSzskWtONywgXzNy6006TRFEfri");
 
 const SubscriptionPage = () => {
   const [billingCycle, setBillingCycle] = useState('monthly');
