@@ -20,12 +20,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Debug secrets
+      run: |
+        echo "AWS_ACCESSKEYID length: ${#AWS_ACCESSKEYID}"
+        echo "AWS_SECRETACCESSKEY length: ${#AWS_SECRETACCESSKEY}"
+        if [ -n "$AWS_ACCESSKEYID" ]; then
+          echo "AWS_ACCESSKEYID is set"
+        else
+          echo "AWS_ACCESSKEYID is NOT set"
+        fi
+      env:
+        AWS_ACCESSKEYID: ${{ secrets.AWS_ACCESSKEYID }}
+        AWS_SECRETACCESSKEY: ${{ secrets.AWS_SECRETACCESSKEY }}
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESSKEYID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRETACCESSKEY }}
+        aws-region: us-east-2
 
     - name: Login to Amazon ECR
       id: login-ecr
