@@ -162,6 +162,7 @@ jobs:
             server {
                 listen 80;
                 server_name featureme.co www.featureme.co;
+                client_max_body_size 150m;
                 return 301 https://$server_name$request_uri;
             }
 
@@ -169,7 +170,7 @@ jobs:
             server {
                 listen 443 ssl http2;
                 server_name featureme.co www.featureme.co;
-
+                client_max_body_size 150m;
                 # SSL certificates
                 ssl_certificate /etc/letsencrypt/live/featureme.co/fullchain.pem;
                 ssl_certificate_key /etc/letsencrypt/live/featureme.co/privkey.pem;
