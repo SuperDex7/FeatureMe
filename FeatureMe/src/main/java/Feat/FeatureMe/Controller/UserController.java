@@ -143,49 +143,68 @@ public class UserController {
 
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public User createUser(@RequestPart User user,
-    @RequestPart("pp") MultipartFile pp,
-    @RequestPart("banner") MultipartFile banner ) throws IOException {
+    @RequestPart(value = "pp", required = false) MultipartFile pp,
+    @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
         
-        // Validate profile picture
-        if (pp == null || pp.isEmpty()) {
-            throw new IllegalArgumentException("Profile picture is required");
+        // Handle profile picture - use default if not provided
+        if (pp != null && !pp.isEmpty()) {
+            // Validate uploaded profile picture
+            String contentType = pp.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Profile picture must be an image file");
+            }
+            
+            if (pp.getSize() > 5 * 1024 * 1024) {
+                throw new IllegalArgumentException("Profile picture size must be less than 5MB");
+            }
+            
+            // Validate files with role-based size limits and file types
+            fileUploadService.validateFileForUserByCategory(pp, user, "image");
+            
+            // Upload custom profile picture
+            String ppName = fileUploadService.generateUniqueFilenameWithFolder(pp, "images/profiles");
+            File ppTemp = File.createTempFile("pptemp", null);
+            pp.transferTo(ppTemp);
+            String ppPath = ppTemp.getAbsolutePath();
+            String s3Url = s3Service.uploadFile(ppName, ppPath);
+            user.setProfilePic(s3Url);
+            
+            // Clean up temp file
+            ppTemp.delete();
+        } else {
+            // Use default profile picture
+            user.setProfilePic("/dpp.jpg");
         }
         
-        String contentType = pp.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Profile picture must be an image file");
+        // Handle banner - use default if not provided
+        if (banner != null && !banner.isEmpty()) {
+            // Validate uploaded banner
+            String contentType = banner.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Banner must be an image file");
+            }
+            
+            if (banner.getSize() > 5 * 1024 * 1024) {
+                throw new IllegalArgumentException("Banner size must be less than 5MB");
+            }
+            
+            // Validate files with role-based size limits and file types
+            fileUploadService.validateFileForUserByCategory(banner, user, "image");
+            
+            // Upload custom banner
+            String bannerName = fileUploadService.generateUniqueFilenameWithFolder(banner, "images/banners");
+            File bannerTemp = File.createTempFile("bannerTemp", null);
+            banner.transferTo(bannerTemp);
+            String bannerPath = bannerTemp.getAbsolutePath();
+            String s3Url2 = s3Service.uploadFile(bannerName, bannerPath);
+            user.setBanner(s3Url2);
+            
+            // Clean up temp file
+            bannerTemp.delete();
+        } else {
+            // Use default banner
+            user.setBanner("/pb.jpg");
         }
-        
-        if (pp.getSize() > 5 * 1024 * 1024) {
-            throw new IllegalArgumentException("Profile picture size must be less than 5MB");
-        }
-        
-        // Validate banner
-        if (banner == null || banner.isEmpty()) {
-            throw new IllegalArgumentException("Banner is required");
-        }
-        
-        // Validate files with role-based size limits and file types
-        fileUploadService.validateFileForUserByCategory(pp, user, "image");
-        fileUploadService.validateFileForUserByCategory(banner, user, "image");
-        
-        String ppName = fileUploadService.generateUniqueFilenameWithFolder(pp, "images/profiles");
-        String bannerName = fileUploadService.generateUniqueFilenameWithFolder(banner, "images/banners");
-        File ppTemp = File.createTempFile("pptemp", null);
-        File bannerTemp = File.createTempFile("bannerTemp", null);
-        pp.transferTo(ppTemp);
-        banner.transferTo(bannerTemp);
-
-        String ppPath = ppTemp.getAbsolutePath();
-        String bannerPath = bannerTemp.getAbsolutePath();
-        String s3Url = s3Service.uploadFile(ppName, ppPath);
-        String s3Url2 = s3Service.uploadFile(bannerName, bannerPath);
-        user.setBanner(s3Url2);
-        user.setProfilePic(s3Url);
-        
-        // Clean up temp files
-        ppTemp.delete();
-        bannerTemp.delete();
         
         return userService.createUser(user);
     }
