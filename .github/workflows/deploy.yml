@@ -40,6 +40,11 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRETACCESSKEY }}
         aws-region: us-east-2
 
+    - name: Create ECR repositories
+      run: |
+        aws ecr create-repository --repository-name featureme-backend --region us-east-2 || echo "Backend repository already exists"
+        aws ecr create-repository --repository-name featureme-frontend --region us-east-2 || echo "Frontend repository already exists"
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
