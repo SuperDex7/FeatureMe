@@ -122,7 +122,7 @@ function LoginPage() {
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
+          <div className="login-form-group">
             <div className="input-container">
               <input
                 type="text"
@@ -137,7 +137,7 @@ function LoginPage() {
             </div>
           </div>
 
-          <div className="form-group">
+          <div className="login-form-group">
             <div className="input-container">
               <input
                 type={showPassword ? "text" : "password"}

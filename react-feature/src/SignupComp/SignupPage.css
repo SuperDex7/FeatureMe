@@ -14,30 +14,38 @@
   width: 100%;
 }
 
-.validation-indicator {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  pointer-events: none;
-  z-index: 2;
+.input-with-validation .validation-indicator {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 4px !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: #bdbdbd !important;
+  margin-left: 10px !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-width: none !important;
+  box-sizing: content-box !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-.validation-indicator.success {
-  color: #10b981;
+.input-with-validation .validation-indicator.success {
+  color: #10b981 !important;
 }
 
-.validation-indicator.error {
-  color: #ef4444;
+.input-with-validation .validation-indicator.error {
+  color: #ef4444 !important;
 }
 
-.validation-indicator .spinner {
+.input-with-validation .validation-indicator .spinner {
   animation: spin 1s linear infinite;
+  font-size: 12px !important;
 }
 
 @keyframes spin {
@@ -329,10 +337,20 @@
   box-shadow: 0 4px 15px rgba(162, 89, 198, 0.3);
 }
 
-.next-btn:hover {
+.next-btn:hover:not(:disabled) {
   background: linear-gradient(90deg, #7d3bbd, #3a3ad9);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(162, 89, 198, 0.4);
+}
+
+.next-btn:disabled,
+.next-btn.disabled {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #666 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
 }
 
 /* Action buttons for profile preview */
@@ -427,6 +445,10 @@
   .warning-text {
     font-size: 0.9rem;
   }
+  
+  .validation-indicator {
+    font-size: 9px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -459,6 +481,10 @@
   
   .char-counter {
     font-size: 0.8rem;
+  }
+  
+  .validation-indicator {
+    font-size: 9px;
   }
 }
 

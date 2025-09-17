@@ -66,7 +66,7 @@ class ValidationService {
         // Basic email format validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            callback({ available: false, email: email, error: 'Please enter a valid email address' });
+            callback({ available: false, email: email, error: 'Enter a valid email ' });
             return;
         }
 

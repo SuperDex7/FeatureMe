@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
 
 
 
@@ -80,6 +81,11 @@ public interface PostsRepository extends MongoRepository<Posts, String> {
     // Most liked posts with status filter
     @Query("{ 'status': ?0 }")
     Page<Posts> findByStatusOrderByTotalLikesDescTimeDesc(String status, Pageable pageable);
+    
+    // Remove a user from all posts' features lists
+    @Query("{ 'features': ?0 }")
+    @Update("{ $pull: { 'features': ?0 } }")
+    void removeUserFromAllPostsFeatures(String userName);
     
 }
 

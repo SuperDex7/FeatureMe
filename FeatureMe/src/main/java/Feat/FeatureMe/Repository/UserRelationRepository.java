@@ -73,4 +73,7 @@ public interface UserRelationRepository extends MongoRepository<UserRelation, St
            "] }")
     List<UserRelation> findFriendSuggestions(List<String> userConnections, String currentUser, 
                                            List<String> alreadyFollowing, UserRelation.RelationStatus status);
+    
+    // Delete all relations where user is either follower or following
+    void deleteByFollowerUserNameOrFollowingUserName(String followerUserName, String followingUserName);
 }

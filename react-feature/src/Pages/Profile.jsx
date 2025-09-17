@@ -47,6 +47,9 @@ function Profile() {
     banner: 'url'      // 'url' or 'file'
   });
   const [editLoading, setEditLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [socialLinksExpanded, setSocialLinksExpanded] = useState(false);
   
   // File validation state
@@ -486,6 +489,33 @@ function Profile() {
       setEditLoading(false);
     }
   };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      alert('Please type "DELETE" to confirm account deletion.');
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      await api.delete(`/user/delete/${user.id}`);
+      alert('Account deleted successfully. You will be redirected to the login page.');
+      
+      // Clear any stored authentication data
+      document.cookie = 'sessionToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      alert('Failed to delete account. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setDeleteConfirmText('');
+    }
+  };
   
   return (
     <div className="profile-glass-root">
@@ -828,6 +858,22 @@ function Profile() {
                 )}
               </button>
             </div>
+            
+            {/* Danger Zone */}
+            <div className="danger-zone">
+              <h4 className="danger-zone-title">⚠️ Danger Zone</h4>
+              <p className="danger-zone-description">
+                Once you delete your account, there is no going back. All your posts, demos, and data will be permanently removed.
+              </p>
+              <button 
+                type="button"
+                className="delete-account-btn modern-btn danger" 
+                onClick={() => setShowDeleteModal(true)}
+                disabled={editLoading}
+              >
+                🗑️ Delete Account
+              </button>
+            </div>
           </form>
         ) : (
           <>
@@ -956,6 +1002,73 @@ function Profile() {
               </div>
               <div className="modal-body">
                 <p className="about-full-text">{user?.about || 'No about information available'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Account Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+            <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">⚠️ Delete Account</h3>
+                <button 
+                  className="modal-close-btn"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="delete-warning">
+                  <p className="warning-text">
+                    <strong>This action cannot be undone!</strong>
+                  </p>
+                  <p>This will permanently delete your account and remove all of your data including:</p>
+                  <ul className="delete-list">
+                    <li>All your posts and demos</li>
+                    <li>Your profile information</li>
+                    <li>All your followers and following relationships</li>
+                    <li>Your comments and likes</li>
+                    <li>Your chat history (you'll be removed from all chats)</li>
+                  </ul>
+                  <p className="confirm-text">
+                    To confirm, type <strong>DELETE</strong> in the box below:
+                  </p>
+                  <input
+                    type="text"
+                    className="delete-confirm-input"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="Type DELETE to confirm"
+                    disabled={isDeleting}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  className="modal-btn cancel-btn"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="modal-btn delete-btn"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+                >
+                  {isDeleting ? (
+                    <>
+                      <span className="loading-spinner"></span>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Account'
+                  )}
+                </button>
               </div>
             </div>
           </div>

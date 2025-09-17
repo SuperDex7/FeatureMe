@@ -98,6 +98,46 @@ public class UserController {
         
         return encryptedCode;
     }
+
+    /**
+     * Check if username is available
+     */
+    @GetMapping("/auth/check-username/{username}")
+    public ResponseEntity<Map<String, Object>> checkUsernameAvailability(@PathVariable String username) {
+        try {
+            boolean isAvailable = !userService.existsByUserName(username);
+            Map<String, Object> response = new HashMap<>();
+            response.put("available", isAvailable);
+            response.put("username", username);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("available", false);
+            response.put("username", username);
+            response.put("error", "Error checking username availability");
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Check if email is available
+     */
+    @GetMapping("/auth/check-email/{email}")
+    public ResponseEntity<Map<String, Object>> checkEmailAvailability(@PathVariable String email) {
+        try {
+            boolean isAvailable = !userService.existsByEmail(email);
+            Map<String, Object> response = new HashMap<>();
+            response.put("available", isAvailable);
+            response.put("email", email);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("available", false);
+            response.put("email", email);
+            response.put("error", "Error checking email availability");
+            return ResponseEntity.ok(response);
+        }
+    }
     
 
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -229,9 +269,16 @@ public class UserController {
         }
     
     @DeleteMapping("/delete/{id}")
-    public void deleteUser(@PathVariable String id) {
-        userService.deleteUser(id);
-
+    public ResponseEntity<?> deleteUser(@PathVariable String id) {
+        try {
+            userService.deleteUser(id);
+            return ResponseEntity.ok().body("User and all associated data deleted successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error deleting user: " + e.getMessage());
+        }
     }
     @PostMapping("/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginDTO login, HttpServletResponse response) {

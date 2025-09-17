@@ -20,6 +20,14 @@ import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Dto.UserSearchDTO;
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Repository.UserRepository;
+import Feat.FeatureMe.Repository.PostsRepository;
+import Feat.FeatureMe.Repository.DemoRepository;
+import Feat.FeatureMe.Repository.PostLikeRepository;
+import Feat.FeatureMe.Repository.PostCommentRepository;
+import Feat.FeatureMe.Repository.PostViewRepository;
+import Feat.FeatureMe.Repository.PostDownloadRepository;
+import Feat.FeatureMe.Repository.UserRelationRepository;
+import Feat.FeatureMe.Repository.ChatsRepository;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 
 @Service
@@ -27,10 +35,30 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserRelationService userRelationService;
+    private final PostsRepository postsRepository;
+    private final DemoRepository demoRepository;
+    private final PostLikeRepository postLikeRepository;
+    private final PostCommentRepository postCommentRepository;
+    private final PostViewRepository postViewRepository;
+    private final PostDownloadRepository postDownloadRepository;
+    private final UserRelationRepository userRelationRepository;
+    private final ChatsRepository chatsRepository;
 
-    public UserService(UserRepository userRepository, UserRelationService userRelationService) {
+    public UserService(UserRepository userRepository, UserRelationService userRelationService, 
+                      PostsRepository postsRepository, DemoRepository demoRepository,
+                      PostLikeRepository postLikeRepository, PostCommentRepository postCommentRepository,
+                      PostViewRepository postViewRepository, PostDownloadRepository postDownloadRepository,
+                      UserRelationRepository userRelationRepository, ChatsRepository chatsRepository) {
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
+        this.postsRepository = postsRepository;
+        this.demoRepository = demoRepository;
+        this.postLikeRepository = postLikeRepository;
+        this.postCommentRepository = postCommentRepository;
+        this.postViewRepository = postViewRepository;
+        this.postDownloadRepository = postDownloadRepository;
+        this.userRelationRepository = userRelationRepository;
+        this.chatsRepository = chatsRepository;
     }
 
     public void saveUser(User user){
@@ -249,7 +277,90 @@ public class UserService {
         });
         return new PagedModel<UserSearchDTO>(usersDTO);
     }
+    /**
+     * Comprehensive user deletion that removes all user-related data while preserving chats
+     * @param id User ID to delete
+     */
     public void deleteUser(String id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        String userName = user.getUserName();
+        
+        // 1. Delete all posts created by the user
+        if (user.getPosts() != null && !user.getPosts().isEmpty()) {
+            for (String postId : user.getPosts()) {
+                // Delete all related data for each post
+                postLikeRepository.deleteByPostId(postId);
+                postCommentRepository.deleteByPostId(postId);
+                postViewRepository.deleteByPostId(postId);
+                postDownloadRepository.deleteByPostId(postId);
+                
+                // Delete the post itself
+                postsRepository.deleteById(postId);
+            }
+        }
+        
+        // 2. Delete all demos created by the user
+        if (user.getDemo() != null && !user.getDemo().isEmpty()) {
+            for (String demoId : user.getDemo()) {
+                demoRepository.deleteById(demoId);
+            }
+        }
+        
+        // 3. Remove user from other users' followers/following lists
+        // Remove from followers lists
+        if (user.getFollowers() != null && !user.getFollowers().isEmpty()) {
+            for (String followerId : user.getFollowers()) {
+                User follower = userRepository.findById(followerId).orElse(null);
+                if (follower != null && follower.getFollowing() != null) {
+                    follower.getFollowing().remove(userName);
+                    userRepository.save(follower);
+                }
+            }
+        }
+        
+        // Remove from following lists
+        if (user.getFollowing() != null && !user.getFollowing().isEmpty()) {
+            for (String followingId : user.getFollowing()) {
+                User following = userRepository.findById(followingId).orElse(null);
+                if (following != null && following.getFollowers() != null) {
+                    following.getFollowers().remove(userName);
+                    userRepository.save(following);
+                }
+            }
+        }
+        
+        // 4. Remove user from friends lists
+        if (user.getFriends() != null && !user.getFriends().isEmpty()) {
+            for (String friendId : user.getFriends()) {
+                User friend = userRepository.findById(friendId).orElse(null);
+                if (friend != null && friend.getFriends() != null) {
+                    friend.getFriends().remove(userName);
+                    userRepository.save(friend);
+                }
+            }
+        }
+        
+        // 5. Remove user from all posts' features lists (where they are featured)
+        postsRepository.removeUserFromAllPostsFeatures(userName);
+        
+        // 6. Remove user from liked posts (clean up likes by this user)
+        if (user.getLikedPosts() != null && !user.getLikedPosts().isEmpty()) {
+            for (String likedPostId : user.getLikedPosts()) {
+                postLikeRepository.deleteByPostIdAndUserName(likedPostId, userName);
+            }
+        }
+        
+        // 7. Delete user relations (follow relationships)
+        userRelationRepository.deleteByFollowerUserNameOrFollowingUserName(userName, userName);
+        
+        // 8. Remove user from all chat rooms they're part of
+        if (user.getChats() != null && !user.getChats().isEmpty()) {
+            chatsRepository.removeUserFromAllChats(userName);
+        }
+        
+        // 9. Finally, delete the user profile
         userRepository.deleteById(id);
     }
     
@@ -369,5 +480,19 @@ public class UserService {
     // Refactored follow method - delegates to UserRelationService
     public String follow(String follower, String following) {
         return userRelationService.toggleFollow(follower, following);
+    }
+
+    /**
+     * Check if username exists
+     */
+    public boolean existsByUserName(String userName) {
+        return userRepository.existsByUserName(userName);
+    }
+
+    /**
+     * Check if email exists
+     */
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
     }
 }

@@ -23,4 +23,7 @@ public interface PostDownloadRepository extends MongoRepository<PostDownload, St
     List<PostDownload> findByUserId(String userId);
     
     boolean existsByPostIdAndUserId(String postId, String userId);
+    
+    // Delete all downloads for a specific post (when post is deleted)
+    void deleteByPostId(String postId);
 }

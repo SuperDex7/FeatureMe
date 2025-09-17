@@ -68,6 +68,19 @@ function SignupPage() {
     };
   }, []);
 
+  // Check if step 1 form is valid
+  const isStep1Valid = () => {
+    return (
+      formData.email &&
+      formData.password &&
+      formData.confirmPassword &&
+      emailValidation.available === true &&
+      !emailValidation.isValidating &&
+      formData.password === formData.confirmPassword &&
+      formData.password.length >= 6
+    );
+  };
+
   const handleInput = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     
@@ -235,6 +248,11 @@ function SignupPage() {
 
   const handleNext = async () => {
     if (step === 1) {
+      // Early return if form is invalid (button should be disabled, but just in case)
+      if (!isStep1Valid()) {
+        return;
+      }
+      
       // Validate required fields
       if (!formData.email || !formData.password || !formData.confirmPassword) {
         alert("Please fill in all required fields");
@@ -430,7 +448,12 @@ function SignupPage() {
                 )}
               </div>
 
-              <button type="button" className="next-btn" onClick={handleNext}>
+              <button 
+                type="button" 
+                className={`next-btn ${!isStep1Valid() ? 'disabled' : ''}`}
+                onClick={handleNext}
+                disabled={!isStep1Valid()}
+              >
                 Next: Choose Username
               </button>
             </form>
