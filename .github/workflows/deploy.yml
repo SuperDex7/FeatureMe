@@ -213,9 +213,9 @@ jobs:
         # Wait for nginx config update
         sleep 5
         
-        # Deploy the application
+        # Deploy the application (use docker-compose)
         aws ssm send-command \
           --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
           --comment "Deploy application" \
-          --parameters 'commands=["cd /home/ubuntu/FeatureMe","aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}","docker compose -f docker-compose.prod.yml down","docker compose -f docker-compose.prod.yml pull","docker compose -f docker-compose.prod.yml up -d","docker image prune -f"]'
+          --parameters 'commands=["cd /home/ubuntu/FeatureMe","aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}","docker-compose -f docker-compose.prod.yml down --remove-orphans","docker-compose -f docker-compose.prod.yml pull","docker-compose -f docker-compose.prod.yml up -d","docker image prune -f"]'
