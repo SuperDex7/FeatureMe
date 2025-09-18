@@ -9,16 +9,16 @@ services:
       - SERVER_PORT=8080
       - SPRING_PROFILES_ACTIVE=local
       - MONGODB_URI=mongodb://mongo:27017/featureme
-      - spring.cloud.aws.credentials.access-key=${aws_accessKeyId}
-      - spring.cloud.aws.credentials.secret-key=${aws_secretAccessKey}
-      - spring.cloud.aws.region.static=${aws_region}
-      - spring.cloud.aws.s3.bucket=${aws_s3bucket}
+      - spring.cloud.aws.credentials.access-key=${AWS_ACCESSKEYID}
+      - spring.cloud.aws.credentials.secret-key=${AWS_SECRETACCESSKEY}
+      - spring.cloud.aws.region.static=${AWS_REGION}
+      - spring.cloud.aws.s3.bucket=${AWS_S3BUCKET}
       - jwt.secret=${JWT_SECRET}
       - jwt.expiration=${JWT_EXPIRATION_MS}
-      - stripe.api.key= ${public_key}
-      - stripe.api.secret=${secret_key}
-      - stripe.webhook.secret=${webhook_secret}
-      - resend.api.key=${resend_api_key}
+      - stripe.api.key= ${STRIPE_API_KEY}
+      - stripe.api.secret=${STRIPE_SECRET_KEY}
+      - stripe.webhook.secret=${STRIPE_WEBHOOK_SECRET}
+      - resend.api.key=${RESEND_API_KEY}
     ports:
       - "8080:8080"  # Backend API on localhost:8080
     restart: unless-stopped
