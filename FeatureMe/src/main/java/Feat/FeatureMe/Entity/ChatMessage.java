@@ -3,6 +3,7 @@ package Feat.FeatureMe.Entity;
 import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -11,11 +12,14 @@ public class ChatMessage {
     @Id
    private String id;
     private String message;
+   @Indexed
    private String sender;
    private String addedBy; // For JOIN messages, who added the user
+   @Indexed
    private String chatRoomId;
 
    @DateTimeFormat
+   @Indexed
    private LocalDateTime time;
 
     private MessageType type;

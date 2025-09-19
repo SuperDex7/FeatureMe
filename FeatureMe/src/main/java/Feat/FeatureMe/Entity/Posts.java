@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -24,12 +25,16 @@ public class Posts {
     private String description;
     private List<String> features;
     private List<String> pendingFeatures; // Features awaiting approval
+    @Indexed
     private String status = "DRAFT"; // DRAFT, PUBLISHED, PARTIALLY_APPROVED
+    @Indexed
     private double price;
+    @Indexed
     private boolean freeDownload;
     private List<String> genre;
     private String music;
     // Comments are now stored in separate PostComment collection
+    @Indexed
     private LocalDateTime time;
     // Likes are now stored in separate PostLike collection
     // Views are now stored in separate PostView collection

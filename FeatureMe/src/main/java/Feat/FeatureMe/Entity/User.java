@@ -31,8 +31,10 @@ public class User implements UserDetails{
     private String role;
     
     // Stripe-related fields
+    @Indexed
     private String stripeCustomerId;
     private String stripeSubscriptionId;
+    @Indexed
     private String subscriptionStatus; // active, canceled, past_due, etc.
 
     private String bio;
@@ -53,6 +55,7 @@ public class User implements UserDetails{
     private List<NotificationsDTO> notifications;
     private List<CommentedOnDTO> comments;
     @CreatedDate
+    @Indexed
     private LocalDateTime createdAt;
 
     public User() { }
