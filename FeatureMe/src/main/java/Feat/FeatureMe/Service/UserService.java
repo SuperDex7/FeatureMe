@@ -30,6 +30,7 @@ import Feat.FeatureMe.Repository.PostDownloadRepository;
 import Feat.FeatureMe.Repository.UserRelationRepository;
 import Feat.FeatureMe.Repository.ChatsRepository;
 import Feat.FeatureMe.Dto.UserPostsDTO;
+import Feat.FeatureMe.Service.S3Service;
 
 @Service
 public class UserService {
@@ -45,13 +46,14 @@ public class UserService {
     private final UserRelationRepository userRelationRepository;
     private final ChatsRepository chatsRepository;
     private final PasswordEncoder passwordEncoder;
+    private final S3Service s3Service;
 
     public UserService(UserRepository userRepository, UserRelationService userRelationService, 
                       PostsRepository postsRepository, DemoRepository demoRepository,
                       PostLikeRepository postLikeRepository, PostCommentRepository postCommentRepository,
                       PostViewRepository postViewRepository, PostDownloadRepository postDownloadRepository,
                       UserRelationRepository userRelationRepository, ChatsRepository chatsRepository,
-                      PasswordEncoder passwordEncoder) {
+                      PasswordEncoder passwordEncoder, S3Service s3Service) {
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
         this.postsRepository = postsRepository;
@@ -63,6 +65,7 @@ public class UserService {
         this.userRelationRepository = userRelationRepository;
         this.chatsRepository = chatsRepository;
         this.passwordEncoder = passwordEncoder;
+        this.s3Service = s3Service;
     }
 
     public void saveUser(User user){
@@ -296,6 +299,23 @@ public class UserService {
         // 1. Delete all posts created by the user
         if (user.getPosts() != null && !user.getPosts().isEmpty()) {
             for (String postId : user.getPosts()) {
+                // Get post details to access music file URL
+                postsRepository.findById(postId).ifPresent(post -> {
+                    // Delete music file from S3 if it exists and is not a default file
+                    if (post.getMusic() != null && !post.getMusic().isEmpty() && 
+                        !post.getMusic().startsWith("/") && post.getMusic().contains("amazonaws.com")) {
+                        try {
+                            // Extract S3 key from full URL
+                            String s3Key = extractS3KeyFromUrl(post.getMusic());
+                            if (s3Key != null) {
+                                s3Service.deleteFile(s3Key);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Failed to delete music file from S3: " + post.getMusic() + " - " + e.getMessage());
+                        }
+                    }
+                });
+                
                 // Delete all related data for each post
                 postLikeRepository.deleteByPostId(postId);
                 postCommentRepository.deleteByPostId(postId);
@@ -310,6 +330,23 @@ public class UserService {
         // 2. Delete all demos created by the user
         if (user.getDemo() != null && !user.getDemo().isEmpty()) {
             for (String demoId : user.getDemo()) {
+                // Get demo details to access song file URL
+                demoRepository.findById(demoId).ifPresent(demo -> {
+                    // Delete song file from S3 if it exists and is not a default file
+                    if (demo.getSongUrl() != null && !demo.getSongUrl().isEmpty() && 
+                        !demo.getSongUrl().startsWith("/") && demo.getSongUrl().contains("amazonaws.com")) {
+                        try {
+                            // Extract S3 key from full URL
+                            String s3Key = extractS3KeyFromUrl(demo.getSongUrl());
+                            if (s3Key != null) {
+                                s3Service.deleteFile(s3Key);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Failed to delete demo song file from S3: " + demo.getSongUrl() + " - " + e.getMessage());
+                        }
+                    }
+                });
+                
                 demoRepository.deleteById(demoId);
             }
         }
@@ -366,7 +403,34 @@ public class UserService {
             chatsRepository.removeUserFromAllChats(userName);
         }
         
-        // 9. Finally, delete the user profile
+        // 9. Delete user's profile picture and banner from S3
+        if (user.getProfilePic() != null && !user.getProfilePic().isEmpty() && 
+            !user.getProfilePic().startsWith("/") && user.getProfilePic().contains("amazonaws.com")) {
+            try {
+                // Extract S3 key from full URL
+                String s3Key = extractS3KeyFromUrl(user.getProfilePic());
+                if (s3Key != null) {
+                    s3Service.deleteFile(s3Key);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to delete profile picture from S3: " + user.getProfilePic() + " - " + e.getMessage());
+            }
+        }
+        
+        if (user.getBanner() != null && !user.getBanner().isEmpty() && 
+            !user.getBanner().startsWith("/") && user.getBanner().contains("amazonaws.com")) {
+            try {
+                // Extract S3 key from full URL
+                String s3Key = extractS3KeyFromUrl(user.getBanner());
+                if (s3Key != null) {
+                    s3Service.deleteFile(s3Key);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to delete banner from S3: " + user.getBanner() + " - " + e.getMessage());
+            }
+        }
+        
+        // 10. Finally, delete the user profile
         userRepository.deleteById(id);
     }
     
@@ -500,5 +564,32 @@ public class UserService {
      */
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
+    }
+    
+    /**
+     * Extracts S3 key from a full S3 URL
+     * @param s3Url Full S3 URL (e.g., https://bucket.s3.region.amazonaws.com/path/file.ext)
+     * @return S3 key (path/file.ext) or null if URL is invalid
+     */
+    private String extractS3KeyFromUrl(String s3Url) {
+        try {
+            if (s3Url == null || s3Url.isEmpty()) {
+                return null;
+            }
+            
+            // Extract the key part after the domain
+            // URL format: https://featuremellc.s3.us-east-2.amazonaws.com/images/profiles/filename.jpg
+            String[] parts = s3Url.split("amazonaws\\.com/");
+            if (parts.length > 1) {
+                String key = parts[1];
+                // URL decode the key in case it contains encoded characters
+                return java.net.URLDecoder.decode(key, "UTF-8");
+            }
+            
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error extracting S3 key from URL: " + s3Url + " - " + e.getMessage());
+            return null;
+        }
     }
 }
