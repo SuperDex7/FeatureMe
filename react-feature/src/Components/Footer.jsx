@@ -49,11 +49,11 @@ function Footer() {
             <a href="#" className="footer-social-link" aria-label="Twitter">
               <span className="footer-social-icon">🐦</span>
             </a>
-            <a href="#" className="footer-social-link" aria-label="Instagram">
+            <a href="https://www.instagram.com/therealfeatureme/?utm_source=ig_web_button_share_sheet" target="_blank" className="footer-social-link" aria-label="Instagram">
               <span className="footer-social-icon">📷</span>
             </a>
-            <a href="#" className="footer-social-link" aria-label="Facebook">
-              <span className="footer-social-icon">📘</span>
+            <a href="https://www.tiktok.com/@therealfeatureme" className="footer-social-link" target="_blank" aria-label="TikTok">
+              <span className="footer-social-icon">📱</span>
             </a>
             <a href="#" className="footer-social-link" aria-label="YouTube">
               <span className="footer-social-icon">📺</span>
