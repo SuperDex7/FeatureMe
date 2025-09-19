@@ -3,6 +3,7 @@ package Feat.FeatureMe.Entity;
 import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "post_downloads")
@@ -11,9 +12,12 @@ public class PostDownload {
     @Id
     private String id;
     
+    @Indexed
     private String postId;
+    @Indexed
     private String userId;
     private String userName;
+    @Indexed
     private LocalDateTime downloadTime;
 
     public PostDownload() {}

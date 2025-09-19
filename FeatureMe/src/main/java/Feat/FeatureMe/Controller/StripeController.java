@@ -89,14 +89,14 @@ public class StripeController {
                             .setUnitAmount(500L) // $5.00
                             .setRecurring(
                                 SessionCreateParams.LineItem.PriceData.Recurring.builder()
-                                    .setInterval(SessionCreateParams.LineItem.PriceData.Recurring.Interval.DAY)
+                                    .setInterval(SessionCreateParams.LineItem.PriceData.Recurring.Interval.MONTH)
                                     .setIntervalCount(1L)
                                     .build()
                             )
                             .setProductData(
                                 SessionCreateParams.LineItem.PriceData.ProductData.builder()
                                     .setName("FeatureMe Plus")
-                                    .setDescription("Daily subscription for FeatureMe Plus")
+                                    .setDescription("Monthly subscription for FeatureMe Plus")
                                     .addImage("https://media.istockphoto.com/id/1076582642/vector/eighth-note-drawn-by-hand-with-rough-brush-music-icon-symbol-logo-sketch-graffiti-grunge.jpg?s=612x612&w=0&k=20&c=XLL1sec-tAcWXdYxWIGjI2hG7ffolmgjsGCkS2CtZtk=")
                                     .build()
                             )

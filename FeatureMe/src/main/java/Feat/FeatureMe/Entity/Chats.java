@@ -3,6 +3,7 @@ package Feat.FeatureMe.Entity;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import Feat.FeatureMe.Dto.MostRecentChatDTO;
@@ -13,6 +14,7 @@ public class Chats {
     private String chatName;
     private String chatPhoto;
     
+    @Indexed
     private List<String> users;
     private List<ChatMessage> messages;
     private MostRecentChatDTO mostRecentChat;
