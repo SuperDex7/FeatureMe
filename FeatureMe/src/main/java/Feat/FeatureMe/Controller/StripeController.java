@@ -79,7 +79,7 @@ public class StripeController {
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
             .setCustomer(customerId)
-            
+            .setAllowPromotionCodes(true)
             .addLineItem(
                 SessionCreateParams.LineItem.builder()
                     .setQuantity(1L)
@@ -146,7 +146,7 @@ public class StripeController {
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
             .setCustomer(customerId)
-            
+            .setAllowPromotionCodes(true)
             .addLineItem(
                 SessionCreateParams.LineItem.builder()
                     .setQuantity(1L)

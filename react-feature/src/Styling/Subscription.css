@@ -319,6 +319,74 @@
   transform: none !important;
 }
 
+/* Customer Portal Section */
+.customer-portal-section {
+  background: rgba(36, 40, 54, 0.8);
+  border: 2px solid rgba(79, 140, 255, 0.3);
+  border-radius: 20px;
+  padding: 2.5rem;
+  margin: 3rem 0;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(79, 140, 255, 0.2);
+}
+
+.customer-portal-section h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #4f8cff;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 16px rgba(79, 140, 255, 0.3);
+}
+
+.portal-description {
+  color: rgba(243, 243, 243, 0.8);
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.portal-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: linear-gradient(135deg, #4f8cff 0%, #a084e8 100%);
+  color: white;
+  text-decoration: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.portal-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(79, 140, 255, 0.5);
+  color: white;
+  text-decoration: none;
+}
+
+.portal-icon {
+  font-size: 1.2rem;
+}
+
+.external-link-icon {
+  font-size: 1rem;
+  opacity: 0.8;
+  transition: transform 0.3s ease;
+}
+
+.portal-button:hover .external-link-icon {
+  transform: translate(2px, -2px);
+}
+
 /* FAQ Section */
 .faq-section {
   margin: 4rem 0;
@@ -440,6 +508,24 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
+  
+  .customer-portal-section {
+    padding: 2rem 1.5rem;
+    margin: 2rem 0;
+  }
+  
+  .customer-portal-section h2 {
+    font-size: 1.6rem;
+  }
+  
+  .portal-description {
+    font-size: 1rem;
+  }
+  
+  .portal-button {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -470,6 +556,26 @@
   
   .trust-icon {
     font-size: 2rem;
+  }
+  
+  .customer-portal-section {
+    padding: 1.5rem 1rem;
+    margin: 1.5rem 0;
+  }
+  
+  .customer-portal-section h2 {
+    font-size: 1.4rem;
+  }
+  
+  .portal-description {
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .portal-button {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    gap: 0.6rem;
   }
 }
 
