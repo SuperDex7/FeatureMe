@@ -62,6 +62,7 @@ const SubscriptionPage = () => {
         'No GIF uploads for profile/banner',
         'Basic discovery features',
         '3 Profile Demo Limit',
+        'Won\'t Appear In Spotlight Section',
         '15mb file upload limit | MP3 only'
       ],
       buttonText: currentPlan === 'free' ? 'Current Plan' : 'Downgrade',
@@ -75,13 +76,13 @@ const SubscriptionPage = () => {
       features: [
         'Advanced Views Analytics',
         'Upload GIFs for profile picture & banner',
-        'Social Media URL Container',
-        'Advanced discovery boost',
+        'Display Social Links On Profile',
+        'Spotlight Page Appearences',
         'Up To 6 Profile Demos',
         '90mb file upload limit | MP3 and Wave File Uploads'
       ],
       comingSoon: [
-        'Better Spotlight Customization',
+        'Spotlight Page Upgrades',
         'TBD',
        
       ],
@@ -306,6 +307,26 @@ const handlePlanAction = async (planType) => {
             </div>
           ))}
         </div>
+
+        {/* Customer Portal Section */}
+        {currentPlan === 'plus' && (
+          <div className="customer-portal-section">
+            <h2>Manage Your Subscription</h2>
+            <p className="portal-description">
+              Access your billing information, update payment methods, and manage your subscription
+            </p>
+            <a 
+              href="https://billing.stripe.com/p/login/3cIaEY72cf217ov7bFg7e00" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="portal-button"
+            >
+              <span className="portal-icon">⚙️</span>
+              Open Customer Portal
+              <span className="external-link-icon">↗</span>
+            </a>
+          </div>
+        )}
 
         {/* FAQ Section */}
         <div className="faq-section">
