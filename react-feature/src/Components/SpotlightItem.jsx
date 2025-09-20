@@ -193,6 +193,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           
           <ViewsAnalytics
             postId={id}
+            postTitle={title}
             isOpen={showViewsAnalytics}
             onClose={() => setShowViewsAnalytics(false)}
             currentUser={currentUser}

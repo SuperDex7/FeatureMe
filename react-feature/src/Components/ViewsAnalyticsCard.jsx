@@ -199,6 +199,7 @@ function ViewsAnalyticsCard() {
       {selectedPost && (
         <ViewsAnalytics
           postId={selectedPost.id}
+          postTitle={selectedPost.title}
           isOpen={showViewsAnalytics}
           onClose={() => {
             setShowViewsAnalytics(false);
