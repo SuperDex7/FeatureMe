@@ -947,8 +947,9 @@
   margin: 1.1rem 0 0.7rem 0;
   font-size: 1.08rem;
   color: #bfc9d1;
+  flex-wrap: wrap;
 }
-.latest-post-likes, .latest-post-shares {
+.latest-post-likes, .latest-post-comments, .latest-post-downloads {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -972,38 +973,10 @@
   margin: 0.7rem 0 1.1rem 0;
   font-size: 1.12rem;
   color: #7eaaff;
+  flex-wrap: wrap;
 }
-.latest-post-comments-section {
-  margin-top: 1.2rem;
-  width: 100%;
-}
-.latest-post-comments-section h5 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.08rem;
-  color: #7f53ac;
-  font-weight: 700;
-}
-.latest-post-comments-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.latest-post-comments-list li {
-  background: rgba(36, 40, 54, 0.22);
-  border-radius: 0.7rem;
-  padding: 0.6rem 0.9rem;
-  color: #f3f3f7;
-  font-size: 1.03rem;
-}
-.comment-user {
-  color: #7eaaff;
-  font-weight: 600;
-  margin-right: 0.5rem;
-}
+
+
 @media (max-width: 900px) {
   .card-balanced {
     min-height: 220px;

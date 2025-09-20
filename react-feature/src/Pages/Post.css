@@ -147,7 +147,7 @@
     box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
 }
 
-.post-hero-download-btn {
+.post-hero-profile-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -163,10 +163,32 @@
     backdrop-filter: blur(10px);
 }
 
-.post-hero-download-btn:hover {
+.post-hero-profile-btn:hover {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-3px);
+}
+
+.post-hero-download-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    border: none;
+    color: white;
+    padding: 15px 30px;
+    border-radius: 50px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+}
+
+.post-hero-download-btn:hover {
+    background: linear-gradient(135deg, #33e0ff 0%, #00aacc 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 35px rgba(0, 212, 255, 0.4);
 }
 
 /* Main Container */
@@ -234,7 +256,7 @@
 
 .artist-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 10px;
 }
 
@@ -322,6 +344,36 @@
     font-size: 14px;
     font-weight: 600;
     color: #ffffff;
+}
+
+/* Download Item Styles */
+.download-item {
+    background: rgba(0, 212, 255, 0.05) !important;
+    border: 1px solid rgba(0, 212, 255, 0.2) !important;
+}
+
+.download-track-btn {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+    margin-top: 5px;
+}
+
+.download-track-btn:hover {
+    background: linear-gradient(135deg, #33e0ff 0%, #00aacc 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 212, 255, 0.4);
+}
+
+.download-track-btn:active {
+    transform: translateY(0);
 }
 
 .tags-cloud {
@@ -822,7 +874,7 @@
     max-height: 200px;
 }
 
-.audio-player-container {
+.audio-player-container2 {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
@@ -1037,7 +1089,7 @@
 
 /* Responsive Audio Player */
 @media (max-width: 1200px) {
-    .audio-player-container {
+    .audio-player-container2 {
         flex-direction: column;
         gap: 20px;
         text-align: center;
@@ -1066,7 +1118,7 @@
         padding: 20px 0;
     }
     
-    .audio-player-container {
+    .audio-player-container2 {
         padding: 0 15px;
     }
     

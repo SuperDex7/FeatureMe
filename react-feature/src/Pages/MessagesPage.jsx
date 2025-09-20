@@ -581,9 +581,12 @@ const MessagesPage = () => {
                   Your browser does not support the video element.
                 </video>
               ) : (
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="messaging-file-download">
+                <button 
+                  onClick={() => handleFileDownload(fileUrl, fileName)} 
+                  className="messaging-file-download"
+                >
                   Download File
-                </a>
+                </button>
               )}
             </div>
           )}
@@ -593,6 +596,37 @@ const MessagesPage = () => {
     
     // Regular text message
     return <p>{message.message}</p>;
+  };
+
+  // Handle file download
+  const handleFileDownload = async (fileUrl, fileName) => {
+    try {
+      // Fetch the file as a blob to force download
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch file');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('File download started:', fileName);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
+    }
   };
 
   // Format file size

@@ -156,7 +156,8 @@ function Homepage() {
             <div className="latest-post-desc">{latestPost.description}</div>
             <div className="latest-post-stats">
               <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost?.likes?.length || 0}</span>
-              <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.totalComments || 0}</span>
+              <span className="latest-post-comments"><span role="img" aria-label="comments">💬</span> {latestPost?.totalComments || 0}</span>
+              <span className="latest-post-downloads"><span role="img" aria-label="downloads">⬇️</span> {latestPost?.totalDownloads || 0}</span>
             </div>
             <button className="latest-post-btn" onClick={e => {e.stopPropagation(); setLatestModalOpen(true);}}>View Post</button>
             </>
@@ -279,18 +280,11 @@ function Homepage() {
                 <h4>{latestPost.title}</h4>
                 <div className="latest-post-modal-stats">
                   <span className="latest-post-likes"><span role="img" aria-label="likes">👍</span> {latestPost.likes.length} Likes</span>
-                  <span className="latest-post-shares"><span role="img" aria-label="shares">🔗</span> {latestPost?.totalComments || 0} Shares</span>
+                  <span className="latest-post-comments"><span role="img" aria-label="comments">💬</span> {latestPost?.totalComments || 0} Comments</span>
+                  <span className="latest-post-downloads"><span role="img" aria-label="downloads">⬇️</span> {latestPost?.totalDownloads || 0} Downloads</span>
                 </div>
                 <p>{latestPost.description}</p>
-                <div className="latest-post-comments-section">
-                  <h5>Comments</h5>
-                  
-                  <ul className="latest-post-comments-list">
-                    { latestPost?.comments?.map((c, idx) => (
-                      <li key={idx}><span className="comment-user">{c.userName}:</span> {c.comment}</li>
-                    )) || "No Comments yet"}
-                  </ul>
-                </div>
+                
               </div>
               <a href={`/post/${latestPost.id}`}><button className="latest-post-btn" style={{marginTop: '1.5rem'}} >Go to Post</button></a>
             </div>

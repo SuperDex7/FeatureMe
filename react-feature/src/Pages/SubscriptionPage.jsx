@@ -254,7 +254,7 @@ const handlePlanAction = async (planType) => {
               </div>
 
               <div className="card-body">
-                <div className="features-section">
+                <div className="features-section2">
                   <h4>What's included:</h4>
                   <ul className="features-list">
                     {plan.features.map((feature, index) => (

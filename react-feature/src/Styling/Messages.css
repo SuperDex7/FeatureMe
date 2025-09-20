@@ -533,6 +533,8 @@
   font-weight: 500;
   transition: all 0.2s ease;
   border: 1px solid rgba(79, 140, 255, 0.3);
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .messaging-file-download:hover {
