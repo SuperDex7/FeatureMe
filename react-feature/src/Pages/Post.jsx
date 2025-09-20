@@ -294,34 +294,34 @@ function Post() {
     return (
         <div className="post-page">
             <Header/>
-            {/* Hero Section with Track Banner */}
-            <div className="hero-section">
-                <div className="hero-background" style={{ backgroundImage: `url(${post.author.banner})` }}>
-                    <div className="hero-overlay">
-                        <div className="hero-content">
-                            <div className="track-badge">
-                                <span className="badge-icon">🎵</span>
+            {/* Post Hero Section with Track Banner */}
+            <div className="post-hero-section">
+                <div className="post-hero-background" style={{ backgroundImage: `url(${post.author.banner})` }}>
+                    <div className="post-hero-overlay">
+                        <div className="post-hero-content">
+                            <div className="post-track-badge">
+                                <span className="post-badge-icon">🎵</span>
                                 {post.status === 'PUBLISHED' && (
-                                <span className="badge-text">TRACK</span>
+                                <span className="post-badge-text">TRACK</span>
                                 )}
                                 {post.status === 'DRAFT' && (
-                                    <span className="badge-text">DRAFT</span>
+                                    <span className="post-badge-text">DRAFT</span>
                                 )}
                                 {post.status === 'PARTIALLY_APPROVED' && (
-                                    <span className="badge-text">PARTIALLY APPROVED</span>
+                                    <span className="post-badge-text">PARTIALLY APPROVED</span>
                                 )}
                             </div>
-                            <h1 className="hero-title">{post.title}</h1>
-                            <p className="hero-subtitle">by {post.author.userName}</p>
-                            <div className="hero-actions">
+                            <h1 className="post-hero-title">{post.title}</h1>
+                            <p className="post-hero-subtitle">by {post.author.userName}</p>
+                            <div className="post-hero-actions">
                                 <button 
-                                    className={`hero-play-btn ${isPlaying ? 'playing' : ''}`}
+                                    className={`post-hero-play-btn ${isPlaying ? 'playing' : ''}`}
                                     onClick={handlePlayPause}
                                 >
                                     <span className="play-icon">{isPlaying ? '⏸️' : '▶️'}</span>
                                     <span className="play-text">{isPlaying ? 'Pause' : 'Play'}</span>
                                 </button>
-                                <a href={`/profile/${post.author.userName}`}><button className="hero-download-btn">
+                                <a href={`/profile/${post.author.userName}`}><button className="post-hero-download-btn">
                                     <span className="download-icon">⬇️</span>
                                     View Profile
                                 </button></a>
@@ -330,29 +330,29 @@ function Post() {
                                     <>
                                     {currentUser.role === 'USERPLUS' && (
                                         <button 
-                                            className="hero-analytics-btn"
+                                            className="post-hero-analytics-btn"
                                             onClick={() => setShowViewsAnalytics(true)}
                                             title="View Analytics (Premium Feature)"
                                         >
-                                            <span className="analytics-icon">📊</span>
-                                            <span className="analytics-text">Analytics</span>
+                                            <span className="post-analytics-icon">📊</span>
+                                            <span className="post-analytics-text">Analytics</span>
                                         </button>
                                     ) ||  <button 
-                                    className="hero-analytics-btn"
+                                    className="post-hero-analytics-btn"
                                     onClick={() => alert('Get a Plus Membership to view analytics')}
                                     title="View Analytics (Premium Feature)"
                                 >
-                                    <span className="analytics-icon">📊</span>
-                                    <span className="analytics-text">Analytics</span>
+                                    <span className="post-analytics-icon">📊</span>
+                                    <span className="post-analytics-text">Analytics</span>
                                 </button>}
                                         <button 
-                                            className="hero-delete-btn"
+                                            className="post-hero-delete-btn"
                                             onClick={handleDeletePost}
                                             disabled={isDeletingPost}
                                             title="Delete post"
                                         >
-                                            <span className="delete-icon">🗑️</span>
-                                            <span className="delete-text">{isDeletingPost ? 'Deleting...' : 'Delete'}</span>
+                                            <span className="post-delete-icon">🗑️</span>
+                                            <span className="post-delete-text">{isDeletingPost ? 'Deleting...' : 'Delete'}</span>
                                         </button>
                                     </>
                                 )}
@@ -715,6 +715,7 @@ function Post() {
             
             <ViewsAnalytics
                 postId={id}
+                postTitle={post.title}
                 isOpen={showViewsAnalytics}
                 onClose={() => setShowViewsAnalytics(false)}
                 currentUser={currentUser}

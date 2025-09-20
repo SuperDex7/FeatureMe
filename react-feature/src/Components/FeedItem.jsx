@@ -197,6 +197,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
           
           <ViewsAnalytics
             postId={id}
+            postTitle={title}
             isOpen={showViewsAnalytics}
             onClose={() => setShowViewsAnalytics(false)}
             currentUser={currentUser}

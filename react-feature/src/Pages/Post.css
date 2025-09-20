@@ -31,8 +31,8 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Hero Section */
-.hero-section {
+/* Post Hero Section */
+.post-hero-section {
     position: relative;
     height: 70vh;
     min-height: 500px;
@@ -42,7 +42,7 @@
     overflow: hidden;
 }
 
-.hero-background {
+.post-hero-background {
     position: absolute;
     top: 0;
     left: 0;
@@ -54,7 +54,7 @@
     
 }
 
-.hero-overlay {
+.post-hero-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -66,14 +66,14 @@
     justify-content: center;
 }
 
-.hero-content {
+.post-hero-content {
     text-align: center;
     z-index: 2;
     max-width: 800px;
     padding: 0 20px;
 }
 
-.track-badge {
+.post-track-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -85,18 +85,18 @@
     backdrop-filter: blur(10px);
 }
 
-.badge-icon {
+.post-badge-icon {
     font-size: 16px;
 }
 
-.badge-text {
+.post-badge-text {
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 1px;
     color: #00d4ff;
 }
 
-.hero-title {
+.post-hero-title {
     font-size: 4rem;
     font-weight: 800;
     margin: 0 0 15px 0;
@@ -107,21 +107,21 @@
     text-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
 }
 
-.hero-subtitle {
+.post-hero-subtitle {
     font-size: 1.5rem;
     color: #b8b8b8;
     margin: 0 0 40px 0;
     font-weight: 400;
 }
 
-.hero-actions {
+.post-hero-actions {
     display: flex;
     gap: 20px;
     justify-content: center;
     flex-wrap: wrap;
 }
 
-.hero-play-btn {
+.post-hero-play-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -137,17 +137,17 @@
     box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
 }
 
-.hero-play-btn:hover {
+.post-hero-play-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 12px 35px rgba(0, 212, 255, 0.4);
 }
 
-.hero-play-btn.playing {
+.post-hero-play-btn.playing {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
     box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
 }
 
-.hero-download-btn {
+.post-hero-download-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -163,7 +163,7 @@
     backdrop-filter: blur(10px);
 }
 
-.hero-download-btn:hover {
+.post-hero-download-btn:hover {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-3px);
@@ -672,7 +672,7 @@
 }
 
 /* Delete Post Button */
-.hero-delete-btn {
+.post-hero-delete-btn {
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
   border: none;
   color: #ffffff;
@@ -688,17 +688,17 @@
   min-width: 100px;
 }
 
-.hero-delete-btn:hover:not(:disabled) {
+.post-hero-delete-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
   background: linear-gradient(135deg, #ff7a7a 0%, #f06a62 100%);
 }
 
-.hero-delete-btn:active:not(:disabled) {
+.post-hero-delete-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.hero-delete-btn:disabled {
+.post-hero-delete-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -706,7 +706,7 @@
 }
 
 /* Premium Analytics Button */
-.hero-analytics-btn {
+.post-hero-analytics-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -724,7 +724,7 @@
   box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
 }
 
-.hero-analytics-btn::before {
+.post-hero-analytics-btn::before {
   content: '';
   position: absolute;
   top: 0;
@@ -735,33 +735,33 @@
   transition: left 0.5s;
 }
 
-.hero-analytics-btn:hover::before {
+.post-hero-analytics-btn:hover::before {
   left: 100%;
 }
 
-.hero-analytics-btn:hover {
+.post-hero-analytics-btn:hover {
   background: linear-gradient(135deg, #ff5252, #ff9800);
   transform: translateY(-2px);
   box-shadow: 0 6px 25px rgba(255, 107, 107, 0.4);
 }
 
-.hero-analytics-btn:active {
+.post-hero-analytics-btn:active {
   transform: translateY(0);
 }
 
-.analytics-icon {
+.post-analytics-icon {
   font-size: 18px;
 }
 
-.analytics-text {
+.post-analytics-text {
   font-weight: 600;
 }
 
-.delete-icon {
+.post-delete-icon {
   font-size: 1rem;
 }
 
-.delete-text {
+.post-delete-text {
   font-size: 0.9rem;
 }
 
@@ -1108,15 +1108,15 @@
 }
 
 @media (max-width: 768px) {
-    .hero-title {
+    .post-hero-title {
         font-size: 2.5rem;
     }
     
-    .hero-subtitle {
+    .post-hero-subtitle {
         font-size: 1.2rem;
     }
     
-    .hero-actions {
+    .post-hero-actions {
         flex-direction: column;
         align-items: center;
     }
