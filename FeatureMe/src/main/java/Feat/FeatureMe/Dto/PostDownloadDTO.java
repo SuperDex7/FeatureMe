@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PostDownloadDTO(
     String id,
@@ -8,7 +8,7 @@ public record PostDownloadDTO(
     String userId,
     String userName,
     String profilePic,
-    LocalDateTime downloadTime
+    Instant downloadTime
 ) {
     
 }

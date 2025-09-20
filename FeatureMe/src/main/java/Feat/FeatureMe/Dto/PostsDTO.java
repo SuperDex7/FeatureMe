@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public record PostsDTO(
@@ -16,7 +16,7 @@ public record PostsDTO(
         List<String> genre,
         String music,
         List<CommentDTO> comments,
-        LocalDateTime time,
+        Instant time,
         List<LikesDTO> likes,
         List<ViewsDTO> views,
         int totalViews,

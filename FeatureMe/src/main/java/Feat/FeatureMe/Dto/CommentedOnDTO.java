@@ -1,11 +1,11 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record CommentedOnDTO(
     String id,
     String commented,
-    LocalDateTime time
+    Instant time
 ) {
     
 }

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -56,7 +56,7 @@ public class User implements UserDetails{
     private List<CommentedOnDTO> comments;
     @CreatedDate
     @Indexed
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public User() { }
    
@@ -83,7 +83,7 @@ public class User implements UserDetails{
                 List<String> chats,
                 List<NotificationsDTO> notifications,
                 List<CommentedOnDTO> comments,
-                LocalDateTime createdAt) {
+                Instant createdAt) {
         this.id = id;
         this.userName = userName;
         this.password = password;
@@ -106,7 +106,7 @@ public class User implements UserDetails{
         this.chats = chats;
         this.notifications = notifications;
         this.comments = comments;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     public String getId() {
@@ -289,7 +289,7 @@ public class User implements UserDetails{
         return this;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -97,7 +97,7 @@ public class PostsService {
             posts.getPrice(),
             posts.getGenre(),
             posts.getMusic(),
-            LocalDateTime.now(),
+            Instant.now(),
             0, // Initial totalViews
             posts.isFreeDownload()
         );
@@ -159,7 +159,7 @@ public class PostsService {
                     postDto.id(), 
                     author.getUserName(), 
                     "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.", 
-                    LocalDateTime.now(),
+                    Instant.now(),
                     NotificationsDTO.NotiType.POST
                 ));
                 userRepository.save(featuredUser);
@@ -208,7 +208,7 @@ public class PostsService {
                 postId, 
                 "System", 
                 "Your post '" + post.getTitle() + "' is now published! All featured users have approved.", 
-                LocalDateTime.now(),
+                Instant.now(),
                 NotificationsDTO.NotiType.POST
             ));
             userRepository.save(author);
@@ -224,7 +224,7 @@ public class PostsService {
             postId, 
             post.getAuthor().getUserName(), 
             "You approved the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now(),
+            Instant.now(),
             NotificationsDTO.NotiType.POST
         ));
         
@@ -263,7 +263,7 @@ public class PostsService {
                 postId, 
                 "System", 
                 "Your post '" + post.getTitle() + "' is now published with approved features only.", 
-                LocalDateTime.now(),
+                Instant.now(),
                 NotificationsDTO.NotiType.POST
             ));
             userRepository.save(author);
@@ -279,7 +279,7 @@ public class PostsService {
             postId, 
             post.getAuthor().getUserName(), 
             "You rejected the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now(),
+            Instant.now(),
             NotificationsDTO.NotiType.POST
         ));
         
@@ -292,7 +292,7 @@ public class PostsService {
             postId, 
             rejecterUserName, 
             rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'", 
-            LocalDateTime.now(),
+            Instant.now(),
             NotificationsDTO.NotiType.POST
         ));
         
@@ -497,7 +497,7 @@ public class PostsService {
                         null, // No post ID since it's deleted
                         author.getUserName(),
                         "Deleted their post '" + post.getTitle() + "' before you could approve/reject the feature request.",
-                        LocalDateTime.now(),
+                        Instant.now(),
                         NotificationsDTO.NotiType.POST
                     ));
                     userRepository.save(pendingUser);
@@ -695,7 +695,7 @@ public class PostsService {
             
             if (isLiked) {
                 // User liked the post
-                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", LocalDateTime.now(), NotificationsDTO.NotiType.POST);
+                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", Instant.now(), NotificationsDTO.NotiType.POST);
                 user.getLikedPosts().add(id);
                 author.getNotifications().add(noti);
                 
@@ -739,7 +739,7 @@ public class PostsService {
             foundPost.setTotalComments(foundPost.getTotalComments() + 1);
             
             // Handle notifications and user comment history
-            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", LocalDateTime.now(),NotificationsDTO.NotiType.POST);
+            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", Instant.now(),NotificationsDTO.NotiType.POST);
             
             if(author.getNotifications() == null){
                 author.setNotifications(new ArrayList<>());
@@ -748,7 +748,7 @@ public class PostsService {
                 user.setComments(new ArrayList<>());
             }
             
-            user.getComments().add(new CommentedOnDTO(id, comment, LocalDateTime.now()));
+            user.getComments().add(new CommentedOnDTO(id, comment, Instant.now()));
             author.getNotifications().add(noti);
             
             // Clean up notifications if they exceed 30
@@ -1150,7 +1150,7 @@ public class PostsService {
             id, 
             userName, 
             "Downloaded Your Post '" + post.getTitle() + "'", 
-            LocalDateTime.now(),
+            Instant.now(),
             NotificationsDTO.NotiType.POST
         ));
         userRepository.save(author);

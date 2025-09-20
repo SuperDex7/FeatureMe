@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public record MostRecentChatDTO(
@@ -9,7 +9,7 @@ public record MostRecentChatDTO(
     String chatPhoto,
     List<String> users,
     String message,
-    LocalDateTime time
+    Instant time
 ) {
     
 }

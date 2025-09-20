@@ -1,12 +1,12 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record ViewsDTO(
     String userName,
     String profilePic,
-    LocalDateTime firstView,
-    LocalDateTime lastView,
+    Instant firstView,
+    Instant lastView,
     int viewCount
 ) {
 }

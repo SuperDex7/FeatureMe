@@ -1,11 +1,11 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record LikesDTO(
     String userName,
     String profilePic,
-    LocalDateTime time
+    Instant time
 ) {
     
 }

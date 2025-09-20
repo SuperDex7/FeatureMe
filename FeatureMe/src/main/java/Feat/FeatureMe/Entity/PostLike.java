@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -20,11 +20,11 @@ public class PostLike {
     @Indexed
     private String userName;      // User who liked the post
     
-    private LocalDateTime likedAt; // When the like was created
+    private Instant likedAt; // When the like was created
     
     public PostLike() {}
     
-    public PostLike(String postId, String userName, LocalDateTime likedAt) {
+    public PostLike(String postId, String userName, Instant likedAt) {
         this.postId = postId;
         this.userName = userName;
         this.likedAt = likedAt;
@@ -56,11 +56,11 @@ public class PostLike {
     }
     
     
-    public LocalDateTime getLikedAt() {
+    public Instant getLikedAt() {
         return likedAt;
     }
     
-    public void setLikedAt(LocalDateTime likedAt) {
+    public void setLikedAt(Instant likedAt) {
         this.likedAt = likedAt;
     }
 }

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -20,7 +20,7 @@ public class ChatMessage {
 
    @DateTimeFormat
    @Indexed
-   private LocalDateTime time;
+   private Instant time;
 
     private MessageType type;
 
@@ -30,7 +30,7 @@ public class ChatMessage {
 
    public ChatMessage() { }
 
-   public ChatMessage(String id, String message, String sender, String chatRoomId, LocalDateTime time, MessageType type) {
+   public ChatMessage(String id, String message, String sender, String chatRoomId, Instant time, MessageType type) {
     this.id = id;
     this.message = message;
     this.sender = sender;
@@ -71,11 +71,11 @@ public class ChatMessage {
     this.addedBy = addedBy;
    }
 
-   public LocalDateTime getTime() {
+   public Instant getTime() {
     return time;
    }
 
-   public void setTime(LocalDateTime time) {
+   public void setTime(Instant time) {
     this.time = time;
    }
 

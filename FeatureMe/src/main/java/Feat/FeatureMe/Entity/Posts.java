@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +35,7 @@ public class Posts {
     private String music;
     // Comments are now stored in separate PostComment collection
     @Indexed
-    private LocalDateTime time;
+    private Instant time;
     // Likes are now stored in separate PostLike collection
     // Views are now stored in separate PostView collection
     // Keep totalViews as cached field for performance (will be calculated from PostView collection)
@@ -49,7 +49,7 @@ public class Posts {
 
     public Posts() { }
 
-    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, LocalDateTime time, int totalViews, boolean freeDownload) {
+    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, Instant time, int totalViews, boolean freeDownload) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -67,7 +67,7 @@ public class Posts {
         this.freeDownload = freeDownload;
     }
     
-    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, LocalDateTime time, int totalViews, int totalLikes, boolean freeDownload) {
+    public Posts(String id, User author, String title, String description, List<String> features, double price, List<String> genre, String music, Instant time, int totalViews, int totalLikes, boolean freeDownload) {
         this.id = id;
         this.author = author;
         this.title = title;
@@ -148,11 +148,11 @@ public class Posts {
     }
 
 
-    public LocalDateTime getTime() {
+    public Instant getTime() {
         return time;
     }
 
-    public void setTime(LocalDateTime time) {
+    public void setTime(Instant time) {
         this.time = time;
     }
 

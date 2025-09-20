@@ -136,19 +136,34 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
   const totalDownloads = analyticsData.totalDownloads;
 
   const formatDate = (dateString) => {
+    // Ensure the date is parsed correctly as UTC if it's an ISO string
     const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 
   const getTimeSince = (dateString) => {
+    // Ensure the date is parsed correctly as UTC if it's an ISO string
     const date = new Date(dateString);
     const now = new Date();
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);

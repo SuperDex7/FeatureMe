@@ -13,7 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -255,7 +255,7 @@ public class UserRelationService {
      */
     private void addFollowNotification(User following, String followerUserName) {
         NotificationsDTO notification = new NotificationsDTO(
-            null, followerUserName, "Started Following You!", LocalDateTime.now(), NotificationsDTO.NotiType.PROFILE);
+            null, followerUserName, "Started Following You!", Instant.now(), NotificationsDTO.NotiType.PROFILE);
         
         if (following.getNotifications() == null) {
             following.setNotifications(new ArrayList<>());
