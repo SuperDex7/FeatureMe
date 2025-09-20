@@ -8,7 +8,8 @@ public record UserPostsDTO(
         String profilePic,
         String banner,
         String bio,
-        String location
+        String location,
+        String role
        
 ) {
     

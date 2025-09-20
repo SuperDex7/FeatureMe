@@ -11,7 +11,7 @@
 </div>
 
 <div align="center">
-  <h3>🌐 <a href="https://featureme.co/">Visit FeatureMe.co</a></h3>
+  <h3>🌐 <a href="https://featureme.co/" target="_blank">Visit FeatureMe.co</a></h3>
   <p><strong>Where Musicians Connect, Create, and Get Discovered</strong></p>
 </div>
 
@@ -215,11 +215,12 @@ npm run dev
 ### Production Deployment
 1. **Web Hosting**: Deploy containers on AWS EC2 instances
 2. **Domain Registration**: Domain registered through GoDaddy
-3. **Database**: MongoDB Atlas or AWS RDS for production database
-4. **File Storage**: AWS S3 for scalable file storage
-5. **SSL Certificates**: Configure SSL certificates for HTTPS
-6. **Environment Variables**: Set up production environment variables
-7. **Docker Deployment**: Deploy using Docker Compose on EC2
+3. **HTTPS Certs**: Certbot for HTTPS Certifications
+4. **Database**: MongoDB Atlas or AWS RDS for production database
+5. **File Storage**: AWS S3 for scalable file storage
+6. **SSL Certificates**: Configure SSL certificates for HTTPS
+7. **Environment Variables**: Set up production environment variables
+8. **Docker Deployment**: Deploy using Docker Compose on EC2
 
 ### Environment Setup
 ```bash

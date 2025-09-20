@@ -255,7 +255,8 @@ public class UserService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
         });
         return new PagedModel<UserPostsDTO>(usersDTO);

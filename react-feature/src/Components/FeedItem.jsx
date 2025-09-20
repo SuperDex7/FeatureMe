@@ -105,7 +105,9 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               </button>
             )}
           </div>
-          <div className="feed-card-desc">{description}</div>
+          {description && description.trim() && (
+            <div className="feed-card-desc">{description}</div>
+          )}
           
           {/* Genre Tags */}
           {genre && Array.isArray(genre) && genre.length > 0 && (
@@ -206,7 +208,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
 }
 
 function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, freeDownload = false }) {
-  const { userName, profilePic, banner } = author ?? {};
+  const { userName, profilePic, banner, role } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
@@ -294,7 +296,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
   return (
     <>
       <div
-        className="feed-card-glass"
+        className={`feed-card-glass ${role === 'USERPLUS' ? 'premium' : ''}`}
         onClick={() => setModalOpen(true)}
         style={{ cursor: "pointer" }}
       >
@@ -321,7 +323,9 @@ function FeedItem({ id, author, description, time, title, features, genre, music
               </button>
             )}
           </div>
-          <div className="feed-card-desc">{description}</div>
+          {description && description.trim() && (
+            <div className="feed-card-desc">{description}</div>
+          )}
           
           {/* Genre Tags */}
           {genre && Array.isArray(genre) && genre.length > 0 && (

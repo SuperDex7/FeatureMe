@@ -764,109 +764,68 @@ function SignupPage() {
 
   // Step 6: Profile Preview
   return (
-    <div className="profile-glass-root">
+    <div className="signup-page">
       <Header2 />
-      <div className="profile-glass-banner-wrap taller">
-        <img className="profile-glass-banner" src={formData.banner} alt="Profile Banner" />
-        
-        <div className="profile-glass-avatar-wrap overlap-half">
-          <img className="profile-glass-avatar" src={formData.profilePic} alt="User Avatar" />
-        </div>
-      </div>
-      
-      <div className="profile-glass-info-card overlap-margin">
-        <h2 className="cprofile-glass-username">{formData.userName}</h2>
-        
-        <p className="profile-glass-bio">{formData.bio || "No bio yet"}</p>
-        <p className="profile-glass-location">{formData.location || "Location not set"}</p>
-        {/* About Section - Moved to top */}
-        {formData.about && (
-          <div className="profile-glass-about-section">
-            <div className="about-preview">
-              <h4 className="about-title">📋 About</h4>
-              <p className="about-text">
-                {formData.about && formData.about.length > 150 ? `${formData.about.substring(0, 150)}...` : formData.about || 'No about information available'}
-              </p>
-              {formData.about && formData.about.length > 150 && (
-                <button 
-                  className="read-more-btn"
-                  onClick={() => alert('Full about: ' + formData.about)}
-                >
-                  Read More →
-                </button>
+      <div className="signup-container">
+        <div className="signup-form-card preview-card">
+          <div className="step-indicator">
+            <span className="step-number">6</span>
+            <span className="step-title">Preview Profile</span>
+          </div>
+          <h2>Your Profile Preview</h2>
+          <p>Here's how your profile will look to others</p>
+          
+          <div className="profile-preview">
+            <div className="preview-banner">
+              <img src={formData.banner} alt="Profile Banner" />
+            </div>
+            
+            <div className="preview-avatar">
+              <img src={formData.profilePic} alt="Profile Picture" />
+            </div>
+            
+            <div className="preview-info">
+              <h3 className="preview-username">{formData.userName}</h3>
+              {formData.bio && (
+                <p className="preview-bio">{formData.bio}</p>
               )}
+              {formData.location && (
+                <p className="preview-location">📍 {formData.location}</p>
+              )}
+              
+              {formData.about && (
+                <div className="preview-about">
+                  <h4>About</h4>
+                  <p>{formData.about}</p>
+                </div>
+              )}
+              
+              <div className="preview-stats">
+                <div className="preview-stat">
+                  <span className="stat-number">0</span>
+                  <span className="stat-label">Posts</span>
+                </div>
+                <div className="preview-stat">
+                  <span className="stat-number">0</span>
+                  <span className="stat-label">Followers</span>
+                </div>
+                <div className="preview-stat">
+                  <span className="stat-number">0</span>
+                  <span className="stat-label">Following</span>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-
-        <div className="profile-glass-stats">
-          <div className="profile-glass-stat">
-            <span className="stat-icon">📝</span>
-            <span className="stat-value">0</span>
-            <span className="stat-label">Posts</span>
-          </div>
-          <div className="profile-glass-stat">
-            <span className="stat-icon">👥</span>
-            <span className="stat-value">0</span>
-            <span className="stat-label">Followers</span>
-          </div>
-          <div className="profile-glass-stat">
-            <span className="stat-icon">➡️</span>
-            <span className="stat-value">0</span>
-            <span className="stat-label">Following</span>
+          
+          <div className="signup-actions">
+            <button className="back-btn" onClick={handleBack}>
+              Back to Form
+            </button>
+            <button className="create-account-btn" onClick={handleSubmit}>
+              Create Account
+            </button>
           </div>
         </div>
-      </div>
-      
-      <div className="profile-glass-tabs">
-        <button 
-          className={`profile-glass-tab${activeTab === "posts" ? " active" : ""}`} 
-          onClick={() => setActiveTab("posts")}
-        >
-          Posts
-        </button>
-        <button 
-          className={`profile-glass-tab${activeTab === "demos" ? " active" : ""}`} 
-          onClick={() => setActiveTab("demos")}
-        >
-          Demos
-        </button>
-        <button 
-          className={`profile-glass-tab${activeTab === "friends" ? " active" : ""}`} 
-          onClick={() => setActiveTab("friends")}
-        >
-          Features
-        </button>
-      </div>
-      
-      <div className="profile-glass-content">
-        {activeTab === "posts" && (
-          <div>
-            <h3>Your Recent Posts</h3>
-            <p>No posts yet. Start sharing your content!</p>
-          </div>
-        )}
-        {activeTab === "demos" && (
-          <div>
-            <h3>Your Demos</h3>
-            <p>No demos yet. Start showcasing your work!</p>
-          </div>
-        )}
-        {activeTab === "friends" && (
-          <div>
-            <h3>Featured On</h3>
-            <p>No features yet. Collaborate with others to get featured!</p>
-          </div>
-        )}
-      </div>
-      
-      <div className="signup-actions">
-        <button className="back-btn" onClick={handleBack}>
-          Back to Form
-        </button>
-        <button className="create-account-btn" onClick={handleSubmit}>
-          Create Account
-        </button>
       </div>
       <Footer />
     </div>

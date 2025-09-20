@@ -325,7 +325,9 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
             )}
           </div>
           
-          <div className="spotlight-card-desc">{description}</div>
+          {description && description.trim() && (
+            <div className="spotlight-card-desc">{description}</div>
+          )}
           
           {/* Genre Tags */}
           {genre && Array.isArray(genre) && genre.length > 0 && (

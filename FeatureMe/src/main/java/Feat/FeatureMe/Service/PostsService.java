@@ -115,7 +115,8 @@ public class PostsService {
                 author.getProfilePic(),
                 author.getBanner(),
                 author.getBio(),
-                author.getLocation()
+                author.getLocation(),
+                author.getRole()
                         
             ),
             savedPost.getTitle(),
@@ -316,7 +317,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -370,7 +372,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation() 
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -408,7 +411,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             
             return new PostsDTO(
@@ -535,14 +539,15 @@ public class PostsService {
             .filter(p -> "PUBLISHED".equals(p.getStatus()))
             .map(p -> {
                 User u = p.getAuthor();
-                UserPostsDTO author = new UserPostsDTO(
-                    u.getId(),
-                    u.getUserName(),
-                    u.getProfilePic(),
-                    u.getBanner(),
-                    u.getBio(),
-                    u.getLocation()
-                );
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation(),
+                u.getRole()
+            );
                 return new PostsDTO(
                     p.getId(),
                     author,
@@ -583,7 +588,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -623,7 +629,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -830,7 +837,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -872,7 +880,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -914,7 +923,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -978,7 +988,8 @@ public class PostsService {
                 u.getProfilePic(),
                 u.getBanner(),
                 u.getBio(),
-                u.getLocation()
+                u.getLocation(),
+                u.getRole()
             );
             return new PostsDTO(
                 p.getId(),
@@ -1080,14 +1091,15 @@ public class PostsService {
             .limit(size)
             .map(p -> {
                 User u = p.getAuthor();
-                UserPostsDTO author = new UserPostsDTO(
-                    u.getId(),
-                    u.getUserName(),
-                    u.getProfilePic(),
-                    u.getBanner(),
-                    u.getBio(),
-                    u.getLocation()
-                );
+            UserPostsDTO author = new UserPostsDTO(
+                u.getId(),
+                u.getUserName(),
+                u.getProfilePic(),
+                u.getBanner(),
+                u.getBio(),
+                u.getLocation(),
+                u.getRole()
+            );
                 return new PostsDTO(
                     p.getId(),
                     author,
