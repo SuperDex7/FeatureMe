@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -18,11 +18,11 @@ public class PostDownload {
     private String userId;
     private String userName;
     @Indexed
-    private LocalDateTime downloadTime;
+    private Instant downloadTime;
 
     public PostDownload() {}
 
-    public PostDownload(String id, String postId, String userId, String userName, LocalDateTime downloadTime) {
+    public PostDownload(String id, String postId, String userId, String userName, Instant downloadTime) {
         this.id = id;
         this.postId = postId;
         this.userId = userId;
@@ -62,11 +62,11 @@ public class PostDownload {
         this.userName = userName;
     }
 
-    public LocalDateTime getDownloadTime() {
+    public Instant getDownloadTime() {
         return downloadTime;
     }
 
-    public void setDownloadTime(LocalDateTime downloadTime) {
+    public void setDownloadTime(Instant downloadTime) {
         this.downloadTime = downloadTime;
     }
 }

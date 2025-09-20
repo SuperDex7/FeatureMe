@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -22,7 +22,7 @@ public interface PostCommentRepository extends MongoRepository<PostComment, Stri
     long countByPostId(String postId);
     
     // Get comments for a post within a date range
-    List<PostComment> findByPostIdAndTimeBetween(String postId, LocalDateTime startDate, LocalDateTime endDate);
+    List<PostComment> findByPostIdAndTimeBetween(String postId, Instant startDate, Instant endDate);
     
     // Get most recent comments across all posts (for activity feed)
     Page<PostComment> findAllByOrderByTimeDesc(Pageable pageable);
@@ -34,5 +34,5 @@ public interface PostCommentRepository extends MongoRepository<PostComment, Stri
     Page<PostComment> findByUserNameOrderByTimeDesc(String userName, Pageable pageable);
     
     // Delete a specific comment by user and post (for comment deletion by time - rarely used)
-    void deleteByPostIdAndUserNameAndTime(String postId, String userName, LocalDateTime time);
+    void deleteByPostIdAndUserNameAndTime(String postId, String userName, Instant time);
 }

@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +26,7 @@ public interface PostLikeRepository extends MongoRepository<PostLike, String> {
     long countByPostId(String postId);
     
     // Get likes for a post within a date range
-    List<PostLike> findByPostIdAndLikedAtBetween(String postId, LocalDateTime startDate, LocalDateTime endDate);
+    List<PostLike> findByPostIdAndLikedAtBetween(String postId, Instant startDate, Instant endDate);
     
     // Get most recent likes across all posts (for activity feed)
     Page<PostLike> findAllByOrderByLikedAtDesc(Pageable pageable);

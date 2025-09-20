@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -156,7 +156,7 @@ public User validateJwtAndGetUser(String jwtToken) {
                 newChat.getChatRoomId(), 
                 user.getUserName(), 
                 "Added you to a chat named " + newChat.getChatName(), 
-                LocalDateTime.now(),
+                Instant.now(),
                 NotificationsDTO.NotiType.CHAT
             ));
             userRepository.save(thisUser);
@@ -168,14 +168,14 @@ public User validateJwtAndGetUser(String jwtToken) {
             user.getUserName() + " Created this Chat",
             user.getUserName(),
             newChat.getChatRoomId(),
-            LocalDateTime.now(),
+            Instant.now(),
             ChatMessage.MessageType.CREATE
         );
         chatMessageRepository.save(chatMessage);
         
 
          newChat.getMessages().add(chatMessage);
-         newChat.setMostRecentChat(new MostRecentChatDTO(newChat.getChatRoomId(), newChat.getChatName(), newChat.getChatPhoto(), newChat.getUsers(),chatMessage.getMessage(), LocalDateTime.now()));
+         newChat.setMostRecentChat(new MostRecentChatDTO(newChat.getChatRoomId(), newChat.getChatName(), newChat.getChatPhoto(), newChat.getUsers(),chatMessage.getMessage(), Instant.now()));
         chatsRepository.save(newChat);
         
 return newChat;
@@ -212,7 +212,7 @@ return newChat;
                 adderUserName + " added " + addedUserName + " to the chat",
                 adderUserName,
                 chatRoomId,
-                LocalDateTime.now(),
+                Instant.now(),
                 ChatMessage.MessageType.JOIN
             );
             chat.getMessages().add(message);
@@ -225,7 +225,7 @@ return newChat;
                 chat.getChatRoomId(), 
                 adderUserName, 
                 "Added you to chat: " + chat.getChatName(), 
-                LocalDateTime.now(),
+                Instant.now(),
                 NotificationsDTO.NotiType.CHAT
             ));
             
@@ -236,7 +236,7 @@ return newChat;
                 chat.getChatPhoto(),
                 chat.getUsers(), 
                 message.getMessage(), 
-                LocalDateTime.now()
+                Instant.now()
             ));
             
             chatMessageRepository.save(message);
@@ -256,8 +256,8 @@ return newChat;
             
         }
         chatMessage.setChatRoomId(chatRoomId);
-        chatMessage.setTime(LocalDateTime.now());
-        chatRoom.setMostRecentChat( new MostRecentChatDTO(chatRoom.getChatRoomId(), chatRoom.getChatName(), chatRoom.getChatPhoto(), chatRoom.getUsers(), chatMessage.getMessage(), LocalDateTime.now()));
+        chatMessage.setTime(Instant.now());
+        chatRoom.setMostRecentChat( new MostRecentChatDTO(chatRoom.getChatRoomId(), chatRoom.getChatName(), chatRoom.getChatPhoto(), chatRoom.getUsers(), chatMessage.getMessage(), Instant.now()));
         chatMessageRepository.save(chatMessage);
 
         chatRoom.getMessages().add(chatMessage);
@@ -280,13 +280,13 @@ return newChat;
             addedUserName + " left the chat",
             adderUserName,
             chatRoomId,
-            LocalDateTime.now(),
+            Instant.now(),
             ChatMessage.MessageType.LEAVE
         );
         chat.getMessages().add(message);
         
         chatMessageRepository.save(message);
-        chat.setMostRecentChat( new MostRecentChatDTO(chat.getChatRoomId(), chat.getChatName(), chat.getChatPhoto(), chat.getUsers(), message.getMessage(), LocalDateTime.now()));
+        chat.setMostRecentChat( new MostRecentChatDTO(chat.getChatRoomId(), chat.getChatName(), chat.getChatPhoto(), chat.getUsers(), message.getMessage(), Instant.now()));
        
         userRepository.save(user);
         chatsRepository.save(chat);
@@ -405,7 +405,7 @@ return newChat;
                 chatRoomId, 
                 requester.getUserName(), 
                 "Added you to chat: " + chat.getChatName(), 
-                LocalDateTime.now(),
+                Instant.now(),
                 NotificationsDTO.NotiType.CHAT
             ));
             
@@ -415,7 +415,7 @@ return newChat;
                 requester.getUserName() + " added " + username + " to the chat",
                 requester.getUserName(),
                 chatRoomId,
-                LocalDateTime.now(),
+                Instant.now(),
                 ChatMessage.MessageType.JOIN
             );
             
@@ -426,7 +426,7 @@ return newChat;
                 chat.getChatPhoto(),
                 chat.getUsers(), 
                 joinMessage.getMessage(), 
-                LocalDateTime.now()
+                Instant.now()
             ));
             
             chatMessageRepository.save(joinMessage);
@@ -475,7 +475,7 @@ return newChat;
                 requester.getUserName() + " removed " + username + " from the chat",
                 requester.getUserName(),
                 chatRoomId,
-                LocalDateTime.now(),
+                Instant.now(),
                 ChatMessage.MessageType.LEAVE
             );
             
@@ -486,7 +486,7 @@ return newChat;
                 chat.getChatPhoto(),
                 chat.getUsers(), 
                 leaveMessage.getMessage(), 
-                LocalDateTime.now()
+                Instant.now()
             ));
             
             chatMessageRepository.save(leaveMessage);
@@ -521,7 +521,7 @@ return newChat;
                 user.getUserName() + " changed the chat photo | PHOTO_URL:" + photoUrl,
                 user.getUserName(),
                 chatRoomId,
-                LocalDateTime.now(),
+                Instant.now(),
                 ChatMessage.MessageType.CHAT
             );
             
@@ -536,7 +536,7 @@ return newChat;
                 photoUrl,
                 chat.getUsers(), 
                 photoChangeMessage.getMessage(), 
-                LocalDateTime.now()
+                Instant.now()
             ));
             
             chatsRepository.save(chat);
@@ -587,7 +587,7 @@ return newChat;
                 user.getUserName() + " sent a file: " + originalFilename,
                 user.getUserName(),
                 chatRoomId,
-                LocalDateTime.now(),
+                Instant.now(),
                 ChatMessage.MessageType.FILE
             );
             
@@ -603,7 +603,7 @@ return newChat;
                 chat.getChatPhoto(),
                 chat.getUsers(), 
                 fileMessage.getMessage(), 
-                LocalDateTime.now()
+                Instant.now()
             ));
             
             chatMessageRepository.save(fileMessage);

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -19,11 +19,11 @@ public class PostComment {
     private String userName;      // User who made the comment
     
     private String comment;       // The comment text
-    private LocalDateTime time;   // When the comment was made
+    private Instant time;   // When the comment was made
     
     public PostComment() {}
     
-    public PostComment(String postId, String userName, String comment, LocalDateTime time) {
+    public PostComment(String postId, String userName, String comment, Instant time) {
         this.postId = postId;
         this.userName = userName;
         this.comment = comment;
@@ -64,11 +64,11 @@ public class PostComment {
         this.comment = comment;
     }
     
-    public LocalDateTime getTime() {
+    public Instant getTime() {
         return time;
     }
     
-    public void setTime(LocalDateTime time) {
+    public void setTime(Instant time) {
         this.time = time;
     }
 }

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Entity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -19,14 +19,14 @@ public class PostView {
     private String userName;      // User who viewed the post
     
     private String profilePic;    // User's profile picture
-    private LocalDateTime firstView;   // When user first viewed this post
-    private LocalDateTime lastView;    // Most recent view time
+    private Instant firstView;   // When user first viewed this post
+    private Instant lastView;    // Most recent view time
     private int viewCount;        // How many times this user viewed this post
     
     public PostView() {}
     
     public PostView(String postId, String userName, String profilePic, 
-                   LocalDateTime firstView, LocalDateTime lastView, int viewCount) {
+                   Instant firstView, Instant lastView, int viewCount) {
         this.postId = postId;
         this.userName = userName;
         this.profilePic = profilePic;
@@ -68,19 +68,19 @@ public class PostView {
         this.profilePic = profilePic;
     }
     
-    public LocalDateTime getFirstView() {
+    public Instant getFirstView() {
         return firstView;
     }
     
-    public void setFirstView(LocalDateTime firstView) {
+    public void setFirstView(Instant firstView) {
         this.firstView = firstView;
     }
     
-    public LocalDateTime getLastView() {
+    public Instant getLastView() {
         return lastView;
     }
     
-    public void setLastView(LocalDateTime lastView) {
+    public void setLastView(Instant lastView) {
         this.lastView = lastView;
     }
     

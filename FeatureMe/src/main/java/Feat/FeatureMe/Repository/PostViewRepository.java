@@ -7,7 +7,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,7 +31,7 @@ public interface PostViewRepository extends MongoRepository<PostView, String> {
     long countUniqueViewersByPostId(String postId);
     
     // Get views for a post within a date range
-    List<PostView> findByPostIdAndLastViewBetween(String postId, LocalDateTime startDate, LocalDateTime endDate);
+    List<PostView> findByPostIdAndLastViewBetween(String postId, Instant startDate, Instant endDate);
     
     // Get most recent views across all posts (for activity feed)
     Page<PostView> findAllByOrderByLastViewDesc(Pageable pageable);

@@ -1,6 +1,6 @@
 package Feat.FeatureMe.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,7 +34,7 @@ public class PostDownloadService {
             postId,
             userId,
             userName,
-            LocalDateTime.now()
+            Instant.now()
         );
         return postDownloadRepository.save(download);
     }

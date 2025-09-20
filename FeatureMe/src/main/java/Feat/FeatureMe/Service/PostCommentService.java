@@ -10,7 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -34,7 +34,7 @@ public class PostCommentService {
         userRepository.findByUserName(userName)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         
         PostComment newComment = new PostComment(
             postId,

@@ -5,7 +5,7 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Document(collection = "user_relations")
 @CompoundIndexes({
@@ -24,8 +24,8 @@ public class UserRelation {
     private RelationType relationType;
     private RelationStatus status;
     
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
     
     // Optional: Store additional metadata
     private String followerProfilePic;
@@ -54,8 +54,8 @@ public class UserRelation {
         this.status = status;
         this.followerProfilePic = followerProfilePic;
         this.followingProfilePic = followingProfilePic;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
+        this.updatedAt = Instant.now();
     }
     
     // Getters and Setters
@@ -97,22 +97,22 @@ public class UserRelation {
     
     public void setStatus(RelationStatus status) {
         this.status = status;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
     
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
     
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
     
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
     
-    public void setUpdatedAt(LocalDateTime updatedAt) {
+    public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
     

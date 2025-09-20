@@ -1,12 +1,12 @@
 package Feat.FeatureMe.Dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record NotificationsDTO(
     String id,
     String userName,
     String noti,
-    LocalDateTime time,
+    Instant time,
     NotiType notiType
 ) {
     public enum NotiType{
