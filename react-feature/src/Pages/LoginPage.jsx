@@ -102,112 +102,94 @@ function LoginPage() {
   };
 
   return (
-    <div className="login-container">
+    <div className="login-page">
       <Header2 />
-      <div className="login-background">
-        <div className="floating-shapes">
-          <div className="shape shape-1"></div>
-          <div className="shape shape-2"></div>
-          <div className="shape shape-3"></div>
-          <div className="shape shape-4"></div>
-        </div>
-      </div>
-      
-      <div className="login-card">
-        <div className="login-header">
-          <div className="logo-container">
-            <h1 className="login-logo">FeatureMe</h1>
-            <div className="logo-subtitle">Hub for Musicians</div>
-          </div>
-        </div>
-
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="login-form-group">
-            <div className="input-container">
-              <input
-                type="text"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="login-input"
-                placeholder="Email or Username"
-                required
-              />
-              <div className="input-icon">📧</div>
-            </div>
+      <div className="login-container">
+        <div className="login-form-card">
+          <div className="login-header">
+            <h1 className="login-title">Welcome Back</h1>
+            <p className="login-subtitle">Sign in to continue your music journey</p>
           </div>
 
-          <div className="login-form-group">
-            <div className="input-container">
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className="login-input"
-                placeholder="Password"
-                required
-              />
-              <div className="input-icon">🔒</div>
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? "🙈" : "👁️"}
-              </button>
-            </div>
-          </div>
-
-          <div className="form-options">
-            <label className="remember-me">
-              <input type="checkbox" />
-              <span className="checkmark"></span>
-              Remember me
-            </label>
-            <a href="/forgot-password" className="forgot-password">Forgot Password?</a>
-          </div>
-
-          {/* Error Message Display */}
-          {errorMessage && (
-            <div className="error-message-container">
-              <div className="error-icon">⚠️</div>
-              <div className="error-text">{errorMessage}</div>
-            </div>
-          )}
-
-          <button 
-            type="submit" 
-            className={`login-button ${isLoading ? 'loading' : ''}`}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <div className="loading-spinner">
-                <div className="spinner"></div>
-                <span>Signing in...</span>
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="email">Email or Username</label>
+              <div className="input-container">
+                <input
+                  type="text"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="login-input"
+                  placeholder="Enter your email or username"
+                  required
+                />
+                <div className="input-icon">📧</div>
               </div>
-            ) : (
-              'Sign In'
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="input-container">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="login-input"
+                  placeholder="Enter your password"
+                  required
+                />
+                <div className="input-icon">🔒</div>
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-options">
+              <label className="remember-me">
+                <input type="checkbox" />
+                <span className="checkmark"></span>
+                Remember me
+              </label>
+              <a href="#" className="forgot-password" onClick={(e) => e.preventDefault()}>Forgot Password?</a>
+            </div>
+
+            {/* Error Message Display */}
+            {errorMessage && (
+              <div className="error-message-container">
+                <div className="error-icon">⚠️</div>
+                <div className="error-text">{errorMessage}</div>
+              </div>
             )}
-          </button>
 
-          {/* <div className="divider">
-            <span>or</span>
-          </div>
-
-          <div className="social-login">
-            <button type="button" className="social-btn google">
-              Continue with Google
+            <button 
+              type="submit" 
+              className={`login-button ${isLoading ? 'loading' : ''}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="loading-spinner">
+                  <div className="spinner"></div>
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </button>
-            <button onClick={loginGithub} type="button" className="social-btn github">
-              Continue with Github
-            </button>
-          </div> */}
 
-          <div className="signup-link">
-            Don't have an account? <a href="/signup">Sign up</a>
-          </div>
-        </form>
+            <div className="signup-link">
+              Don't have an account? <a href="/signup">Sign up</a>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
