@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import { ChatService, chatWebSocketService } from '../services/ChatService';
@@ -10,6 +10,7 @@ import { validateChatFile, validateChatPhoto, getFileRestrictionsMessage } from 
 import '../Styling/Messages.css';
 
 const MessagesPage = () => {
+  const [searchParams] = useSearchParams();
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [conversations, setConversations] = useState([]);
@@ -89,6 +90,7 @@ const MessagesPage = () => {
     debouncedAddUserSearch(addUserSearchTerm);
   }, [addUserSearchTerm, debouncedAddUserSearch]);
 
+
   // Initialize chat functionality
   const initializeChat = async () => {
     try {
@@ -107,6 +109,28 @@ const MessagesPage = () => {
 
       // Load conversations
       await loadConversations();
+
+      // Handle URL parameters for creating chat with specific user
+      const createChatUser = searchParams.get('user');
+      const shouldCreateChat = searchParams.get('createChat') === 'true';
+      
+      if (shouldCreateChat && createChatUser && createChatUser !== user.userName) {
+        // Open create chat modal without setting search term
+        setShowCreateChat(true);
+        // Small delay to ensure WebSocket is fully ready, then search and auto-select
+        setTimeout(async () => {
+          try {
+            await searchUsers(createChatUser);
+            // Auto-select the user immediately after search
+            const userToSelect = await findUserByUsername(createChatUser);
+            if (userToSelect) {
+              setSelectedUsers([userToSelect]);
+            }
+          } catch (error) {
+            console.error('Error searching for user after delay:', error);
+          }
+        }, 100);
+      }
 
     } catch (error) {
       console.error('Error initializing chat:', error);
@@ -147,7 +171,7 @@ const MessagesPage = () => {
       // Filter out current user and already selected users
       const filteredUsers = users.filter(user => 
         user.userName !== currentUser?.userName && 
-        !selectedUsers.includes(user.userName)
+        !selectedUsers.some(selectedUser => selectedUser.userName === user.userName)
       );
       setSearchedUsers(filteredUsers);
     } catch (error) {
@@ -155,6 +179,18 @@ const MessagesPage = () => {
       setSearchedUsers([]);
     } finally {
       setSearchingUsers(false);
+    }
+  };
+
+  // Helper function to find a user by username
+  const findUserByUsername = async (username) => {
+    try {
+      const response = await api.get(`/user/get/search/${username}?page=0&size=20`);
+      const users = response.data.content || [];
+      return users.find(user => user.userName === username);
+    } catch (error) {
+      console.error('Error finding user by username:', error);
+      return null;
     }
   };
 
@@ -199,20 +235,24 @@ const MessagesPage = () => {
       setHasMore(pageData.length === 15);
       
       // Subscribe to real-time updates for this chat
-      chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
-        console.log('New message received:', newMessage);
-        console.log('Message type:', newMessage.type);
-        console.log('Message content:', newMessage.message);
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-        // Update the conversation's last message
-        setConversations(prevConversations => 
-          prevConversations.map(conv => 
-            (conv.ChatId === chatRoomId || conv.chatRoomId === chatRoomId)
-              ? { ...conv, message: newMessage.message, time: newMessage.time }
-              : conv
-          )
-        );
-      });
+      if (chatWebSocketService.isConnected()) {
+        chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
+          console.log('New message received:', newMessage);
+          console.log('Message type:', newMessage.type);
+          console.log('Message content:', newMessage.message);
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+          // Update the conversation's last message
+          setConversations(prevConversations => 
+            prevConversations.map(conv => 
+              (conv.ChatId === chatRoomId || conv.chatRoomId === chatRoomId)
+                ? { ...conv, message: newMessage.message, time: newMessage.time }
+                : conv
+            )
+          );
+        });
+      } else {
+        console.warn('WebSocket not connected, skipping subscription');
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
       setError('Failed to load messages');
@@ -291,14 +331,20 @@ const MessagesPage = () => {
     try {
       // Send message via WebSocket
       const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      chatWebSocketService.sendMessage(
-        chatRoomId, 
-        messageText, 
-        currentUser.userName
-      );
       
-      // Clear the input
-      setMessageText('');
+      if (chatWebSocketService.isConnected()) {
+        chatWebSocketService.sendMessage(
+          chatRoomId, 
+          messageText, 
+          currentUser.userName
+        );
+        
+        // Clear the input
+        setMessageText('');
+      } else {
+        console.error('WebSocket not connected, cannot send message');
+        setError('Connection lost. Please refresh the page.');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message');
@@ -399,7 +445,9 @@ const MessagesPage = () => {
     if (!newChatName.trim() || selectedUsers.length === 0) return;
 
     try {
-      const response = await ChatService.createChat(selectedUsers, newChatName);
+      // Extract usernames from user objects
+      const usernames = selectedUsers.map(user => user.userName);
+      const response = await ChatService.createChat(usernames, newChatName);
       const newChat = response.data;
       
       // Clear modal first
@@ -432,7 +480,11 @@ const MessagesPage = () => {
 
     try {
       // Use WebSocket for instant delivery
-      chatWebSocketService.leaveChat(chatRoomId, currentUser.userName);
+      if (chatWebSocketService.isConnected()) {
+        chatWebSocketService.leaveChat(chatRoomId, currentUser.userName);
+      } else {
+        console.warn('WebSocket not connected, leaving chat without real-time notification');
+      }
       
       // Remove from conversations list immediately for instant UI feedback
       setConversations(prev => 
@@ -457,9 +509,9 @@ const MessagesPage = () => {
   // Add user to selected users for new chat
   const toggleUserSelection = (user) => {
     setSelectedUsers(prev => 
-      prev.includes(user.userName) 
-        ? prev.filter(u => u !== user.userName)
-        : [...prev, user.userName]
+      prev.some(selectedUser => selectedUser.userName === user.userName) 
+        ? prev.filter(selectedUser => selectedUser.userName !== user.userName)
+        : [...prev, user]
     );
   };
 
@@ -472,7 +524,11 @@ const MessagesPage = () => {
 
     try {
       // Use WebSocket for instant delivery
-      chatWebSocketService.addUserToChat(chatRoomId, user.userName, currentUser.userName);
+      if (chatWebSocketService.isConnected()) {
+        chatWebSocketService.addUserToChat(chatRoomId, user.userName, currentUser.userName);
+      } else {
+        console.warn('WebSocket not connected, adding user without real-time notification');
+      }
       
       // Update the conversation's user list immediately for instant UI feedback
       setConversations(prev => 
@@ -977,21 +1033,18 @@ const MessagesPage = () => {
                   <div className="messaging-selected-users-section">
                     <label className="messaging-selected-users-label">Selected Users ({selectedUsers.length})</label>
                     <div className="messaging-selected-users-list">
-                      {selectedUsers.map((username) => {
-                        const user = searchedUsers.find(u => u.userName === username);
-                        return (
-                          <div key={username} className="messaging-selected-user-item">
-                            <img src={user?.profilePic || "/dpp.jpg"} alt={username} />
-                            <span>{username}</span>
-                            <button 
-                              className="messaging-remove-user-btn"
-                              onClick={() => toggleUserSelection({ userName: username })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        );
-                      })}
+                      {selectedUsers.map((user) => (
+                        <div key={user.userName} className="messaging-selected-user-item">
+                          <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
+                          <span>{user.userName}</span>
+                          <button 
+                            className="messaging-remove-user-btn"
+                            onClick={() => toggleUserSelection(user)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1005,7 +1058,7 @@ const MessagesPage = () => {
                         searchedUsers.map((user) => (
                           <div
                             key={user.userName}
-                            className={`messaging-user-item ${selectedUsers.includes(user.userName) ? 'selected' : ''}`}
+                            className={`messaging-user-item ${selectedUsers.some(selectedUser => selectedUser.userName === user.userName) ? 'selected' : ''}`}
                             onClick={() => toggleUserSelection(user)}
                           >
                             <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
@@ -1013,7 +1066,7 @@ const MessagesPage = () => {
                               <span className="messaging-user-name">{user.userName}</span>
                               {user.bio && <span className="messaging-user-bio">{user.bio}</span>}
                             </div>
-                            {selectedUsers.includes(user.userName) && <span className="messaging-check">✓</span>}
+                            {selectedUsers.some(selectedUser => selectedUser.userName === user.userName) && <span className="messaging-check">✓</span>}
                           </div>
                         ))
                       ) : !searchingUsers ? (

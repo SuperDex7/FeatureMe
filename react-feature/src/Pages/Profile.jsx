@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "../Styling/Profile.css";
@@ -16,6 +16,7 @@ import DemoService from "../services/DemoService";
 function Profile() {
   const [activeTab, setActiveTab] = useState("demos");
   const { username } = useParams();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -282,6 +283,14 @@ function Profile() {
     }
   };
 
+  // Handle messaging user
+  const handleMessageUser = () => {
+    if (!currentUser) return;
+    
+    // Navigate to messages page with pre-filled user for creating a chat
+    navigate(`/messages?createChat=true&user=${username}`);
+  };
+
   // Edit profile handlers
   const handleEditClick = () => {
     setIsEditing(true);
@@ -533,12 +542,21 @@ function Profile() {
             {isEditing ? 'Cancel' : 'Edit Profile'}
           </button>
         ) : (
-          <button 
-            className={`profile-glass-edit ${isFollowing ? 'following' : ''}`} 
-            onClick={follow}
-          >
-            {isFollowing ? 'Unfollow' : 'Follow'}
-          </button>
+          <div className="profile-action-buttons">
+            <button 
+              className={`profile-glass-edit ${isFollowing ? 'following' : ''}`} 
+              onClick={follow}
+            >
+              {isFollowing ? 'Unfollow' : 'Follow'}
+            </button>
+            <button 
+              className="profile-glass-message" 
+              onClick={handleMessageUser}
+              title="Send Message"
+            >
+              💬 Message
+            </button>
+          </div>
         )}
         {isEditing ? (
           <form className="profile-edit-form modern-form" onSubmit={handleSaveProfile}>
