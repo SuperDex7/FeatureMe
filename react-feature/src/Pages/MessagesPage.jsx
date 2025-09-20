@@ -265,52 +265,13 @@ const MessagesPage = () => {
     console.log('ChatId:', conversation.ChatId);
     console.log('Message:', conversation.message);
     console.log('Users:', conversation.users);
-    setSelectedConversation(conversation);
-    loadMessages(conversation);
-  };
-
-  // Infinite scroll: fetch older messages when scrolled to top
-  const handleScroll = async () => {
-    if (!messagesContainerRef.current || !selectedConversation || isFetchingMore || !hasMore) return;
-    if (messagesContainerRef.current.scrollTop <= 0) {
-      try {
-        setIsFetchingMore(true);
-        const nextPage = page + 1;
-        const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-        const prevHeight = messagesContainerRef.current.scrollHeight;
-        const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
-        const older = response.data || [];
-        setMessages(prev => [...older, ...prev]);
-        setPage(nextPage);
-        setHasMore(older.length === 15);
-        // maintain scroll position after prepending
-        requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            const newHeight = messagesContainerRef.current.scrollHeight;
-            messagesContainerRef.current.scrollTop = newHeight - prevHeight;
-          }
-        });
-      } catch (e) {
-        console.error('Error loading older messages', e);
-      } finally {
-        setIsFetchingMore(false);
-      }
+   setError('Failed to load messages');
     }
   };
 
-  // Manual load older for mobile (button)
-  const loadOlderManually = async () => {
-    if (!selectedConversation || isFetchingMore || !hasMore) return;
-    try {
-      setIsFetchingMore(true);
-      const nextPage = page + 1;
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      const prevHeight = messagesContainerRef.current?.scrollHeight || 0;
-      const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
-      const older = response.data || [];
-      setMessages(prev => [...older, ...prev]);
-      setPage(nextPage);
-      setHasMore(older.length === 15);
+  // Handle conversation selection
+  const handleConversationSelect = (conversation) => {
+ setHasMore(older.length === 15);
       requestAnimationFrame(() => {
         if (messagesContainerRef.current) {
           const newHeight = messagesContainerRef.current.scrollHeight;

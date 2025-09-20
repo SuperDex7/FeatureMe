@@ -230,11 +230,9 @@ function CreatePost(){
       formData.append('file', file);
     }
 
-    console.log('Posting…', Object.fromEntries(formData));
     api.post(`/posts/create`, formData, {
       headers:{"Content-Type": "multipart/form-data"}
     }).then(res => {
-      console.log('Upload successful:', res.data);
       alert("Upload successful!");
       navigate("/feed");
     })

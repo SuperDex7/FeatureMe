@@ -179,7 +179,6 @@ function Feedf() {
     api.get(`/posts/get?page=${page}&size=${size}`).then((response) => {
       setPosts(response.data.content);
       setTotalPages(response.data.page.totalPages -1)
-      console.log(response.data)
     }).catch(error => {
       console.error(error);
     })
@@ -199,18 +198,14 @@ function Feedf() {
     if (searchQuery.trim() || selectedGenres.length > 0) {
       const genreParam = selectedGenres.length > 0 ? selectedGenres.join(',') : "";
       const searchParam = searchQuery.trim() || "";
-      console.log(searchPage)
-      console.log(`/posts/get/advanced-search?page=${searchPage}&size=${searchSize}&search=${searchParam}&genres=${genreParam}&sortBy=${sort}`)
       api.get(`/posts/get/advanced-search?page=${searchPage}&size=${searchSize}&search=${searchParam}&genres=${genreParam}&sortBy=${sort}`).then((response) => {
         setSearchPosts(response.data.content);
         setTotalSearchPages(response.data.page.totalPages -1)
-        console.log(response.data)
       }).catch(error => {
         console.error(error);
       })
       // TODO: Connect to Spring Boot backend
       // Example: searchPosts(searchQuery.trim()).then(response => setPosts(response.data))
-      console.log('Searching for:', searchParam || 'genres only');
     }
   };
 

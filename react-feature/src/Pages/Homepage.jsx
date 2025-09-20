@@ -31,12 +31,10 @@ function Homepage() {
         // Use the new /me endpoint to get current user info
         const response = await api.get('/user/me');
         setUser(response.data);
-        console.log(response.data);
         
         // Get relationship summary for current user
         const relationshipResponse = await UserRelationsService.getRelationshipSummary(response.data.userName);
         setRelationshipSummary(relationshipResponse.data);
-        console.log('Relationship summary:', relationshipResponse.data);
         
         // Get latest post if user has posts
         if (response.data.posts && response.data.posts.length > 0) {
