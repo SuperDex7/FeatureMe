@@ -262,6 +262,42 @@ function Post() {
         setLocalLikes(updatedLikes);
     };
 
+    const handleDownload = async () => {
+        if (!post.freeDownload) {
+            alert('Downloads are not enabled for this track.');
+            return;
+        }
+
+        try {
+            // Fetch the file as a blob to force download
+            const response = await fetch(post.music);
+            if (!response.ok) {
+                throw new Error('Failed to fetch file');
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            
+            // Create a temporary link element to trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${post.title} - ${post.author.userName}.mp3`; // Set filename
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            // Optionally track the download
+            console.log('Download started for:', post.title);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+            alert('Failed to download file. Please try again.');
+        }
+    };
+
     const handleDeletePost = async () => {
         if (!currentUser || !window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
             return;
@@ -321,10 +357,16 @@ function Post() {
                                     <span className="play-icon">{isPlaying ? '⏸️' : '▶️'}</span>
                                     <span className="play-text">{isPlaying ? 'Pause' : 'Play'}</span>
                                 </button>
-                                <a href={`/profile/${post.author.userName}`}><button className="post-hero-download-btn">
-                                    <span className="download-icon">⬇️</span>
+                                <a href={`/profile/${post.author.userName}`}><button className="post-hero-profile-btn">
+                                    <span className="profile-icon">👤</span>
                                     View Profile
                                 </button></a>
+                                {post.freeDownload && (
+                                    <button className="post-hero-download-btn" onClick={() => handleDownload()}>
+                                        <span className="download-icon">⬇️</span>
+                                        Download
+                                    </button>
+                                )}
                                 {currentUser && currentUser.userName === post.author.userName && (
                                     
                                     <>
@@ -364,7 +406,7 @@ function Post() {
 
             {/* Audio Player Section */}
             <div className={`audio-player-section ${isPlaying ? 'volume-expanded' : ''}`}>
-                <div className="audio-player-container">
+                <div className="audio-player-container2">
                     <div className="audio-player-info">
                         <div className="audio-player-cover">
                             <img src={post.author.banner} alt="Track Cover" />
@@ -444,6 +486,12 @@ function Post() {
                                     <span className="stat-number">{post.totalViews || 0}</span>
                                     <span className="stat-label">Views</span>
                                 </div>
+                                {/* post.freeDownload && (
+                                    <div className="stat-item">
+                                        <span className="stat-number">{post.totalDownloads || 0}</span>
+                                        <span className="stat-label">Downloads</span>
+                                    </div>
+                                ) */}
                                 <div className="stat-item">
                                     <span className="stat-number">
                                         {(() => {
@@ -490,6 +538,17 @@ function Post() {
                                         <span className="detail-value">{post?.features?.join(" • ")|| "None"}</span>
                                     </div>
                                 </div>
+                                {post.freeDownload && (
+                                    <div className="detail-item download-item">
+                                        <span className="detail-icon">⬇️</span>
+                                        <div className="detail-content">
+                                            <span className="detail-label">Download</span>
+                                            <button className="download-track-btn" onClick={handleDownload}>
+                                                Download Track
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

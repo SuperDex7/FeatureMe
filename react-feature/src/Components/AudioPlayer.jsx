@@ -123,8 +123,12 @@ function AudioPlayer({ src, onClose, title, postId, freeDownload = false }) {
         const fileExtension = pathname.split('.').pop() || 'mp3';
         
         try {
-          // Method 1: Fetch as blob to force download
+          // Fetch as blob to force download
           const fileResponse = await fetch(postData.music);
+          if (!fileResponse.ok) {
+            throw new Error('Failed to fetch file');
+          }
+          
           const blob = await fileResponse.blob();
           const blobUrl = window.URL.createObjectURL(blob);
           
@@ -137,19 +141,12 @@ function AudioPlayer({ src, onClose, title, postId, freeDownload = false }) {
           document.body.removeChild(link);
           
           // Clean up the blob URL
-          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+          window.URL.revokeObjectURL(blobUrl);
           
         } catch (fetchError) {
-          console.log('Blob download failed, trying direct link:', fetchError);
-          
-          // Method 2: Fallback to direct link with download attribute
-          const link = document.createElement('a');
-          link.href = postData.music;
-          link.download = `${postData.title}.${fileExtension}`;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          console.error('Error downloading file:', fetchError);
+          alert('Failed to download file. Please try again.');
+          return;
         }
         
         // Track the download and notify the author

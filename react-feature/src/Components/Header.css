@@ -265,20 +265,6 @@
   margin-bottom: 0.7rem;
   color: #4f8cff;
 }
-.see-all-btn {
-  background: none;
-  border: none;
-  color: #a084e8;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-top: 0.7rem;
-  text-align: left;
-  padding: 0;
-  transition: color 0.18s;
-}
-.see-all-btn:hover {
-  color: #4f8cff;
-}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-10px); }

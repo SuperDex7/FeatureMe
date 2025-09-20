@@ -106,7 +106,6 @@ function Header() {
                 {noti && Array.isArray(noti) && noti.length > 0 ? (
                   <div>
                     <Notifications notifications={noti} className="activity-modal-list"/>
-                    <button className="see-all-btn">See All</button>
                   </div>
                 ) : (
                   "No Notifications Yet"
