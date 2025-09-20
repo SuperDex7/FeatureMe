@@ -187,6 +187,17 @@ function SignupPage() {
 
   // Resend verification code
   const handleResendCode = async () => {
+    // Ask for confirmation before resending
+    const confirmed = window.confirm(
+      "Are you sure you want to resend the verification code?\n\n" +
+      "A new code will be sent to " + formData.email + " and any previous codes will become invalid.\n\n" +
+      "Do you want to continue?"
+    );
+    
+    if (!confirmed) {
+      return; // User cancelled
+    }
+    
     try {
       setIsVerifying(true);
       setVerificationError("");
