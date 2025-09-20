@@ -134,13 +134,11 @@ function Profile() {
         
         const response = await api.get(`/user/get/${username}`);
         setUser(response.data);
-        console.log(response.data);
         
         // Get relationship summary using new endpoint
         const relationshipResponse = await UserRelationsService.getRelationshipSummary(username);
         setRelationshipSummary(relationshipResponse.data);
         setIsFollowing(relationshipResponse.data.isFollowing);
-        console.log('Relationship summary:', relationshipResponse.data);
         
         setIsLoading(false);
       } catch (err) {
@@ -185,7 +183,6 @@ function Profile() {
       api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${size}`).then(res => {
         setTotalPages(res.data.page.totalPages)
         setPosts(res.data.content)
-        console.log(res.data)
       })
     }
   }, [activeTab, user, page, size]);
@@ -196,7 +193,6 @@ function Profile() {
       api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${featPage}&size=${featSize}`).then(res => {
         setFeatTotalPages(res.data.page.totalPages)
         setFeatureOn(res.data.content)
-        console.log(res.data)
       })
     }
   }, [activeTab, user, featPage, featSize]);
@@ -206,7 +202,6 @@ function Profile() {
       // Fetch demos for the current user
       DemoService.getUserDemos(user.id).then(demos => {
         setDemos(demos)
-        console.log("User demos:", demos)
       }).catch(err => {
         console.error("Error fetching demos:", err)
         setDemos([])
@@ -237,7 +232,6 @@ function Profile() {
     if (activeTab === "demos" && user) {
       DemoService.getUserDemos(user.id).then(demos => {
         setDemos(demos)
-        console.log("Demos refreshed:", demos)
       }).catch(err => {
         console.error("Error refreshing demos:", err)
       })
@@ -251,7 +245,6 @@ function Profile() {
         // Refresh demos list after deletion
         const updatedDemos = await DemoService.getUserDemos(user.id);
         setDemos(updatedDemos);
-        console.log("Demo deleted successfully");
       } catch (err) {
         console.error("Error deleting demo:", err);
         alert("Failed to delete demo. Please try again.");
@@ -268,7 +261,6 @@ function Profile() {
     
     try {
       const response = await UserRelationsService.toggleFollow(username);
-      console.log('Follow response:', response.data);
       
       // Toggle the following state
       setIsFollowing(!isFollowing);
@@ -455,7 +447,6 @@ function Profile() {
       formData.append('bannerMethod', uploadMethod.banner);
       
       const response = await updateProfile(formData, true); // true indicates multipart form data
-      console.log('Profile updated:', response.data);
       
       // Reset file states and clear validation errors
       setProfilePicFile(null);
@@ -470,7 +461,6 @@ function Profile() {
       try {
         const refreshedUser = await api.get(`/user/get/${username}`);
         setUser(refreshedUser.data);
-        console.log("Profile refreshed with latest data:", refreshedUser.data);
       } catch (refreshError) {
         console.error("Error refreshing profile data:", refreshError);
         // Fallback to response data if refresh fails

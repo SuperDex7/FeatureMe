@@ -38,12 +38,6 @@ const getApiConfig = () => {
     };
   }
   
-  // Debug logging
-  console.log('API Config:', config);
-  console.log('Current location:', window.location.href);
-  console.log('Is nginx mode:', isNginxMode);
-  console.log('Is HTTPS mode:', isHttpsMode);
-  
   return config;
 };
 

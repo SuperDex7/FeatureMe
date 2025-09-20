@@ -106,7 +106,6 @@ function AddDemo({ setAddDemo, onDemoAdded, userRole }){
             
             const response = await DemoService.createDemo(demoData, file);
             
-            console.log("Demo created successfully:", response);
             alert("Demo uploaded successfully!");
             
             // Reset form

@@ -56,12 +56,10 @@ function LoginPage() {
       
       if (response.status === 200) {
         const data = response.data;
-        console.log('Login successful:', data);
         
         // Redirect to the page user was trying to access, or home if none
         navigate(from, { replace: true });
       } else if (response.status === 401) {
-        console.log('Login failed - 401 Unauthorized');
         setErrorMessage('Invalid email/username or password. Please try again.');
       }
     } catch (error) {
@@ -71,7 +69,6 @@ function LoginPage() {
       if (error.response) {
         // Server responded with error status
         const errorData = error.response.data;
-        console.log('Error response data:', errorData);
         
         // Display the response data if available
         if (errorData && typeof errorData === 'string') {

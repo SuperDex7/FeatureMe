@@ -10,11 +10,9 @@ function LikedPosts(){
         useEffect(()=>{
             getCurrentUser().then(res=>{
                 setUser(res)
-                console.log(`/posts/get/all/id/${res.posts}?page=${page}&size=${size}`)
                 api.get(`/posts/get/all/id/${res.likedPosts}?page=${page}&size=${size}`).then(res=>{
                     setLikedPosts(res.data.content)
                     setTotalPages(res.data.page.totalPages)
-                console.log(res)
                 })
             })
         }, [page])

@@ -82,7 +82,6 @@ export class ChatWebSocketService {
                         this.stompClient.debug = null;
                         
                         this.stompClient.connect({}, (frame) => {
-                            console.log('Connected to WebSocket:', frame);
                             this.isConnected = true;
                             resolve(frame);
                         }, (error) => {
@@ -103,7 +102,6 @@ export class ChatWebSocketService {
     disconnect() {
         if (this.stompClient && this.isConnected) {
             this.stompClient.disconnect(() => {
-                console.log('Disconnected from WebSocket');
                 this.isConnected = false;
             });
         }
@@ -120,9 +118,7 @@ export class ChatWebSocketService {
 
         const subscription = this.stompClient.subscribe(`/topic/chat/${chatRoomId}`, (message) => {
             try {
-                console.log('Raw WebSocket message received:', message.body);
                 const chatMessage = JSON.parse(message.body);
-                console.log('Parsed chat message:', chatMessage);
                 messageHandler(chatMessage);
             } catch (error) {
                 console.error('Error parsing chat message:', error);

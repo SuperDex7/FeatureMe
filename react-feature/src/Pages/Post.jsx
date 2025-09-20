@@ -70,7 +70,6 @@ function Post() {
                 setPost(res.data);
                 setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
                 setTotalComments(res.data.totalComments || 0);
-                console.log(res.data);
                 
                 // Load first page of comments
                 loadComments(0, false);
@@ -123,7 +122,6 @@ function Post() {
                 }
             })
             .then(res => {
-                console.log(res);
                 // Reload the first page of comments to get the latest data
                 setCommentPage(0);
                 loadComments(0, false);
@@ -179,7 +177,6 @@ function Post() {
                 const timeSinceLastView = now - parseInt(lastViewTime);
                 if (timeSinceLastView < oneMinute) {
                     shouldAddView = false;
-                    console.log(`View cooldown active. ${Math.ceil((oneMinute - timeSinceLastView) / 1000)}s remaining`);
                 }
             }
             
@@ -187,7 +184,6 @@ function Post() {
                 try {
                     await addView(id);
                     localStorage.setItem(cooldownKey, now.toString());
-                    console.log("View added for post:", id);
                 } catch (error) {
                     console.error("Error adding view:", error);
                 }
@@ -307,7 +303,6 @@ function Post() {
         
         try {
             await deletePost(id);
-            console.log('Post deleted successfully');
             // Redirect to home page after successful deletion
             window.location.href = '/feed';
         } catch (err) {

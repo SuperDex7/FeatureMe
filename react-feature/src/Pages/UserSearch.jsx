@@ -100,13 +100,10 @@ function UserSearch() {
         
         try {
             const response = await api.post(`/user-relations/follow/${targetUserName}`);
-            console.log('Follow toggle response:', response.data);
             
             // Check the response text - backend returns "Followed" or "Unfollowed"
             const responseText = response.data.toString();
             const isFollowing = responseText === "Followed";
-            
-            console.log('Is following after toggle:', isFollowing);
             
             setFollowingStatus(prev => ({
                 ...prev,
@@ -139,7 +136,6 @@ function UserSearch() {
         try {
             setLoading(true);
             const demoData = await DemoService.getDemoById(demoId);
-            console.log(demoData);
             if (demoData && demoData.songUrl) {
                 setPlayingDemo({ 
                     url: demoData.songUrl, 
