@@ -231,7 +231,7 @@ const MessagesPage = () => {
       setHasMore(pageData.length === 15);
       
       // Subscribe to real-time updates for this chat
-      if (chatWebSocketService.isConnected()) {
+      if (chatWebSocketService.isWebSocketConnected()) {
         chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
           console.log('New message received:', newMessage);
           console.log('Message type:', newMessage.type);
@@ -344,7 +344,7 @@ const MessagesPage = () => {
       // Send message via WebSocket
       const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
       
-      if (chatWebSocketService.isConnected()) {
+      if (chatWebSocketService.isWebSocketConnected()) {
         chatWebSocketService.sendMessage(
           chatRoomId, 
           messageText, 
@@ -492,7 +492,7 @@ const MessagesPage = () => {
 
     try {
       // Use WebSocket for instant delivery
-      if (chatWebSocketService.isConnected()) {
+      if (chatWebSocketService.isWebSocketConnected()) {
         chatWebSocketService.leaveChat(chatRoomId, currentUser.userName);
       } else {
         console.warn('WebSocket not connected, leaving chat without real-time notification');
@@ -536,7 +536,7 @@ const MessagesPage = () => {
 
     try {
       // Use WebSocket for instant delivery
-      if (chatWebSocketService.isConnected()) {
+      if (chatWebSocketService.isWebSocketConnected()) {
         chatWebSocketService.addUserToChat(chatRoomId, user.userName, currentUser.userName);
       } else {
         console.warn('WebSocket not connected, adding user without real-time notification');
