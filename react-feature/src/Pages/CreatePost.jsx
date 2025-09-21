@@ -13,8 +13,6 @@ const GENRES = [
 function CreatePost(){
   const [currentStep, setCurrentStep] = useState(1);
   const [songName, setSongName] = useState('');
-  const [features, setFeatures] = useState([]);
-  const [featureInput, setFeatureInput] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
   const [genres, setGenres] = useState([]);
@@ -82,7 +80,7 @@ function CreatePost(){
       // Filter out current user and already selected users
       const filteredUsers = users.filter(user => 
         user.userName !== currentUser?.userName && 
-        !selectedUsers.includes(user.userName)
+        !selectedUsers.some(selectedUser => selectedUser.userName === user.userName)
       );
       setSearchedUsers(filteredUsers);
     } catch (error) {
@@ -96,22 +94,12 @@ function CreatePost(){
   // Add user to selected users
   const toggleUserSelection = (user) => {
     setSelectedUsers(prev => 
-      prev.includes(user.userName) 
-        ? prev.filter(u => u !== user.userName)
-        : [...prev, user.userName]
+      prev.some(selectedUser => selectedUser.userName === user.userName) 
+        ? prev.filter(selectedUser => selectedUser.userName !== user.userName)
+        : [...prev, user]
     );
   };
 
-  const handleFeatureKeyDown = (e) => {
-    if (e.key === 'Enter' && featureInput.trim()) {
-      e.preventDefault();
-      const newFeature = featureInput.trim();
-      const newFeatures = [...features, newFeature];
-      setFeatures(newFeatures);
-      setFeatureInput("");
-      setPost({ ...post, features: newFeatures });
-    }
-  };
 
   const handleInput = (e) => {
     setPost({...post, [e.target.name]: e.target.value})
@@ -125,8 +113,6 @@ function CreatePost(){
     setPost({...post, freeDownload: !post.freeDownload})
   }
 
-  const removeFeature = (name) =>
-    setFeatures(features.filter((f) => f !== name));
 
   const toggleGenre = (g) => {
     const newGenres = genres.includes(g)
@@ -226,8 +212,8 @@ function CreatePost(){
       return;
     }
 
-    // Combine selected users with manual features
-    const allFeatures = [...selectedUsers, ...features];
+    // Use only selected users from search
+    const allFeatures = selectedUsers.map(user => user.userName);
     
     const formData = new FormData();
     const postData = {
@@ -418,7 +404,7 @@ function CreatePost(){
         <div className="notice-icon">⚠️</div>
         <div className="notice-content">
           <strong>Feature Approval Required</strong>
-          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. You can search for users or type usernames manually.
+          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. Use the search below to find and add collaborators.
           </p>
         </div>
       </div>
@@ -446,22 +432,19 @@ function CreatePost(){
           <div className="create-post-selected-users-section">
             <label className="create-post-selected-users-label">Selected Users ({selectedUsers.length})</label>
             <div className="create-post-selected-users-list">
-              {selectedUsers.map((username) => {
-                const user = searchedUsers.find(u => u.userName === username);
-                return (
-                  <div key={username} className="create-post-selected-user-item">
-                    <img src={user?.profilePic || "/dpp.jpg"} alt={username} />
-                    <span>{username}</span>
-                    <button 
-                      type="button"
-                      className="create-post-remove-user-btn"
-                      onClick={() => toggleUserSelection({ userName: username })}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })}
+              {selectedUsers.map((user) => (
+                <div key={user.userName} className="create-post-selected-user-item">
+                  <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
+                  <span>{user.userName}</span>
+                  <button 
+                    type="button"
+                    className="create-post-remove-user-btn"
+                    onClick={() => toggleUserSelection(user)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -475,7 +458,7 @@ function CreatePost(){
                 searchedUsers.map((user) => (
                   <div
                     key={user.userName}
-                    className={`create-post-user-item ${selectedUsers.includes(user.userName) ? 'selected' : ''}`}
+                    className={`create-post-user-item ${selectedUsers.some(selectedUser => selectedUser.userName === user.userName) ? 'selected' : ''}`}
                     onClick={() => toggleUserSelection(user)}
                   >
                     <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
@@ -483,7 +466,7 @@ function CreatePost(){
                       <span className="create-post-user-name">{user.userName}</span>
                       {user.bio && <span className="create-post-user-bio">{user.bio}</span>}
                     </div>
-                    {selectedUsers.includes(user.userName) && <span className="create-post-check">✓</span>}
+                    {selectedUsers.some(selectedUser => selectedUser.userName === user.userName) && <span className="create-post-check">✓</span>}
                   </div>
                 ))
               ) : !searchingUsers ? (
@@ -503,43 +486,17 @@ function CreatePost(){
         )}
       </div>
 
-      {/* Manual Feature Input (Alternative) */}
-      <div className="create-post-input-group">
-        <label className="create-post-input-label">Or Add Features Manually</label>
-        <input
-          name="features"
-          type="text"
-          className="create-post-text-input"
-          placeholder="Type username and press Enter to add manually"
-          value={featureInput}
-          onChange={(e) => setFeatureInput(e.target.value)}
-          onKeyDown={handleFeatureKeyDown}
-        />
-        <div className="create-post-tag-list">
-          {features.map((f) => (
-            <span key={f} className="create-post-tag" onClick={() => removeFeature(f)}>
-              {f} ×
-            </span>
-          ))}
-        </div>
-      </div>
 
       <div className="create-post-features-preview">
         <h4>Current Features:</h4>
-        {features.length === 0 && selectedUsers.length === 0 ? (
+        {selectedUsers.length === 0 ? (
           <p className="no-features">No features added yet</p>
         ) : (
           <div className="create-post-features-grid">
-            {selectedUsers.map((username, index) => (
-              <div key={`selected-${username}`} className="create-post-feature-card">
+            {selectedUsers.map((user, index) => (
+              <div key={`selected-${user.userName}`} className="create-post-feature-card">
                 <span className="create-post-feature-icon">👤</span>
-                <span className="create-post-feature-name">{username}</span>
-              </div>
-            ))}
-            {features.map((feature, index) => (
-              <div key={`manual-${feature}`} className="create-post-feature-card">
-                <span className="create-post-feature-icon">🎤</span>
-                <span className="create-post-feature-name">{feature}</span>
+                <span className="create-post-feature-name">{user.userName}</span>
               </div>
             ))}
           </div>
@@ -658,11 +615,11 @@ function CreatePost(){
             <h3 className="create-post-preview-title">{post.title || "Song Title"}</h3>
             <p className="create-post-preview-description">{post.description || "No description provided"}</p>
             
-            {(features.length > 0 || selectedUsers.length > 0) && (
+            {selectedUsers.length > 0 && (
               <div className="create-post-preview-features">
                 <span className="create-post-preview-feat-label">Feat:</span>
                 <span className="create-post-preview-feat-list">
-                  {[...selectedUsers, ...features].join(", ")}
+                  {selectedUsers.map(user => user.userName).join(", ")}
                 </span>
               </div>
             )}
