@@ -147,7 +147,7 @@ FeatureMe/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/FeatureMe.git
+   git clone https://github.com/SuperDex7/FeatureMe.git
    cd FeatureMe
    ```
 
