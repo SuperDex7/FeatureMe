@@ -45,7 +45,7 @@ public class PostDownloadService {
         return downloads.stream().map(download -> {
             // Get current user profile pic
             String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).get();
+                .map(User::getProfilePic).orElse("../public/dpp.jpg");
             
             return new PostDownloadDTO(
                 download.getId(),
@@ -69,7 +69,7 @@ public class PostDownloadService {
         List<PostDownloadDTO> downloads = downloadPage.getContent().stream().map(download -> {
             // Get current user profile pic
             String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).orElse("https://randomuser.me/api/portraits/men/32.jpg");
+                .map(User::getProfilePic).orElse("../public/dpp.jpg");
             
             return new PostDownloadDTO(
                 download.getId(),
@@ -96,7 +96,7 @@ public class PostDownloadService {
         return downloads.stream().map(download -> {
             // Get current user profile pic
             String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).get();
+                .map(User::getProfilePic).orElse("../public/dpp.jpg");
                 
             
             return new PostDownloadDTO(

@@ -249,6 +249,7 @@
 @media (max-width: 768px) {
   .analytics-pagination {
     padding: 0.8rem;
+    margin-top: 1rem;
   }
   
   .analytics-pagination-controls {
@@ -259,6 +260,33 @@
   .analytics-pagination-btn {
     width: 100%;
     max-width: 150px;
+  }
+  
+  .analytics-pagination-info {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-pagination {
+    padding: 0.6rem;
+    margin-top: 0.8rem;
+  }
+  
+  .analytics-pagination-btn {
+    max-width: 120px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .analytics-pagination-info {
+    font-size: 0.75rem;
+  }
+  
+  .analytics-pagination-pages {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    min-width: 60px;
   }
 }
 
@@ -308,8 +336,13 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .analytics-card {
+    margin: 0;
+    border-radius: 1.5rem;
+  }
+  
   .analytics-posts-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.8rem;
   }
   
@@ -326,16 +359,120 @@
   }
   
   .analytics-card-header {
-    padding: 1.2rem 1.2rem 0 1.2rem;
+    padding: 1rem 1rem 0 1rem;
+    gap: 0.8rem;
   }
   
   .analytics-card-content {
-    padding: 1.2rem;
+    padding: 1rem;
+  }
+  
+  .analytics-card-icon {
+    font-size: 2rem;
+  }
+  
+  .analytics-card-title h3 {
+    font-size: 1.2rem;
+  }
+  
+  .analytics-card-title p {
+    font-size: 0.8rem;
+  }
+  
+  .analytics-post-stats {
+    gap: 0.6rem;
+  }
+  
+  .analytics-stat {
+    font-size: 0.75rem;
+  }
+  
+  .analytics-stat-icon {
+    font-size: 0.8rem;
   }
 }
 
 @media (max-width: 480px) {
+  .analytics-card {
+    border-radius: 1rem;
+    margin: 0;
+  }
+  
   .analytics-posts-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  
+  .analytics-card-header {
+    padding: 0.8rem 0.8rem 0 0.8rem;
+    gap: 0.6rem;
+  }
+  
+  .analytics-card-content {
+    padding: 0.8rem;
+  }
+  
+  .analytics-card-icon {
+    font-size: 1.8rem;
+  }
+  
+  .analytics-card-title h3 {
+    font-size: 1.1rem;
+  }
+  
+  .analytics-card-title p {
+    font-size: 0.75rem;
+  }
+  
+  .analytics-post-banner {
+    height: 50px;
+  }
+  
+  .analytics-post-info {
+    padding: 0.6rem 0.4rem;
+  }
+  
+  .analytics-post-title {
+    font-size: 0.8rem;
+  }
+  
+  .analytics-post-stats {
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  
+  .analytics-stat {
+    font-size: 0.7rem;
+  }
+  
+  .analytics-stat-icon {
+    font-size: 0.75rem;
+  }
+  
+  .analytics-view-btn {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .analytics-posts-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .analytics-card-header {
+    padding: 0.6rem 0.6rem 0 0.6rem;
+  }
+  
+  .analytics-card-content {
+    padding: 0.6rem;
+  }
+  
+  .analytics-card-title h3 {
+    font-size: 1rem;
+  }
+  
+  .analytics-card-title p {
+    font-size: 0.7rem;
   }
 }

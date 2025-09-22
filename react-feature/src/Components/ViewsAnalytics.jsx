@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/AuthService';
-import { getPostDownloads } from '../services/PostsService';
 import './ViewsAnalytics.css';
 
 function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postAuthor, totalDownloads: postTotalDownloads = 0 }) {
   const [views, setViews] = useState([]);
   const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState('lastView'); // 'lastView', 'firstView', 'viewCount', 'userName'
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
+  const [sortBy, setSortBy] = useState('lastView');
+  const [sortOrder, setSortOrder] = useState('desc');
   
   // Pagination state
   const [viewsPage, setViewsPage] = useState(0);
@@ -19,7 +18,7 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
   const [viewsTotalElements, setViewsTotalElements] = useState(0);
   const [downloadsTotalElements, setDownloadsTotalElements] = useState(0);
   
-  // Enhanced analytics state
+  // Analytics data
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
     uniqueViewers: 0,
@@ -28,6 +27,9 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
     topViewers: [],
     recentActivity: []
   });
+  
+  // UI state
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'views', 'downloads'
 
   useEffect(() => {
     if (isOpen && postId) {
@@ -51,30 +53,40 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
   }, [downloadsPage, pageSize, isOpen, postId]);
 
   const fetchViews = async () => {
-    setLoading(true);
     try {
-      const response = await api.get(`/posts/views/${postId}/paginated?page=${viewsPage}&size=${pageSize}`);
-      const viewsData = response.data.content || [];
-      setViews(viewsData);
-      setViewsTotalPages(response.data.totalPages || 0);
-      setViewsTotalElements(response.data.totalElements || 0);
+      setLoading(true);
+      const response = await api.get(`/posts/views/${postId}/paginated`, {
+        params: {
+          page: viewsPage,
+          size: pageSize
+        }
+      });
       
-      // Update analytics data
-      const totalViews = viewsData.reduce((sum, view) => sum + view.viewCount, 0);
-      const uniqueViewers = response.data.totalElements || 0;
-      const avgViewsPerUser = uniqueViewers > 0 ? (totalViews / uniqueViewers) : 0;
-      
-      setAnalyticsData(prev => ({
-        ...prev,
-        totalViews,
-        uniqueViewers,
-        avgViewsPerUser: avgViewsPerUser.toFixed(1)
-      }));
+      if (response.data) {
+        // Handle PagedModel response structure
+        const content = response.data.content || response.data._embedded?.viewsDTO || [];
+        const totalPages = response.data.page?.totalPages || 0;
+        const totalElements = response.data.page?.totalElements || 0;
+        
+        setViews(content);
+        setViewsTotalPages(totalPages);
+        setViewsTotalElements(totalElements);
+        
+        // Calculate analytics
+        const totalViews = totalElements || 0;
+        const uniqueViewers = new Set(content.map(view => view.userName)).size;
+        const avgViewsPerUser = uniqueViewers > 0 ? (totalViews / uniqueViewers).toFixed(1) : 0;
+        
+        setAnalyticsData(prev => ({
+          ...prev,
+          totalViews,
+          uniqueViewers,
+          avgViewsPerUser
+        }));
+      }
     } catch (error) {
       console.error('Error fetching views:', error);
       setViews([]);
-      setViewsTotalPages(0);
-      setViewsTotalElements(0);
     } finally {
       setLoading(false);
     }
@@ -82,101 +94,32 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
 
   const fetchDownloads = async () => {
     try {
-      const response = await api.get(`/posts/downloads/${postId}/paginated?page=${downloadsPage}&size=${pageSize}`);
-      const downloadsData = response.data.content || [];
-      setDownloads(downloadsData);
-      setDownloadsTotalPages(response.data.totalPages || 0);
-      setDownloadsTotalElements(response.data.totalElements || 0);
+      const response = await api.get(`/posts/downloads/${postId}/paginated`, {
+        params: {
+          page: downloadsPage,
+          size: pageSize
+        }
+      });
       
-      // Update analytics data
-      setAnalyticsData(prev => ({
-        ...prev,
-        totalDownloads: postTotalDownloads
-      }));
+      if (response.data) {
+        // Handle PagedModel response structure
+        const content = response.data.content || response.data._embedded?.postDownloadDTO || [];
+        const totalPages = response.data.page?.totalPages || 0;
+        const totalElements = response.data.page?.totalElements || 0;
+        
+        setDownloads(content);
+        setDownloadsTotalPages(totalPages);
+        setDownloadsTotalElements(totalElements);
+        
+        setAnalyticsData(prev => ({
+          ...prev,
+          totalDownloads: totalElements || 0
+        }));
+      }
     } catch (error) {
       console.error('Error fetching downloads:', error);
       setDownloads([]);
-      setDownloadsTotalPages(0);
-      setDownloadsTotalElements(0);
     }
-  };
-
-  const sortedViews = [...views].sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortBy) {
-      case 'viewCount':
-        aValue = a.viewCount;
-        bValue = b.viewCount;
-        break;
-      case 'userName':
-        aValue = a.userName.toLowerCase();
-        bValue = b.userName.toLowerCase();
-        break;
-      case 'firstView':
-        aValue = new Date(a.firstView);
-        bValue = new Date(b.firstView);
-        break;
-      case 'lastView':
-      default:
-        aValue = new Date(a.lastView);
-        bValue = new Date(b.lastView);
-        break;
-    }
-
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
-
-  const totalViews = analyticsData.totalViews;
-  const uniqueViewers = analyticsData.uniqueViewers;
-  const totalDownloads = analyticsData.totalDownloads;
-
-  const formatDate = (dateString) => {
-    // Ensure the date is parsed correctly as UTC if it's an ISO string
-    const date = new Date(dateString);
-    
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return 'Invalid date';
-    }
-    
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
-  };
-
-  const getTimeSince = (dateString) => {
-    // Ensure the date is parsed correctly as UTC if it's an ISO string
-    const date = new Date(dateString);
-    const now = new Date();
-    
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return 'Invalid date';
-    }
-    
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffWeeks < 4) return `${diffWeeks}w ago`;
-    return `${diffMonths}mo ago`;
   };
 
   const formatNumber = (num) => {
@@ -188,290 +131,322 @@ function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postA
     return num.toString();
   };
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const getEngagementRate = () => {
-    if (uniqueViewers === 0) return 0;
-    const engagement = ((totalViews + totalDownloads) / uniqueViewers).toFixed(1);
-    return engagement;
+    if (analyticsData.totalViews === 0) return '0%';
+    const rate = ((analyticsData.totalDownloads / analyticsData.totalViews) * 100).toFixed(1);
+    return `${rate}%`;
+  };
+
+  const handleSortChange = (newSortBy) => {
+    setSortBy(newSortBy);
+    setViewsPage(0);
+  };
+
+  const handleSortOrderToggle = () => {
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    setViewsPage(0);
   };
 
   if (!isOpen) return null;
 
-  // Only show to post author
-  if (!currentUser || currentUser.userName !== postAuthor.userName) {
-    return (
-      <div className="views-analytics-overlay" onClick={onClose}>
-        <div className="views-analytics-modal" onClick={e => e.stopPropagation()}>
-          <div className="views-analytics-header">
-            <h3>Access Denied</h3>
-            <button className="views-analytics-close" onClick={onClose}>&times;</button>
-          </div>
-          <p>Only the post author can view analytics.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="views-analytics-overlay" onClick={onClose}>
-      <div className="views-analytics-modal" onClick={e => e.stopPropagation()}>
+      <div className="views-analytics-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div className="views-analytics-header">
           <div className="views-analytics-header-content">
-            <h3>View Analytics</h3>
-            {postTitle && (
-              <div className="views-analytics-post-title">
-                <span className="views-analytics-post-label">Title:</span>
-                <a 
-                  href={`/post/${postId}`} 
-                  className="views-analytics-post-link"
-                >
-                  {postTitle}
-                </a>
-              </div>
-            )}
+            <div className="views-analytics-icon">📊</div>
+            <div className="views-analytics-title">
+              <h3>Post Analytics</h3>
+              {postTitle && (
+                <p className="views-analytics-subtitle">{postTitle}</p>
+              )}
+            </div>
           </div>
           <button className="views-analytics-close" onClick={onClose}>&times;</button>
         </div>
 
-        <div className="views-analytics-summary">
-          <div className="views-stat">
-            <span className="views-stat-number">{formatNumber(totalViews)}</span>
-            <span className="views-stat-label">Total Views</span>
-          </div>
-          <div className="views-stat">
-            <span className="views-stat-number">{formatNumber(uniqueViewers)}</span>
-            <span className="views-stat-label">Unique Viewers</span>
-          </div>
-          <div className="views-stat">
-            <span className="views-stat-number">{formatNumber(totalDownloads)}</span>
-            <span className="views-stat-label">Downloads</span>
-          </div>
-          <div className="views-stat">
-            <span className="views-stat-number">{analyticsData.avgViewsPerUser}</span>
-            <span className="views-stat-label">Avg Views/User</span>
-          </div>
-          <div className="views-stat">
-            <span className="views-stat-number">{getEngagementRate()}</span>
-            <span className="views-stat-label">Engagement Rate</span>
-          </div>
+        {/* Navigation Tabs */}
+        <div className="views-analytics-nav">
+          <button 
+            className={`views-analytics-nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            📈 Overview
+          </button>
+          <button 
+            className={`views-analytics-nav-tab ${activeTab === 'views' ? 'active' : ''}`}
+            onClick={() => setActiveTab('views')}
+          >
+            👁️ Views ({analyticsData.totalViews})
+          </button>
+          <button 
+            className={`views-analytics-nav-tab ${activeTab === 'downloads' ? 'active' : ''}`}
+            onClick={() => setActiveTab('downloads')}
+          >
+            ⬇️ Downloads ({analyticsData.totalDownloads})
+          </button>
         </div>
 
-        <div className="views-analytics-controls">
-          <div className="views-sort-controls">
-            <label>Sort by:</label>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="lastView">Last View</option>
-              <option value="firstView">First View</option>
-              <option value="viewCount">View Count</option>
-              <option value="userName">Username</option>
-            </select>
-            <button 
-              className={`sort-order-btn ${sortOrder === 'desc' ? 'active' : ''}`}
-              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-            >
-              {sortOrder === 'desc' ? '↓' : '↑'}
-            </button>
-          </div>
-          <div className="views-pagination-controls">
-            <label>Items per page:</label>
-            <select value={pageSize} onChange={(e) => setPageSize(parseInt(e.target.value))}>
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
-          </div>
-        </div>
-
+        {/* Content */}
         <div className="views-analytics-content">
-          <div className="analytics-sections-container">
-            {/* Views Section */}
-            <div className="analytics-section">
-              <div className="analytics-section-header">
-                <h4 className="analytics-section-title">
-                  <span className="analytics-section-icon">👁️</span>
-                  Views ({formatNumber(uniqueViewers)})
-                </h4>
+          {activeTab === 'overview' && (
+            <div className="overview-tab">
+              {/* Stats Cards */}
+              <div className="stats-section">
+                <div className="stats-header">
+                  <span>Analytics Summary</span>
+                </div>
+                
+                <div className="stats-grid">
+                  <div className="views-analytics-stat-card">
+                    <div className="stat-icon">👁️</div>
+                    <div className="stat-content">
+                      <div className="stat-number">{formatNumber(analyticsData.totalViews)}</div>
+                      <div className="stat-label">Total Views</div>
+                    </div>
+                  </div>
+                  
+                  <div className="views-analytics-stat-card">
+                    <div className="stat-icon">👤</div>
+                    <div className="stat-content">
+                      <div className="stat-number">{formatNumber(analyticsData.uniqueViewers)}</div>
+                      <div className="stat-label">Unique Viewers</div>
+                    </div>
+                  </div>
+                  
+                  <div className="views-analytics-stat-card">
+                    <div className="stat-icon">⬇️</div>
+                    <div className="stat-content">
+                      <div className="stat-number">{formatNumber(analyticsData.totalDownloads)}</div>
+                      <div className="stat-label">Downloads</div>
+                    </div>
+                  </div>
+                  
+                  <div className="views-analytics-stat-card">
+                    <div className="stat-icon">📊</div>
+                    <div className="stat-content">
+                      <div className="stat-number">{analyticsData.avgViewsPerUser}</div>
+                      <div className="stat-label">Avg Views/User</div>
+                    </div>
+                  </div>
+                  
+                  <div className="views-analytics-stat-card">
+                    <div className="stat-icon">💯</div>
+                    <div className="stat-content">
+                      <div className="stat-number">{getEngagementRate()}</div>
+                      <div className="stat-label">Engagement Rate</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              {loading ? (
-                <div className="views-loading">Loading views...</div>
-              ) : views.length === 0 ? (
-                <div className="views-empty">No views yet</div>
-              ) : (
-                <div className="views-list">
-                  {sortedViews.map((view, index) => (
-                    <div key={`${view.userName}-${index}`} className="view-item">
+
+              {/* Quick Actions */}
+              <div className="quick-actions">
+                <button 
+                  className="action-btn"
+                  onClick={() => setActiveTab('views')}
+                >
+                  View All Viewers
+                </button>
+                <button 
+                  className="action-btn"
+                  onClick={() => setActiveTab('downloads')}
+                >
+                  View All Downloads
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'views' && (
+            <div className="views-tab">
+              <div className="tab-header">
+                <div className="tab-controls">
+                  <div className="sort-controls">
+                    <label>Sort by:</label>
+                    <select value={sortBy} onChange={(e) => handleSortChange(e.target.value)}>
+                      <option value="lastView">Last View</option>
+                      <option value="firstView">First View</option>
+                      <option value="viewCount">View Count</option>
+                      <option value="userName">User Name</option>
+                    </select>
+                    <button className="sort-btn" onClick={handleSortOrderToggle}>
+                      {sortOrder === 'desc' ? '↓' : '↑'}
+                    </button>
+                  </div>
+                  
+                  <div className="views-analytics-pagination-controls">
+                    <label>Per page:</label>
+                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="views-list">
+                {loading ? (
+                  <div className="loading-state">Loading viewers...</div>
+                ) : views.length === 0 ? (
+                  <div className="empty-state">No views recorded yet</div>
+                ) : (
+                  views.map((view, index) => (
+                    <div key={index} className="views-analytics-view-item">
                       <div className="view-user">
-                        <a href={`/profile/${view.userName}`} className="view-user-link">
-                          <img 
-                            className="view-user-avatar" 
-                            src={view.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
+                        <div className="views-analytics-user-avatar">
+                          {view.profilePic ? (
+                            <img 
+                            src={view?.profilePic || "/dpp.jpg"} 
                             alt={view.userName}
-                            loading="lazy"
+                            onError={(e) => {
+                              e.target.src = '/dpp.jpg';
+                            }}
                           />
-                        </a>
-                        <div className="view-user-info">
-                          <a href={`/profile/${view.userName}`} className="view-username">
-                            {view.userName}
-                          </a>
-                          <div className="view-count">
-                            {view.viewCount} view{view.viewCount !== 1 ? 's' : ''}
-                            {view.viewCount > 1 && (
-                              <span className="view-count-badge">Returning</span>
-                            )}
-                          </div>
+                          ) : (
+                            <span>{view.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                          )}
+                        </div>
+                        <div className="user-info">
+                          <div className="views-analytics-username">{view.userName || 'Unknown User'}</div>
+                          <div className="user-email">Viewer</div>
                         </div>
                       </div>
-                      <div className="view-times">
-                        <div className="view-time">
-                          <span className="view-time-label">Last:</span>
-                          <span className="view-time-value">{getTimeSince(view.lastView)}</span>
-                        </div>
-                        {view.viewCount > 1 && (
+                      <div className="view-stats">
+                        <div className="view-count">{view.viewCount || 1} views</div>
+                        <div className="view-times">
                           <div className="view-time">
-                            <span className="view-time-label">First:</span>
-                            <span className="view-time-value">{getTimeSince(view.firstView)}</span>
+                            <span className="time-label">First:</span>
+                            <span className="time-value">{formatDate(view.firstView)}</span>
                           </div>
-                        )}
-                        <div className="view-time">
-                          <span className="view-time-label">Total:</span>
-                          <span className="view-time-value">{view.viewCount}</span>
+                          <div className="view-time">
+                            <span className="time-label">Last:</span>
+                            <span className="time-value">{formatDate(view.lastView)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Views Pagination */}
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
               {viewsTotalPages > 1 && (
-                <div className="pagination-controls">
-                  <div className="pagination-info">
-                    Showing {viewsPage * pageSize + 1}-{Math.min((viewsPage + 1) * pageSize, viewsTotalElements)} of {viewsTotalElements} views
+                <div className="views-analytics-pagination">
+                  <div className="views-analytics-pagination-info">
+                    Showing {viewsPage * pageSize + 1}-{Math.min((viewsPage + 1) * pageSize, viewsTotalElements)} of {viewsTotalElements} viewers
                   </div>
-                  <div className="pagination-buttons">
+                  <div className="views-analytics-pagination-buttons">
                     <button 
-                      className="pagination-btn"
-                      onClick={() => setViewsPage(0)}
+                      className="views-analytics-pagination-btn"
+                      onClick={() => setViewsPage(Math.max(0, viewsPage - 1))}
                       disabled={viewsPage === 0}
                     >
-                      First
+                      ← Previous
                     </button>
-                    <button 
-                      className="pagination-btn"
-                      onClick={() => setViewsPage(viewsPage - 1)}
-                      disabled={viewsPage === 0}
-                    >
-                      Previous
-                    </button>
-                    <span className="pagination-page">
+                    <span className="page-info">
                       Page {viewsPage + 1} of {viewsTotalPages}
                     </span>
                     <button 
-                      className="pagination-btn"
-                      onClick={() => setViewsPage(viewsPage + 1)}
+                      className="views-analytics-pagination-btn"
+                      onClick={() => setViewsPage(Math.min(viewsTotalPages - 1, viewsPage + 1))}
                       disabled={viewsPage >= viewsTotalPages - 1}
                     >
-                      Next
-                    </button>
-                    <button 
-                      className="pagination-btn"
-                      onClick={() => setViewsPage(viewsTotalPages - 1)}
-                      disabled={viewsPage >= viewsTotalPages - 1}
-                    >
-                      Last
+                      Next →
                     </button>
                   </div>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Downloads Section */}
-            <div className="analytics-section">
-              <div className="analytics-section-header">
-                <h4 className="analytics-section-title">
-                  <span className="analytics-section-icon">📥</span>
-                  Downloads ({formatNumber(totalDownloads)})
-                </h4>
-              </div>
-              
-              {totalDownloads > 0 ? (
-                <>
-                  <div className="downloads-list">
-                    {downloads.map((download, index) => (
-                      <div key={`${download.userName}-${download.downloadTime}-${index}`} className="download-item">
-                        <div className="download-user">
-                          <a href={`/profile/${download.userName}`} className="download-user-link">
-                            <img 
-                              className="download-user-avatar" 
-                              src={download.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
-                              alt={download.userName}
-                              loading="lazy"
-                            />
-                          </a>
-                          <div className="download-user-info">
-                            <a href={`/profile/${download.userName}`} className="download-username">
-                              {download.userName}
-                            </a>
-                            <div className="download-meta">
-                              <span className="download-date">{formatDate(download.downloadTime)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="download-time">
-                          <span className="download-time-badge">{getTimeSince(download.downloadTime)}</span>
-                        </div>
-                      </div>
-                    ))}
+          {activeTab === 'downloads' && (
+            <div className="downloads-tab">
+              <div className="tab-header">
+                <div className="tab-controls">
+                  <div className="views-analytics-pagination-controls">
+                    <label>Per page:</label>
+                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
                   </div>
-                  
-                  {/* Downloads Pagination */}
-                  {downloadsTotalPages > 1 && (
-                    <div className="pagination-controls">
-                      <div className="pagination-info">
-                        Showing {downloadsPage * pageSize + 1}-{Math.min((downloadsPage + 1) * pageSize, downloadsTotalElements)} of {downloadsTotalElements} downloads
+                </div>
+              </div>
+
+              <div className="downloads-list">
+                {loading ? (
+                  <div className="loading-state">Loading downloads...</div>
+                ) : downloads.length === 0 ? (
+                  <div className="empty-state">No downloads recorded yet</div>
+                ) : (
+                  downloads.map((download, index) => (
+                    <div key={index} className="views-analytics-download-item">
+                      <div className="download-user">
+                        <div className="views-analytics-user-avatar">
+                          {download.profilePic ? (
+                            <img src={download.profilePic} alt={download.userName} />
+                          ) : (
+                            <span>{download.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                          )}
+                        </div>
+                        <div className="user-info">
+                          <div className="views-analytics-username">{download.userName || 'Unknown User'}</div>
+                          <div className="user-email">Downloader</div>
+                        </div>
                       </div>
-                      <div className="pagination-buttons">
-                        <button 
-                          className="pagination-btn"
-                          onClick={() => setDownloadsPage(0)}
-                          disabled={downloadsPage === 0}
-                        >
-                          First
-                        </button>
-                        <button 
-                          className="pagination-btn"
-                          onClick={() => setDownloadsPage(downloadsPage - 1)}
-                          disabled={downloadsPage === 0}
-                        >
-                          Previous
-                        </button>
-                        <span className="pagination-page">
-                          Page {downloadsPage + 1} of {downloadsTotalPages}
-                        </span>
-                        <button 
-                          className="pagination-btn"
-                          onClick={() => setDownloadsPage(downloadsPage + 1)}
-                          disabled={downloadsPage >= downloadsTotalPages - 1}
-                        >
-                          Next
-                        </button>
-                        <button 
-                          className="pagination-btn"
-                          onClick={() => setDownloadsPage(downloadsTotalPages - 1)}
-                          disabled={downloadsPage >= downloadsTotalPages - 1}
-                        >
-                          Last
-                        </button>
+                      <div className="download-info">
+                        <div className="download-date">{formatDate(download.downloadTime)}</div>
                       </div>
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="views-empty">No downloads yet</div>
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
+              {downloadsTotalPages > 1 && (
+                <div className="views-analytics-pagination">
+                  <div className="views-analytics-pagination-info">
+                    Showing {downloadsPage * pageSize + 1}-{Math.min((downloadsPage + 1) * pageSize, downloadsTotalElements)} of {downloadsTotalElements} downloads
+                  </div>
+                  <div className="views-analytics-pagination-buttons">
+                    <button 
+                      className="views-analytics-pagination-btn"
+                      onClick={() => setDownloadsPage(Math.max(0, downloadsPage - 1))}
+                      disabled={downloadsPage === 0}
+                    >
+                      ← Previous
+                    </button>
+                    <span className="page-info">
+                      Page {downloadsPage + 1} of {downloadsTotalPages}
+                    </span>
+                    <button 
+                      className="views-analytics-pagination-btn"
+                      onClick={() => setDownloadsPage(Math.min(downloadsTotalPages - 1, downloadsPage + 1))}
+                      disabled={downloadsPage >= downloadsTotalPages - 1}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
