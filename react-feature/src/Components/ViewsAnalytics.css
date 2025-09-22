@@ -171,16 +171,17 @@
 }
 
 /* Overview Tab */
-.overview-tab {
+.views-analytics-overview-tab {
   padding: 2rem 2.5rem;
 }
 
 /* Stats Section */
-.stats-section {
+.views-analytics-stats-section {
   margin-bottom: 2rem;
 }
 
-.stats-header {
+/* Previously .stats-header now namespaced */
+.views-analytics-stats-header {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -193,7 +194,8 @@
   margin-bottom: 1rem;
 }
 
-.stats-grid {
+/* Previously .stats-grid now namespaced */
+.views-analytics-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
@@ -245,7 +247,8 @@
   box-shadow: 0 8px 24px rgba(255, 167, 38, 0.15);
 }
 
-.stat-icon {
+/* Stat parts namespaced (was .stat-*) */
+.views-analytics-stat-icon {
   font-size: 2rem;
   background: linear-gradient(135deg, #ffa726, #ff6b6b);
   -webkit-background-clip: text;
@@ -254,11 +257,11 @@
   filter: drop-shadow(0 2px 4px rgba(255, 167, 38, 0.3));
 }
 
-.stat-content {
+.views-analytics-stat-content {
   flex: 1;
 }
 
-.stat-number {
+.views-analytics-stat-number {
   font-size: 2rem;
   font-weight: 700;
   color: #f3f3f7;
@@ -266,21 +269,21 @@
   margin-bottom: 0.3rem;
 }
 
-.stat-label {
+.views-analytics-stat-label {
   font-size: 0.9rem;
   color: #bfc9d1;
   font-weight: 500;
 }
 
 /* Quick Actions */
-.quick-actions {
+.views-analytics-quick-actions {
   display: flex;
   gap: 1rem;
   justify-content: center;
   margin-top: 2rem;
 }
 
-.action-btn {
+.views-analytics-action-btn {
   background: linear-gradient(135deg, #ffa726, #ff6b6b);
   color: white;
   border: none;
@@ -293,19 +296,19 @@
   box-shadow: 0 4px 16px rgba(255, 167, 38, 0.3);
 }
 
-.action-btn:hover {
+.views-analytics-action-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(255, 167, 38, 0.4);
   background: linear-gradient(135deg, #ffb74d, #ff8a80);
 }
 
 /* Tab Content */
-.tab-header {
+.views-analytics-tab-header {
   padding: 2rem 2.5rem 1rem 2.5rem;
   border-bottom: 1px solid rgba(120, 120, 255, 0.2);
 }
 
-.tab-controls {
+.views-analytics-tab-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -346,7 +349,7 @@
   box-shadow: 0 0 0 2px rgba(255, 167, 38, 0.2);
 }
 
-.sort-btn {
+.views-analytics-sort-btn {
   background: rgba(255, 167, 38, 0.1);
   border: 1px solid rgba(255, 167, 38, 0.3);
   color: #ffa726;
@@ -361,14 +364,14 @@
   transition: all 0.3s ease;
 }
 
-.sort-btn:hover {
+.views-analytics-sort-btn:hover {
   background: rgba(255, 167, 38, 0.2);
   border-color: rgba(255, 167, 38, 0.5);
   transform: scale(1.05);
 }
 
 /* Lists */
-.views-list,
+.views-analytics-views-list,
 .downloads-list {
   padding: 1rem 2.5rem;
   max-height: 400px;
@@ -395,8 +398,8 @@
   transform: translateX(4px);
 }
 
-.view-user,
-.download-user {
+.views-analytics-view-user,
+.views-analytics-download-user {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -422,7 +425,7 @@
   object-fit: cover;
 }
 
-.user-info {
+.views-analytics-user-info {
   display: flex;
   flex-direction: column;
 }
@@ -433,50 +436,50 @@
   font-size: 1rem;
 }
 
-.user-email {
+.views-analytics-user-email {
   font-size: 0.8rem;
   color: #9ca3af;
   margin-top: 0.2rem;
 }
 
-.view-stats,
-.download-info {
+.views-analytics-view-stats,
+.views-analytics-download-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
 }
 
-.view-count {
+.views-analytics-view-count {
   font-weight: 600;
   color: #ffa726;
   font-size: 1rem;
 }
 
-.view-times {
+.views-analytics-view-times {
   display: flex;
   gap: 1rem;
   font-size: 0.8rem;
 }
 
-.view-time {
+.views-analytics-view-time {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.time-label {
+.views-analytics-time-label {
   color: #9ca3af;
   font-size: 0.7rem;
   margin-bottom: 0.2rem;
 }
 
-.time-value {
+.views-analytics-time-value {
   color: #bfc9d1;
   font-weight: 500;
 }
 
-.download-date {
+.views-analytics-download-date {
   color: #bfc9d1;
   font-size: 0.9rem;
   font-weight: 500;
@@ -563,39 +566,39 @@
     padding: 1rem;
   }
   
-  .view-user,
-  .download-user {
+  .views-analytics-view-user,
+  .views-analytics-download-user {
     flex-direction: row;
     align-items: center;
     gap: 1rem;
     margin-bottom: 0.5rem;
   }
   
-  .view-stats,
-  .download-info {
+  .views-analytics-view-stats,
+  .views-analytics-download-info {
     align-items: stretch;
     width: 100%;
   }
   
-  .view-times {
+  .views-analytics-view-times {
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 0.5rem;
   }
   
-  .view-time {
+  .views-analytics-view-time {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
   }
   
-  .time-label {
+  .views-analytics-time-label {
     font-weight: 600;
     color: #bfc9d1;
     min-width: 50px;
   }
   
-  .time-value {
+  .views-analytics-time-value {
     color: #f3f3f7;
     font-weight: 500;
   }
@@ -637,12 +640,12 @@
     white-space: nowrap;
   }
   
-  .overview-tab,
-  .tab-header {
+  .views-analytics-overview-tab,
+  .views-analytics-tab-header {
     padding: 1.5rem 1.5rem 1rem 1.5rem;
   }
   
-  .stats-grid {
+  .views-analytics-stats-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
@@ -651,33 +654,33 @@
     padding: 1rem;
   }
   
-  .stat-number {
+  .views-analytics-stat-number {
     font-size: 1.6rem;
   }
   
-  .quick-actions {
+  .views-analytics-quick-actions {
     flex-direction: column;
     align-items: stretch;
   }
   
-  .action-btn {
+  .views-analytics-action-btn {
     padding: 0.8rem 1.5rem;
     font-size: 0.9rem;
   }
   
-  .tab-controls {
+  .views-analytics-tab-controls {
     flex-direction: column;
     align-items: stretch;
     gap: 0.8rem;
   }
   
-  .sort-controls,
+  .views-analytics-sort-controls,
   .views-analytics-pagination-controls {
     justify-content: space-between;
   }
   
-  .views-list,
-  .downloads-list {
+  .views-analytics-views-list,
+  .views-analytics-downloads-list {
     padding: 1rem 1.5rem;
     max-height: 300px;
   }
@@ -690,13 +693,13 @@
     padding: 1rem;
   }
   
-  .view-stats,
-  .download-info {
+  .views-analytics-view-stats,
+  .views-analytics-download-info {
     align-items: flex-start;
     width: 100%;
   }
   
-  .view-times {
+  .views-analytics-view-times {
     flex-direction: column;
     gap: 0.5rem;
   }
@@ -733,12 +736,12 @@
     font-size: 0.8rem;
   }
   
-  .overview-tab,
-  .tab-header {
+  .views-analytics-overview-tab,
+  .views-analytics-tab-header {
     padding: 1rem;
   }
   
-  .stats-header {
+  .views-analytics-stats-header {
     padding: 0.8rem 1rem;
     font-size: 0.9rem;
   }
@@ -748,20 +751,20 @@
     gap: 0.8rem;
   }
   
-  .stat-icon {
+  .views-analytics-stat-icon {
     font-size: 1.6rem;
   }
   
-  .stat-number {
+  .views-analytics-stat-number {
     font-size: 1.4rem;
   }
   
-  .stat-label {
+  .views-analytics-stat-label {
     font-size: 0.8rem;
   }
   
-  .views-list,
-  .downloads-list {
+  .views-analytics-views-list,
+  .views-analytics-downloads-list {
     padding: 0.8rem 1rem;
     max-height: 250px;
   }
@@ -782,11 +785,11 @@
     font-size: 0.9rem;
   }
   
-  .user-email {
+  .views-analytics-user-role {
     font-size: 0.75rem;
   }
   
-  .view-count {
+  .views-analytics-view-count {
     font-size: 0.9rem;
   }
   
@@ -794,3 +797,44 @@
     padding: 1rem;
   }
 }
+
+/* Comment input override within analytics */
+.views-analytics-comment-input::placeholder {
+  color: #9ca3af;
+}
+
+
+/* ===== Scoped fix for Sort row layout (safe, minimal) ===== */
+.views-analytics-tab-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+/* Keep Sort label + select + arrow together */
+.views-analytics-sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+
+/* Keep arrow vertically centered */
+.views-analytics-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Push pagination controls to the right on wider screens */
+@media (min-width: 720px) {
+  .views-analytics-pagination-controls {
+    margin-left: auto;
+  }
+  .views-analytics-tab-controls {
+    flex-wrap: nowrap;
+  }
+}
+/* ===== End scoped fix ===== */
+

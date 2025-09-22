@@ -775,6 +775,8 @@ function Post() {
                 currentUser={currentUser}
                 postAuthor={post.author}
                 totalDownloads={post?.totalDownloads || 0}
+                totalViews={post?.totalViews || 0}
+                totalComments={post?.totalComments || 0}
             />
             <Footer />
         </div>
