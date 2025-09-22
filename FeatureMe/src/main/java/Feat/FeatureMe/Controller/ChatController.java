@@ -196,6 +196,33 @@ public class ChatController {
             throw new RuntimeException("Failed to update chat photo: " + e.getMessage());
         }
     }
+
+    @DeleteMapping("/{chatRoomId}")
+    public boolean deleteChat(@PathVariable String chatRoomId) {
+        try {
+            // Get the authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new RuntimeException("User not authenticated - please log in again");
+            }
+            
+            String email = authentication.getName();
+            User user = userService.findByUsernameOrEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found: " + email + " - account may have been deleted"));
+            
+            // Check if user is part of this chat before allowing deletion
+            if (!chatService.isUserInChat(chatRoomId, user.getUserName())) {
+                throw new SecurityException("User " + user.getUserName() + " is not authorized to delete chat room " + chatRoomId);
+            }
+            
+            return chatService.deleteChatRoom(chatRoomId);
+        } catch (Exception e) {
+            System.err.println("Error deleting chat " + chatRoomId + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to delete chat: " + e.getMessage());
+        }
+    }
+
     
     
     

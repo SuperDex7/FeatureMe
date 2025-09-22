@@ -3,6 +3,7 @@ package Feat.FeatureMe.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,8 @@ public class ChatService {
     private S3Service s3Service;
     @Autowired
     private FileUploadService fileUploadService;
+    @Autowired
+    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     /**
      * Validates chat file uploads with role-based restrictions
@@ -291,6 +294,8 @@ return newChat;
         userRepository.save(user);
         chatsRepository.save(chat);
         
+        // Check if chat should be deleted (no users remaining)
+        checkAndDeleteIfEmpty(chatRoomId);
 
         return message;
     }
@@ -493,6 +498,9 @@ return newChat;
             userRepository.save(userToRemove);
             chatsRepository.save(chat);
             
+            // Check if chat should be deleted (no users remaining)
+            checkAndDeleteIfEmpty(chatRoomId);
+            
             return chat;
         } catch (Exception e) {
             System.err.println("Error removing user " + username + " from chat " + chatRoomId + ": " + e.getMessage());
@@ -639,5 +647,195 @@ return newChat;
             return null;
         }
     }
+    
+    /**
+     * Deletes a chat room and all associated data including AWS files
+     * @param chatRoomId The ID of the chat room to delete
+     * @return true if deletion was successful, false otherwise
+     */
+    public boolean deleteChatRoom(String chatRoomId) {
+        try {
+            // Get the chat room first to access messages and files
+            Chats chat = chatsRepository.findById(chatRoomId).orElse(null);
+            if (chat == null) {
+                System.err.println("Chat room not found: " + chatRoomId);
+                return false;
+            }
+            
+            System.out.println("Deleting chat room: " + chatRoomId);
+            
+            // 1. Delete all AWS files associated with this chat
+            deleteChatFilesFromAWS(chat);
+            
+            // 2. Remove chat ID from all users' chat lists
+            removeChatFromAllUsers(chat.getUsers(), chatRoomId);
+            
+            // 3. Delete all messages for this chat room
+            chatMessageRepository.deleteByChatRoomId(chatRoomId);
+            
+            // 4. Delete the chat room itself
+            chatsRepository.deleteByChatRoomId(chatRoomId);
+            
+            System.out.println("Successfully deleted chat room: " + chatRoomId);
+            return true;
+            
+        } catch (Exception e) {
+            System.err.println("Error deleting chat room " + chatRoomId + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Deletes all AWS files associated with a chat room
+     * @param chat The chat room containing messages with file references
+     */
+    private void deleteChatFilesFromAWS(Chats chat) {
+        if (chat.getMessages() == null || chat.getMessages().isEmpty()) {
+            return;
+        }
+        
+        for (ChatMessage message : chat.getMessages()) {
+            if (message.getType() == ChatMessage.MessageType.FILE && message.getMessage() != null) {
+                // Extract file URL from message
+                String messageText = message.getMessage();
+                if (messageText.contains("FILE_URL:")) {
+                    try {
+                        // Extract the file URL from the message
+                        String fileUrl = messageText.substring(messageText.indexOf("FILE_URL:") + 9);
+                        if (fileUrl.contains(" | ")) {
+                            fileUrl = fileUrl.substring(0, fileUrl.indexOf(" | "));
+                        }
+                        
+                        // Extract S3 key from the URL
+                        String s3Key = s3Service.extractKeyFromUrl(fileUrl);
+                        
+                        if (s3Key != null && !s3Key.equals(fileUrl)) {
+                            // This is a valid S3 key, delete the file
+                            boolean deleted = s3Service.deleteFile(s3Key);
+                            if (deleted) {
+                                System.out.println("Deleted AWS file: " + s3Key);
+                            } else {
+                                System.err.println("Failed to delete AWS file: " + s3Key);
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error processing file URL in message: " + messageText + " - " + e.getMessage());
+                    }
+                }
+            }
+        }
+        
+        // Also check if chat has a photo and delete it
+        if (chat.getChatPhoto() != null && chat.getChatPhoto().contains("amazonaws.com")) {
+            try {
+                String photoKey = s3Service.extractKeyFromUrl(chat.getChatPhoto());
+                if (photoKey != null) {
+                    boolean deleted = s3Service.deleteFile(photoKey);
+                    if (deleted) {
+                        System.out.println("Deleted chat photo: " + photoKey);
+                    } else {
+                        System.err.println("Failed to delete chat photo: " + photoKey);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error deleting chat photo: " + chat.getChatPhoto() + " - " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Removes a chat ID from all users' chat lists
+     * @param users List of usernames in the chat
+     * @param chatRoomId The chat room ID to remove
+     */
+    private void removeChatFromAllUsers(List<String> users, String chatRoomId) {
+        if (users == null || users.isEmpty()) {
+            return;
+        }
+        
+        for (String username : users) {
+            try {
+                User user = userRepository.findByUserName(username).orElse(null);
+                if (user != null && user.getChats() != null) {
+                    user.getChats().remove(chatRoomId);
+                    userRepository.save(user);
+                    System.out.println("Removed chat " + chatRoomId + " from user " + username);
+                }
+            } catch (Exception e) {
+                System.err.println("Error removing chat " + chatRoomId + " from user " + username + ": " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Checks if a chat should be deleted (when no users remain)
+     * @param chatRoomId The chat room ID to check
+     * @return true if chat was deleted, false otherwise
+     */
+    public boolean checkAndDeleteIfEmpty(String chatRoomId) {
+        try {
+            Chats chat = chatsRepository.findById(chatRoomId).orElse(null);
+            if (chat == null) {
+                return false; // Chat already doesn't exist
+            }
+            
+            // Check if chat has no users left
+            if (chat.getUsers() == null || chat.getUsers().isEmpty()) {
+                System.out.println("Chat " + chatRoomId + " is empty, deleting...");
+                
+                // Send WebSocket notification before deletion
+                sendChatDeletionNotification(chatRoomId, chat.getChatName());
+                
+                return deleteChatRoom(chatRoomId);
+            }
+            
+            return false; // Chat still has users, don't delete
+        } catch (Exception e) {
+            System.err.println("Error checking if chat " + chatRoomId + " should be deleted: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Sends a WebSocket notification when a chat is deleted
+     * @param chatRoomId The ID of the deleted chat room
+     * @param chatName The name of the deleted chat
+     */
+    private void sendChatDeletionNotification(String chatRoomId, String chatName) {
+        try {
+            // Send a general notification to all users about the chat deletion
+            messagingTemplate.convertAndSend("/topic/chat-deletions", Map.of(
+                "chatRoomId", chatRoomId,
+                "chatName", chatName,
+                "message", "Chat '" + chatName + "' has been deleted",
+                "timestamp", Instant.now().toString()
+            ));
+            
+            System.out.println("Sent chat deletion notification for chat: " + chatRoomId);
+        } catch (Exception e) {
+            System.err.println("Error sending chat deletion notification for chat " + chatRoomId + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Checks if a user is part of a chat room
+     * @param chatRoomId The chat room ID
+     * @param username The username to check
+     * @return true if user is in the chat, false otherwise
+     */
+    public boolean isUserInChat(String chatRoomId, String username) {
+        try {
+            Chats chat = chatsRepository.findById(chatRoomId).orElse(null);
+            if (chat == null) {
+                return false;
+            }
+            return chat.getUsers() != null && chat.getUsers().contains(username);
+        } catch (Exception e) {
+            System.err.println("Error checking if user " + username + " is in chat " + chatRoomId + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
     
 }

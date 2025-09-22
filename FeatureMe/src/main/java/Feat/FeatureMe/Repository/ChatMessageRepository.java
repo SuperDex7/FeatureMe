@@ -9,4 +9,7 @@ import Feat.FeatureMe.Entity.ChatMessage;
 public interface ChatMessageRepository extends MongoRepository<ChatMessage, String> {
     @Query(value = "{ 'chatRoomId': ?0 }", sort = "{ 'time': -1 }")
     List<ChatMessage> findByChatRoomIdOrderByTimeDesc(String chatRoomId, Pageable pageable);
+    
+    // Delete all messages for a specific chat room
+    void deleteByChatRoomId(String chatRoomId);
 }

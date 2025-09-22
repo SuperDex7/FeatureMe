@@ -20,4 +20,7 @@ public interface ChatsRepository extends MongoRepository<Chats, String> {
     @Query("{ 'users': ?0 }")
     @Update("{ $pull: { 'users': ?0 } }")
     void removeUserFromAllChats(String userId);
+    
+    // Delete chat by chatRoomId
+    void deleteByChatRoomId(String chatRoomId);
 }
