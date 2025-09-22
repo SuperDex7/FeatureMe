@@ -166,11 +166,11 @@
 
   /* Profile action buttons container */
   .profile-action-buttons {
-    position: absolute;
+    
     top: 1.5rem;
     right: 2rem;
     display: flex;
-    gap: 0.8rem;
+    gap: 2rem;
   }
 
   /* Message button styling */
@@ -1932,4 +1932,119 @@
     opacity: 0.6;
     cursor: not-allowed;
     transform: none !important;
+  }
+
+  /* Password Change Styles */
+  .password-change-section {
+    background: linear-gradient(135deg, rgba(162,89,198,0.08) 0%, rgba(95,95,217,0.08) 100%);
+    border-radius: 20px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    padding: 2rem;
+    margin-top: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .password-change-section .section-title {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .password-change-section .section-description {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.9rem;
+    margin: 0 0 1.5rem 0;
+    font-style: italic;
+  }
+
+  .change-password-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    margin-bottom: 1rem;
+  }
+
+  .change-password-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  .change-password-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .password-change-form {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .password-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .password-error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-left: 4px solid #ef4444;
+    color: #fca5a5;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .password-success {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-left: 4px solid #22c55e;
+    color: #86efac;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  /* Responsive password change form */
+  @media (max-width: 768px) {
+    .password-change-section {
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .password-change-form {
+      padding: 1rem;
+    }
+
+    .password-form-actions {
+      justify-content: center;
+    }
+
+    .change-password-btn {
+      width: 100%;
+      padding: 0.8rem 1.5rem;
+    }
   }

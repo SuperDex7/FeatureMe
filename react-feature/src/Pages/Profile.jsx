@@ -59,6 +59,17 @@ function Profile() {
   const [profilePicUrlError, setProfilePicUrlError] = useState("");
   const [bannerUrlError, setBannerUrlError] = useState("");
 
+  // Password change state
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   // File validation function for USER role
   const validateImageFile = (file, type) => {
     if (!file) return { isValid: true, error: "" };
@@ -514,6 +525,89 @@ function Profile() {
       setShowDeleteModal(false);
       setDeleteConfirmText('');
     }
+  }
+
+  // Password change handlers
+  const handlePasswordInputChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear errors when user starts typing
+    if (passwordError) {
+      setPasswordError("");
+    }
+    if (passwordSuccess) {
+      setPasswordSuccess("");
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    
+    // Validate passwords
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError("All fields are required");
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters long");
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError("New passwords do not match");
+      return;
+    }
+    
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordError("New password must be different from current password");
+      return;
+    }
+    
+    setPasswordLoading(true);
+    setPasswordError("");
+    
+    try {
+      const response = await api.post('/user/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      
+      setPasswordSuccess("Password changed successfully!");
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      // Hide the form after successful change
+      setTimeout(() => {
+        setShowPasswordChange(false);
+        setPasswordSuccess("");
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Error changing password:', err);
+      const errorMessage = err.response?.data?.error || 'Failed to change password. Please try again.';
+      setPasswordError(errorMessage);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const togglePasswordChange = () => {
+    setShowPasswordChange(!showPasswordChange);
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setPasswordError("");
+    setPasswordSuccess("");
   };
   
   return (
@@ -549,7 +643,8 @@ function Profile() {
           </div>
         )}
         {isEditing ? (
-          <form className="profile-edit-form modern-form" onSubmit={handleSaveProfile}>
+          <>
+            <form className="profile-edit-form modern-form" onSubmit={handleSaveProfile}>
             <div className="form-header">
               <h3 className="form-title">✏️ Edit Your Profile</h3>
               <p className="form-subtitle">Update your information to keep your profile fresh</p>
@@ -883,6 +978,109 @@ function Profile() {
               </button>
             </div>
           </form>
+          
+          {/* Password Change Section - Outside of main form to avoid nested forms */}
+          <div className="password-change-section">
+            <h4 className="section-title">🔒 Password & Security</h4>
+            <p className="section-description">Keep your account secure by updating your password</p>
+            
+            <button 
+              type="button"
+              className="change-password-btn modern-btn"
+              onClick={togglePasswordChange}
+              disabled={editLoading}
+            >
+              {showPasswordChange ? '❌ Cancel Password Change' : '🔐 Change Password'}
+            </button>
+            
+            {showPasswordChange && (
+              <form className="password-change-form" onSubmit={handlePasswordChange}>
+                <div className="edit-field">
+                  <label htmlFor="currentPassword">
+                    <span className="field-icon">🔑</span>
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    name="currentPassword"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordInputChange}
+                    disabled={passwordLoading}
+                    placeholder="Enter your current password"
+                    className="modern-input"
+                    required
+                  />
+                </div>
+                
+                <div className="edit-field">
+                  <label htmlFor="newPassword">
+                    <span className="field-icon">🆕</span>
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    name="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordInputChange}
+                    disabled={passwordLoading}
+                    placeholder="Enter your new password (min 6 characters)"
+                    className="modern-input"
+                    minLength="6"
+                    required
+                  />
+                </div>
+                
+                <div className="edit-field">
+                  <label htmlFor="confirmPassword">
+                    <span className="field-icon">✅</span>
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    disabled={passwordLoading}
+                    placeholder="Confirm your new password"
+                    className="modern-input"
+                    minLength="6"
+                    required
+                  />
+                </div>
+                
+                {passwordError && (
+                  <div className="error-message password-error">{passwordError}</div>
+                )}
+                
+                {passwordSuccess && (
+                  <div className="success-message password-success">{passwordSuccess}</div>
+                )}
+                
+                <div className="password-form-actions">
+                  <button 
+                    type="submit" 
+                    className="save-btn modern-btn primary" 
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading ? (
+                      <>
+                        <span className="loading-spinner"></span>
+                        Changing Password...
+                      </>
+                    ) : (
+                      <>
+                        🔐 Change Password
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+          </>
         ) : (
           <>
             <div className="profile-glass-username-container">
