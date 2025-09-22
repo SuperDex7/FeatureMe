@@ -362,6 +362,25 @@ public class UserController {
     public List<NotificationsDTO> getMethodName(@PathVariable String userName) {
         return userService.getNoti(userName);
     }
+
+    @PostMapping("/notifications/clear")
+    public ResponseEntity<?> clearMyNotifications() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+            }
+
+            String email = authentication.getName();
+            User user = userService.findByUsernameOrEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            userService.clearNotifications(user);
+            return ResponseEntity.ok().body("Notifications cleared");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to clear notifications");
+        }
+    }
     @PostMapping("/follow/{follower}/{following}")
     public String postMethodName(@PathVariable String follower, @PathVariable String following) {
         

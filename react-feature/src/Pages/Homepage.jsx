@@ -6,7 +6,7 @@ import Notifications from '../Components/Notifications';
 import ShowFollow from '../Components/ShowFollow';
 import ViewsAnalyticsCard from '../Components/ViewsAnalyticsCard';
 import FriendSuggestions from '../Components/FriendSuggestions';
-import { UserRelationsService } from '../services/UserService';
+import { UserRelationsService, clearMyNotifications } from '../services/UserService';
 import '../Styling/HomepageModern.css';
 import axios from 'axios';
 import api from '../services/AuthService';
@@ -108,6 +108,16 @@ function Homepage() {
 
   const closeFollowPopup = () => {
     setShowFollow(false)
+  }
+
+  const handleClearAllNotifications = async (e) => {
+    if (e) e.stopPropagation();
+    try {
+      await clearMyNotifications();
+      setUser(prev => prev ? { ...prev, notifications: [] } : prev);
+    } catch (err) {
+      console.error('Failed to clear notifications', err);
+    }
   }
 
   return (
@@ -299,7 +309,12 @@ function Homepage() {
         <div className="modal-overlay" onClick={handleModalClose}>
           <div className="modal-content activity-modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close-btn" onClick={handleModalClose}>&times;</button>
-            <h3 className="activity-modal-title">All Notifications</h3>
+            <div className="activity-modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>All Notifications</h3>
+              {user.notifications && user.notifications.length > 0 && (
+                <button className="activity-clearall-btn" onClick={handleClearAllNotifications}>Clear All</button>
+              )}
+            </div>
             {user.notifications !== null && user.notifications.length !== 0 ?(
             <Notifications notifications={user.notifications} className="activity-modal-list" />
             ): "No Notifications Yet"}

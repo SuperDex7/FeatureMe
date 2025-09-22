@@ -266,6 +266,26 @@
   color: #4f8cff;
 }
 
+/* Clear notifications button inside dropdown */
+.noti-clear-btn {
+  background: transparent;
+  color: #a0b4ff;
+  border: 1px solid rgba(160, 180, 255, 0.35);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.noti-clear-btn:hover {
+  background: rgba(79, 140, 255, 0.12);
+  color: #c4d0ff;
+  border-color: rgba(160, 180, 255, 0.6);
+}
+.noti-clear-btn:active {
+  transform: translateY(1px);
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }

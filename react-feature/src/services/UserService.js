@@ -67,3 +67,8 @@ export const updateProfile = (profileData, isFormData = false) => {
     
     return api.patch('/user/update', profileData, config);
 };
+
+// Clear current user's notifications
+export const clearMyNotifications = () => {
+    return api.post('/user/notifications/clear');
+};

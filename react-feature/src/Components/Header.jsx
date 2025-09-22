@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
 import api, { logout, getCurrentUser } from "../services/AuthService";
+import { clearMyNotifications } from "../services/UserService";
 
 function Header() {
   const [displayNoti, setDisplayNoti] = useState(false);
@@ -22,6 +23,15 @@ function Header() {
   
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleClearNotifications = async () => {
+    try {
+      await clearMyNotifications();
+      setNoti([]);
+    } catch (e) {
+      console.error("Failed to clear notifications", e);
+    }
   };
 
   
@@ -105,6 +115,11 @@ function Header() {
                 <div className="noti-dropdown-title">Notifications</div>
                 {noti && Array.isArray(noti) && noti.length > 0 ? (
                   <div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                      <button className="noti-clear-btn" onClick={handleClearNotifications}>
+                        Clear All
+                      </button>
+                    </div>
                     <Notifications notifications={noti} className="activity-modal-list"/>
                   </div>
                 ) : (

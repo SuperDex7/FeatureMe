@@ -30,7 +30,6 @@ import Feat.FeatureMe.Repository.PostDownloadRepository;
 import Feat.FeatureMe.Repository.UserRelationRepository;
 import Feat.FeatureMe.Repository.ChatsRepository;
 import Feat.FeatureMe.Dto.UserPostsDTO;
-import Feat.FeatureMe.Service.S3Service;
 
 @Service
 public class UserService {
@@ -70,6 +69,13 @@ public class UserService {
 
     public void saveUser(User user){
         userRepository.save(user);
+    }
+
+    public void clearNotifications(User user) {
+        if (user.getNotifications() != null && !user.getNotifications().isEmpty()) {
+            user.setNotifications(new java.util.ArrayList<>());
+            userRepository.save(user);
+        }
     }
 
     public User createUser(User user) {
