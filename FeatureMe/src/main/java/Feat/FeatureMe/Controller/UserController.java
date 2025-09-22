@@ -16,6 +16,7 @@ import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 import Feat.FeatureMe.Service.FileUploadService;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
@@ -43,7 +44,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.resend.*;
 import com.resend.core.exception.ResendException;
-import com.resend.services.domains.model.CreateDomainOptions;
 import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.emails.model.CreateEmailResponse;
 
@@ -60,7 +60,7 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     private final FileUploadService fileUploadService;
-    
+
     @Value("${resend.api.key}")
     private Resend resend;
 
@@ -362,6 +362,52 @@ public class UserController {
         }
     }
     
+    /**
+     * Change user password
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@RequestBody Map<String, String> request) {
+        try {
+            // Get the authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "User not authenticated"));
+            }
+            
+            String email = authentication.getName();
+            User currentUser = userService.findByUsernameOrEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
+            
+            String currentPassword = request.get("currentPassword");
+            String newPassword = request.get("newPassword");
+            
+            if (currentPassword == null || newPassword == null || 
+                currentPassword.trim().isEmpty() || newPassword.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Current password and new password are required"));
+            }
+            
+            // Validate new password strength (basic validation)
+            if (newPassword.length() < 6) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "New password must be at least 6 characters long"));
+            }
+            
+            boolean success = userService.changePassword(currentUser.getId(), currentPassword, newPassword);
+            
+            if (success) {
+                return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+            } else {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Current password is incorrect"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to change password: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/auth/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
         // Create an empty cookie to clear the session token
