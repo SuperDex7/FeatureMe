@@ -3,7 +3,6 @@ package Feat.FeatureMe.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.MediaType;
@@ -315,7 +314,7 @@ public class PostsController {
         return postsService.getAllByIdSortedByTime(ids, page, size);
     }
     @PostMapping("/add/like/{id}")
-    public Optional<Posts> addLikes(@PathVariable String id){
+    public ResponseEntity<String> addLikes(@PathVariable String id){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -326,11 +325,12 @@ public class PostsController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
-        return postsService.addLike(id, user.getUserName());
+        postsService.addLike(id, user.getUserName());
+        return ResponseEntity.ok("like toggled");
     }
     
     @PostMapping("/add/comment/{id}")
-    public Optional<Posts> addComment(@PathVariable String id, @RequestBody String comment){
+    public ResponseEntity<String> addComment(@PathVariable String id, @RequestBody String comment){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -341,7 +341,8 @@ public class PostsController {
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
-        return postsService.addComment(id, user.getUserName(), comment);
+        postsService.addComment(id, user.getUserName(), comment);
+        return ResponseEntity.ok("comment added");
     }
     
     @DeleteMapping("/delete/comment/{commentId}")

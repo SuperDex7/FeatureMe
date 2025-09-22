@@ -2,9 +2,9 @@ class BadgeService {
   static getBadgeInfo(type) {
     switch (type) {
       case 'FIRST_100':
-        return { icon: '👑', label: 'First 100', color: '#FFD700', description: 'One of the first 100 users to join FeatureMe!' };
+        return { icon: '👨‍💼', label: 'First 100', color: '#FFD700', description: 'One of the first 100 users to join FeatureMe!' };
       case 'VIP':
-        return { icon: '💎', label: 'VIP', color: '#9B59B6', description: 'Premium VIP member with exclusive access!' };
+        return { icon: '💎', label: 'VIP', color: '#9B59B6', description: 'Premium VIP member!' };
       case 'TOP_CREATOR':
         return { icon: '🌟', label: 'Top Creator', color: '#F39C12', description: 'Recognized as a top content creator!' };
       case 'VERIFIED':
@@ -28,7 +28,7 @@ class BadgeService {
         case 'SYSTEM':
         return { icon: '🤖', label: 'System', color: '#6C7B7F', description: 'The System!' };
       case 'CEO_FOUNDER':
-        return { icon: '👨‍💼', label: 'CEO/Founder', color: '#D4AF37', description: 'Founder and CEO of FeatureMe!' };
+        return { icon: '👑', label: 'CEO/Founder', color: '#D4AF37', description: 'Founder and CEO of FeatureMe!' };
       default:
         return { icon: '🏆', label: 'Achievement', color: '#34495E', description: 'Special achievement unlocked!' };
     }
