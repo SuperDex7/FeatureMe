@@ -156,7 +156,7 @@ function LoginPage() {
                 <span className="checkmark"></span>
                 Remember me
               </label>
-              <a href="#" className="forgot-password" onClick={(e) => e.preventDefault()}>Forgot Password?</a>
+              <a href="/forgot-password" className="forgot-password">Forgot Password?</a>
             </div>
 
             {/* Error Message Display */}

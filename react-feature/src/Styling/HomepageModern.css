@@ -434,11 +434,40 @@
   border: 2px solid rgba(120, 120, 255, 0.3);
 }
 
+@media (max-width: 768px) {
+  .analytics-modal-content {
+    width: 98vw;
+    max-width: none;
+    max-height: 95vh;
+    margin: 1vh;
+    border-radius: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-modal-content {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+  }
+}
+
 .analytics-modal-header {
   text-align: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgba(120, 120, 255, 0.2);
+}
+
+@media (max-width: 768px) {
+  .analytics-modal-header {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    padding-bottom: 0.8rem;
+  }
 }
 
 .analytics-modal-header h3 {
@@ -452,11 +481,36 @@
   background-clip: text;
 }
 
+@media (max-width: 768px) {
+  .analytics-modal-header h3 {
+    font-size: 1.6rem;
+    margin-bottom: 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-modal-header h3 {
+    font-size: 1.4rem;
+  }
+}
+
 .analytics-modal-header p {
   font-size: 1.1rem;
   color: #bfc9d1;
   margin: 0;
   opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .analytics-modal-header p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-modal-header p {
+    font-size: 0.9rem;
+  }
 }
 
 .analytics-modal-body {

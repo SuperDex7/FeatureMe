@@ -11,6 +11,7 @@ import {createBrowserRouter, RouterProvider} from 'react-router-dom'
 import ProfilesPage from './Pages/ProfilesPage.jsx'
 import SignupPage from './Pages/SignupPage.jsx'
 import LoginPage from './Pages/LoginPage.jsx'
+import ForgotPasswordPage from './Pages/ForgotPasswordPage.jsx'
 import ProtectedRoute from './Components/ProtectedRoute.jsx'
 import Post from './Pages/Post.jsx'
 import PendingFeatures from './Components/PendingFeatures.jsx'
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
   {path: 'profile', element: <ProtectedRoute><Profile /></ProtectedRoute>},
   {path: 'signup', element: <SignupPage />},
   {path: 'login', element: <LoginPage />},
+  {path: 'forgot-password', element: <ForgotPasswordPage />},
   {path: 'create-post', element: <ProtectedRoute><CreatePost /></ProtectedRoute>},
   {path: 'profiles', element: <ProtectedRoute><ProfilesPage /></ProtectedRoute>},
   {path: "/profile/:username", element: <ProtectedRoute><Profile /></ProtectedRoute>},

@@ -16,7 +16,7 @@ import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 import Feat.FeatureMe.Service.FileUploadService;
-
+import Feat.FeatureMe.Service.PasswordResetService;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
@@ -60,15 +60,17 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     private final FileUploadService fileUploadService;
-
+    private final PasswordResetService passwordResetService;
+    
     @Value("${resend.api.key}")
     private Resend resend;
 
-    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService) {
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
         this.fileUploadService = fileUploadService;
+        this.passwordResetService = passwordResetService;
     }
 
     @GetMapping("/auth/email/{email}")
@@ -85,8 +87,32 @@ public class UserController {
         CreateEmailOptions params = CreateEmailOptions.builder()
 		.from("Signup@featureme.co")
 		.to(email)
-		.subject("FeatureMe Verification Code")
-		.html("<p>Here is Your One Time Code: <strong>"+code+"</strong></p>")
+		.subject("Verify your email for FeatureMe")
+		.html(
+			"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;'>" +
+			  "<div style='text-align:center; margin-bottom: 24px;'>" +
+			    "<div style='font-size: 28px; font-weight: 800; color: #2d3748; margin-bottom: 4px;'>FeatureMe</div>" +
+			    "<div style='font-size: 14px; color: #718096;'>Create. Connect. Get Discovered.</div>" +
+			  "</div>" +
+			  "<div style='background: linear-gradient(135deg, #667eea, #764ba2); padding: 2px; border-radius: 14px;'>" +
+			    "<div style='background: #ffffff; border-radius: 12px; padding: 24px;'>" +
+			      "<h2 style='margin: 0 0 8px 0; color: #2d3748; font-size: 20px;'>Verify Your Email</h2>" +
+			      "<p style='margin: 0 0 16px 0; color: #4a5568; line-height: 1.6;'>" +
+			        "Thanks for signing up! Use the verification code below to complete your account setup." +
+			      "</p>" +
+			      "<div style='background-color: #f7fafc; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; border: 1px solid #edf2f7;'>" +
+			        "<div style='color: #4a5568; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;'>Your verification code</div>" +
+			        "<div style='color: #2b6cb0; font-weight: 800; font-size: 32px; letter-spacing: 4px;'>" + code + "</div>" +
+			      "</div>" +
+			      "<p style='margin: 0 0 8px 0; color: #4a5568;'>This code will expire in <strong>15 minutes</strong>.</p>" +
+			      "<p style='margin: 0; color: #718096; font-size: 14px;'>If you didn't request this, you can safely ignore this email.</p>" +
+			    "</div>" +
+			  "</div>" +
+			  "<div style='text-align:center; color:#a0aec0; font-size:12px; margin-top:16px;'>" +
+			    "This is an automated message from FeatureMe • Please do not reply" +
+			  "</div>" +
+			"</div>"
+		)
 		.build();
 
        
@@ -422,6 +448,128 @@ public class UserController {
         responseBody.put("message", "Logout successful");
         
         return ResponseEntity.ok(responseBody);
+    }
+    
+    /**
+     * Send password reset code to email
+     */
+    @PostMapping("/auth/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email address is required"));
+            }
+            
+            // Generate reset code
+            String resetCode = passwordResetService.generateResetCode(email);
+            
+            // Send email with reset code
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                .from("PasswordReset@featureme.co")
+                .to(email)
+                .subject("FeatureMe Password Reset")
+                .html("<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>" +
+                      "<h2 style='color: #333;'>Password Reset Request</h2>" +
+                      "<p>You requested to reset your password for your FeatureMe account.</p>" +
+                      "<p>Your password reset code is:</p>" +
+                      "<div style='background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0;'>" +
+                      "<h1 style='color: #007bff; font-size: 32px; letter-spacing: 4px; margin: 0;'>" + resetCode + "</h1>" +
+                      "</div>" +
+                      "<p><strong>This code will expire in 15 minutes.</strong></p>" +
+                      "<p>If you didn't request this password reset, please ignore this email.</p>" +
+                      "<p>For security reasons, this code can only be used once.</p>" +
+                      "<hr style='margin: 30px 0; border: none; border-top: 1px solid #eee;'>" +
+                      "<p style='color: #666; font-size: 14px;'>This is an automated message from FeatureMe. Please do not reply to this email.</p>" +
+                      "</div>")
+                .build();
+            
+            try {
+                CreateEmailResponse data = resend.emails().send(params);
+                System.out.println("Password reset email sent: " + data.getId());
+            } catch (ResendException e) {
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to send reset email. Please try again."));
+            }
+            
+            return ResponseEntity.ok(Map.of("message", "Password reset code sent to your email"));
+            
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "An error occurred. Please try again."));
+        }
+    }
+    
+    /**
+     * Verify password reset code
+     */
+    @PostMapping("/auth/verify-reset-code")
+    public ResponseEntity<Map<String, String>> verifyResetCode(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String code = request.get("code");
+            
+            if (email == null || email.trim().isEmpty() || code == null || code.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email and code are required"));
+            }
+            
+            boolean isValid = passwordResetService.verifyResetCode(email, code);
+            
+            if (isValid) {
+                return ResponseEntity.ok(Map.of("message", "Code is valid"));
+            } else {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid or expired code"));
+            }
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "An error occurred. Please try again."));
+        }
+    }
+    
+    /**
+     * Reset password with code
+     */
+    @PostMapping("/auth/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String code = request.get("code");
+            String newPassword = request.get("newPassword");
+            
+            if (email == null || email.trim().isEmpty() || 
+                code == null || code.trim().isEmpty() || 
+                newPassword == null || newPassword.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email, code, and new password are required"));
+            }
+            
+            // Validate password strength
+            if (newPassword.length() < 6) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Password must be at least 6 characters long"));
+            }
+            
+            boolean success = passwordResetService.resetPassword(email, code, newPassword);
+            
+            if (success) {
+                return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+            } else {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid code or password reset failed"));
+            }
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "An error occurred. Please try again."));
+        }
     }
     
     
