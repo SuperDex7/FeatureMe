@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import { ChatService, chatWebSocketService } from '../services/ChatService';
@@ -11,6 +11,7 @@ import '../Styling/Messages.css';
 
 const MessagesPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [conversations, setConversations] = useState([]);
@@ -100,9 +101,11 @@ const MessagesPage = () => {
       if (userToSelect && !selectedUsers.some(selectedUser => selectedUser.userName === userToSelect.userName)) {
         setSelectedUsers([userToSelect]);
         setUserSearchTerm(''); // Clear search term after selection
+        // Clear URL params only after successful auto-selection
+        navigate('/messages', { replace: true });
       }
     }
-  }, [searchedUsers, searchParams, selectedUsers]);
+  }, [searchedUsers, searchParams, selectedUsers, navigate]);
 
   // Initialize chat functionality
   const initializeChat = async () => {
@@ -138,6 +141,7 @@ const MessagesPage = () => {
             console.error('Error searching for user after delay:', error);
           }
         }, 100);
+        // Do not clear params here; wait until the user is selected from results
       }
 
     } catch (error) {
@@ -465,8 +469,13 @@ const MessagesPage = () => {
       // Clear modal first
       clearModalState();
       
-      // Refresh the page to reload all conversations and ensure proper state
-      window.location.reload();
+      // Update local state instead of full page reload
+      setConversations(prev => [newChat, ...prev]);
+      setSelectedConversation(newChat);
+      await loadMessages(newChat);
+      
+      // Remove any query params so page refresh doesn't auto-fill again
+      navigate('/messages', { replace: true });
     } catch (error) {
       console.error('Error creating chat:', error);
       setError('Failed to create chat');
