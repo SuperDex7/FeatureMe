@@ -215,7 +215,7 @@ function App() {
             <p className="how-it-works-subtitle">Get started in just 4 simple steps</p>
           </div>
           <div className="steps-container">
-            <div className="step">
+            <div className="root-step">
               <div className="step-number">1</div>
               <div className="step-content">
                 <div className="step-icon">📢</div>
@@ -223,7 +223,7 @@ function App() {
                 <p className="step-description">Set up your artist profile, upload your best work, and showcase your unique style to the community.</p>
               </div>
             </div>
-            <div className="step">
+            <div className="root-step">
               <div className="step-number">2</div>
               <div className="step-content">
                 <div className="step-icon">🔍</div>
@@ -231,7 +231,7 @@ function App() {
                 <p className="step-description">Browse through artists, find collaborators that match your style, and start meaningful conversations.</p>
               </div>
             </div>
-            <div className="step">
+            <div className="root-step">
               <div className="step-number">3</div>
               <div className="step-content">
                 <div className="step-icon">🤝</div>
@@ -239,7 +239,7 @@ function App() {
                 <p className="step-description">Work together using our real-time collaboration tools, share files, and create amazing music together.</p>
               </div>
             </div>
-            <div className="step">
+            <div className="root-step">
               <div className="step-number">4</div>
               <div className="step-content">
                 <div className="step-icon">🌟</div>

@@ -323,9 +323,25 @@ public class UserService {
         // 1. Delete all posts created by the user
         if (user.getPosts() != null && !user.getPosts().isEmpty()) {
             for (String postId : user.getPosts()) {
-                // Get post details to access music file URL
+                // Get post details to access music file URL and cleanup featuredOn references
                 postsRepository.findById(postId).ifPresent(post -> {
-                    // Delete music file from S3 if it exists and is not a default file
+                    // 1) Remove this post ID from all featured users' featuredOn lists
+                    try {
+                        List<String> featureUsernames = post.getFeatures();
+                        if (featureUsernames != null && !featureUsernames.isEmpty()) {
+                            List<User> featuredUsers = userRepository.findByUserNameIn(featureUsernames);
+                            for (User featuredUser : featuredUsers) {
+                                List<String> featuredOn = featuredUser.getFeaturedOn();
+                                if (featuredOn != null && featuredOn.remove(post.getId())) {
+                                    userRepository.save(featuredUser);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Failed to clean up featuredOn references for post " + postId + ": " + e.getMessage());
+                    }
+
+                    // 2) Delete music file from S3 if it exists and is not a default file
                     if (post.getMusic() != null && !post.getMusic().isEmpty() && 
                         !post.getMusic().startsWith("/") && post.getMusic().contains("amazonaws.com")) {
                         try {
