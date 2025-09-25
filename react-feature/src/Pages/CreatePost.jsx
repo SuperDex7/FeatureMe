@@ -20,6 +20,7 @@ function CreatePost(){
   const [genrePopupOpen, setGenrePopupOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // User search state
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -212,6 +213,13 @@ function CreatePost(){
       return;
     }
 
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
     // Use only selected users from search
     const allFeatures = selectedUsers.map(user => user.userName);
     
@@ -245,7 +253,10 @@ function CreatePost(){
       } else {
         alert("Upload failed. Please try again.");
       }
-  });
+    })
+    .finally(() => {
+      setIsSubmitting(false);
+    });
 }
 
   // Handle file selection with validation
@@ -767,9 +778,17 @@ function CreatePost(){
                 ) : (
                   <button 
                     type="submit" 
-                    className="create-post-submit-button"
+                    className={`create-post-submit-button ${isSubmitting ? 'loading' : ''}`}
+                    disabled={isSubmitting}
                   >
-                    Publish Post
+                    {isSubmitting ? (
+                      <>
+                        <div className="create-post-submit-spinner"></div>
+                        Publishing...
+                      </>
+                    ) : (
+                      'Publish Post'
+                    )}
                   </button>
                 )}
               </div>
