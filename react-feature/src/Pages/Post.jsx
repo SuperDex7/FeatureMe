@@ -715,7 +715,7 @@ function Post() {
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            <p className="comment-text">{comment.comment}</p>
+                                                            <p className="comment-text2">{comment.comment}</p>
                                                         </div>
                                                     </div>
                                                 ))
