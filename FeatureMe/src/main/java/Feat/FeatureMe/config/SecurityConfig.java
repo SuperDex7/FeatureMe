@@ -2,20 +2,17 @@ package Feat.FeatureMe.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import Feat.FeatureMe.Repository.UserRepository;
 import Feat.FeatureMe.Service.JwtService;
-import Feat.FeatureMe.Service.UserService;
+import Feat.FeatureMe.Service.CachedUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
@@ -24,18 +21,16 @@ import java.util.Arrays;
 @EnableWebSecurity
 public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
      
-    private final UserRepository userRepository;
     private final JwtService jwtService;
-    private final UserService userService;
+    private final RateLimitingFilter rateLimitingFilter;
 
-    public SecurityConfig(UserRepository userRepository, JwtService jwtService, UserService userService) {
-        this.userRepository = userRepository;
+    public SecurityConfig(JwtService jwtService, RateLimitingFilter rateLimitingFilter) {
         this.jwtService = jwtService;
-        this.userService = userService;
+        this.rateLimitingFilter = rateLimitingFilter;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity)throws Exception{
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity, CachedUserDetailsService cachedUserDetailsService)throws Exception{
         return httpSecurity
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
@@ -48,7 +43,8 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
                 registry.anyRequest().permitAll();
             })
-            .addFilterBefore(jwtAuthenticationFilter(userDetailsService()), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(optimizedJwtAuthenticationFilter(cachedUserDetailsService), UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exception -> exception
             .authenticationEntryPoint((request, response, authException) -> {
                 // Redirect to React login page
@@ -96,20 +92,13 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         return source;
     }
 
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.userDetailsService(username -> userRepository
-        .findByUserName(username)
-        .orElseThrow(() -> new UsernameNotFoundException("User " + username + " not found")));
-    }
-
-    // PasswordEncoder is provided by PasswordConfig
-
     @Bean
-    public UserDetailsService userDetailsService() {
-        return username -> userService.loadUserByUsername(username);
+    public UserDetailsService userDetailsService(CachedUserDetailsService cachedUserDetailsService) {
+        return cachedUserDetailsService;
     }
+    
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(UserDetailsService userDetailsService) {
-        return new JwtAuthenticationFilter(jwtService, userDetailsService);
+    public OptimizedJwtAuthenticationFilter optimizedJwtAuthenticationFilter(CachedUserDetailsService cachedUserDetailsService) {
+        return new OptimizedJwtAuthenticationFilter(jwtService, cachedUserDetailsService);
     }
 }

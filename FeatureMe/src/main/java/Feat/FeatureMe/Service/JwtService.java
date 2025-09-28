@@ -24,7 +24,15 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private Long expiration;
     
-    // Generate JWT token
+    // Generate JWT token with user details
+    public String generateToken(String username, String role, String email) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        claims.put("email", email);
+        return createToken(claims, username);
+    }
+    
+    // Generate JWT token (backward compatibility)
     public String generateToken(String username) {
         Map<String, Object> claims = new HashMap<>();
         return createToken(claims, username);
@@ -43,6 +51,16 @@ public class JwtService {
     // Extract username from token
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+    
+    // Extract role from token
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+    
+    // Extract email from token
+    public String extractEmail(String token) {
+        return extractClaim(token, claims -> claims.get("email", String.class));
     }
     
     // Extract expiration date from token

@@ -335,8 +335,8 @@ public class UserController {
             // Authenticate against database (works with username OR email)
             User user = userService.authenticateUser(usernameOrEmail, password);
             
-            // Generate JWT token using email (for consistency)
-            String token = jwtService.generateToken(user.getEmail());
+            // Generate JWT token with role and email claims for optimization
+            String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getEmail());
             
             // Create HttpOnly cookie for the JWT token
             Cookie sessionCookie = new Cookie("sessionToken", token);
@@ -403,7 +403,7 @@ public class UserController {
             UserDTO userDTO = userService.getAUser(user.getUserName());
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info: " + e.getMessage());
         }
     }
     

@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -75,6 +76,47 @@ public class DemoController {
          // Create the post and return the DTO
          return demoService.createPost(user.getId(), demo);
         // return demoService.getDemoById(createdDemo.getId());
+    }
+    
+    // Create a demo with async file upload to prevent thread pool exhaustion
+    @PostMapping("/create-async")
+    public CompletableFuture<Demos> createDemoAsync(@RequestPart("file") MultipartFile file, @RequestPart("demo") Demos demo) throws IOException {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Validate file with role-based size limits and file types
+        fileUploadService.validateFileForUserByCategory(file, user, "audio");
+        
+        // Generate unique filename
+        String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/demos");
+        
+        // Convert file to byte array for async upload
+        byte[] fileContent = file.getBytes();
+        
+        // Upload file asynchronously and create demo when upload completes
+        return s3Service.uploadFileAsync(keyName, fileContent)
+            .thenApply(s3Url -> {
+                try {
+                    // Set the S3 URL in the Demo entity
+                    demo.setSongUrl(s3Url);
+                    demo.setCreatorId(user.getId());
+                    
+                    // Create the demo and return it
+                    return demoService.createPost(user.getId(), demo);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to create demo after upload: " + e.getMessage(), e);
+                }
+            })
+            .exceptionally(throwable -> {
+                throw new RuntimeException("Failed to create demo: " + throwable.getMessage(), throwable);
+            });
     }
 
     @GetMapping("/get/user/{id}")
