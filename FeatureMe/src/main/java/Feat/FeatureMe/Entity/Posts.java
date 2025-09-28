@@ -6,12 +6,20 @@ import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 
 @Document(collection = "posts")
+@CompoundIndexes({
+    @CompoundIndex(name = "status_time_idx", def = "{'status': 1, 'time': -1}"),
+    @CompoundIndex(name = "status_likes_time_idx", def = "{'status': 1, 'totalLikes': -1, 'time': -1}"),
+    @CompoundIndex(name = "genre_status_time_idx", def = "{'genre': 1, 'status': 1, 'time': -1}"),
+    @CompoundIndex(name = "author_status_time_idx", def = "{'author.$id': 1, 'status': 1, 'time': -1}")
+})
 public class Posts {
 
     @Id
@@ -23,7 +31,9 @@ public class Posts {
     
     private String title;
     private String description;
+    @Indexed
     private List<String> features;
+    @Indexed
     private List<String> pendingFeatures; // Features awaiting approval
     @Indexed
     private String status = "DRAFT"; // DRAFT, PUBLISHED, PARTIALLY_APPROVED
@@ -31,6 +41,7 @@ public class Posts {
     private double price;
     @Indexed
     private boolean freeDownload;
+    @Indexed
     private List<String> genre;
     private String music;
     // Comments are now stored in separate PostComment collection

@@ -5,8 +5,14 @@ import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 
 @Document(collection = "post_comments")
+@CompoundIndexes({
+    @CompoundIndex(name = "post_time_idx", def = "{'postId': 1, 'time': -1}"),
+    @CompoundIndex(name = "user_time_idx", def = "{'userName': 1, 'time': -1}")
+})
 public class PostComment {
     
     @Id

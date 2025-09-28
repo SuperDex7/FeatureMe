@@ -5,8 +5,15 @@ import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 
 @Document(collection = "post_views")
+@CompoundIndexes({
+    @CompoundIndex(name = "post_user_unique_idx", def = "{'postId': 1, 'userName': 1}", unique = true),
+    @CompoundIndex(name = "post_last_view_idx", def = "{'postId': 1, 'lastView': -1}"),
+    @CompoundIndex(name = "user_last_view_idx", def = "{'userName': 1, 'lastView': -1}")
+})
 public class PostView {
     
     @Id

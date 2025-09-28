@@ -7,6 +7,8 @@ import java.util.List;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,6 +18,11 @@ import Feat.FeatureMe.Dto.CommentedOnDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
 
 @Document(collection = "user")
+@CompoundIndexes({
+    @CompoundIndex(name = "role_created_idx", def = "{'role': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "username_role_idx", def = "{'userName': 1, 'role': 1}"),
+    @CompoundIndex(name = "location_role_idx", def = "{'location': 1, 'role': 1}")
+})
 public class User implements UserDetails{
 
     @Id
@@ -45,12 +52,19 @@ public class User implements UserDetails{
     private List<String> socialMedia;
     private List<String> badges;
     private List<String> demo;
+    @Indexed
     private List<String> friends;
+    @Indexed
     private List<String> followers;
+    @Indexed
     private List<String> following;
+    @Indexed
     private List<String> featuredOn;
+    @Indexed
     private List<String> likedPosts;
+    @Indexed
     private List<String> posts;
+    @Indexed
     private List<String> chats;
     private List<NotificationsDTO> notifications;
     private List<CommentedOnDTO> comments;
