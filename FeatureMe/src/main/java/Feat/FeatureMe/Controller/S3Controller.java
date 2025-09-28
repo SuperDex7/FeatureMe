@@ -2,6 +2,7 @@ package Feat.FeatureMe.Controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,6 +46,23 @@ public class S3Controller
 		tempFile.delete();
 		
 		return s3Url;
+	}
+	
+	//Uploads a file to AWS S3 asynchronously to prevent thread pool exhaustion.
+	@PostMapping("/upload-async")
+	public CompletableFuture<String> uploadFileAsync(@RequestParam MultipartFile file) throws IOException
+	{
+		// Validate file
+		fileUploadService.validateFile(file, 10, null); // 10MB limit, no type restriction
+		
+		// Generate unique filename
+		String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "uploads/general");
+		
+		// Convert file to byte array for async upload
+		byte[] fileContent = file.getBytes();
+		
+		// Upload file asynchronously
+		return s3Service.uploadFileAsync(keyName, fileContent);
 	}
 
 	//Downloads a file from AWS S3 to a specific location on your computer.

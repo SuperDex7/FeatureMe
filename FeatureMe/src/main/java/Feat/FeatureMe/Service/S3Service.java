@@ -7,11 +7,14 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.nio.file.Path;
-
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 
 @Service
@@ -20,12 +23,17 @@ public class S3Service
 
 	@Autowired
 	private S3Client s3Client;
+	
+	@Autowired
+	private S3AsyncClient s3AsyncClient;
 
 	private final String bucketName = "featuremellc";
     private final String region = "us-east-2";
 	/**
-	 * Uploads a file to the S3 bucket.
+	 * Uploads a file to the S3 bucket synchronously (for backward compatibility).
+	 * @deprecated Use uploadFileAsync for better performance
 	 */
+	@Deprecated
 	public String uploadFile(String keyName, String filePath)
 	{
 		// Detect content type from file extension
@@ -34,13 +42,74 @@ public class S3Service
 		PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 			.bucket(bucketName)
 			.key(keyName)
-			.contentType(contentType)  // This is the only new line!
+			.contentType(contentType)
 			.build();
 			
 		s3Client.putObject(putObjectRequest, RequestBody.fromFile(Path.of(filePath)));
         String encodedKeyName = keyName.replace(" ", "+");
         String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + encodedKeyName;
         return s3Url;
+	}
+	
+	/**
+	 * Uploads a file to the S3 bucket asynchronously to prevent thread pool exhaustion.
+	 * Returns a CompletableFuture with the S3 URL.
+	 */
+	@Async
+	public CompletableFuture<String> uploadFileAsync(String keyName, String filePath)
+	{
+		try {
+			// Detect content type from file extension
+			String contentType = getContentType(keyName);
+			
+			PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+				.bucket(bucketName)
+				.key(keyName)
+				.contentType(contentType)
+				.build();
+				
+			// Use async client for non-blocking operation
+			return s3AsyncClient.putObject(putObjectRequest, AsyncRequestBody.fromFile(Path.of(filePath)))
+				.thenApply(response -> {
+					String encodedKeyName = keyName.replace(" ", "+");
+					return "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + encodedKeyName;
+				})
+				.exceptionally(throwable -> {
+					throw new RuntimeException("Failed to upload file to S3: " + throwable.getMessage(), throwable);
+				});
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e));
+		}
+	}
+	
+	/**
+	 * Uploads file content asynchronously from byte array.
+	 */
+	@Async
+	public CompletableFuture<String> uploadFileAsync(String keyName, byte[] fileContent)
+	{
+		try {
+			// Detect content type from file extension
+			String contentType = getContentType(keyName);
+			
+			PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+				.bucket(bucketName)
+				.key(keyName)
+				.contentType(contentType)
+				.build();
+				
+			// Use async client for non-blocking operation
+			return s3AsyncClient.putObject(putObjectRequest, AsyncRequestBody.fromBytes(fileContent))
+				.thenApply(response -> {
+					String encodedKeyName = keyName.replace(" ", "+");
+					return "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + encodedKeyName;
+				})
+				.exceptionally(throwable -> {
+					throw new RuntimeException("Failed to upload file to S3: " + throwable.getMessage(), throwable);
+				});
+		} catch (Exception e) {
+			return CompletableFuture.failedFuture(new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e));
+		}
 	}
 
 	/**

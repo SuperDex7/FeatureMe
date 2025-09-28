@@ -3,6 +3,7 @@ package Feat.FeatureMe.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.MediaType;
@@ -94,6 +95,49 @@ public class PostsController {
         // Create the post and return the DTO
         Posts createdPost = postsService.createPost(user.getUserName(), posts);
         return postsService.getPostById(createdPost.getId());
+    }
+    
+    // Create a post with async file upload to prevent thread pool exhaustion
+    @PostMapping(path ="/create-async", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CompletableFuture<PostsDTO> createPostAsync(@RequestPart("post") Posts posts,
+                            @RequestPart("file") MultipartFile file) throws IOException {
+        // Get the authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User user = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Validate file type and size based on user role
+        validateFileTypeForUser(file, user);
+        fileUploadService.validateFileForUserByCategory(file, user, "audio");
+        
+        // Generate unique filename
+        String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/posts");
+        
+        // Convert file to byte array for async upload
+        byte[] fileContent = file.getBytes();
+        
+        // Upload file asynchronously and create post when upload completes
+        return s3Service.uploadFileAsync(keyName, fileContent)
+            .thenApply(s3Url -> {
+                try {
+                    // Set the S3 URL in the Posts entity
+                    posts.setMusic(s3Url);
+                    
+                    // Create the post and return the DTO
+                    Posts createdPost = postsService.createPost(user.getUserName(), posts);
+                    return postsService.getPostById(createdPost.getId());
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to create post after upload: " + e.getMessage(), e);
+                }
+            })
+            .exceptionally(throwable -> {
+                throw new RuntimeException("Failed to create post: " + throwable.getMessage(), throwable);
+            });
     }
     
     @PatchMapping("/update/{id}")

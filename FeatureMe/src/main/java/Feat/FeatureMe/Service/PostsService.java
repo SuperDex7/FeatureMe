@@ -363,43 +363,7 @@ public class PostsService {
     }
     
     
-    public List<PostsDTO> getAllPosts() {
-        return postsRepository.findAll().stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        }).toList();
-    }
-    
-    
-    
+
     public PostsDTO getPostById(String id) {
         try {
             Posts post = postsRepository.findById(id)
