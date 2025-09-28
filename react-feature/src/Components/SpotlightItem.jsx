@@ -177,7 +177,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
           )}
           
           <div className="spotlight-modal-actions-row">
-          <a href={`/post/${id}`}><button className="spotlight-modal-action-btn">Go To Post</button></a>
+          <a href={`/post/${id}`}><button className="feed-card-action-btn">Go To Post</button></a>
             <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
             {currentUser && currentUser.userName === userName && (
               <button 
