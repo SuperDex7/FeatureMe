@@ -19,6 +19,10 @@ services:
       - stripe.api.secret=${STRIPE_SECRET_KEY}
       - stripe.webhook.secret=${STRIPE_WEBHOOK_SECRET}
       - resend.api.key=${RESEND_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DATABASE=0
     ports:
       - "8080:8080"  # Backend API (internal only)
     restart: unless-stopped
@@ -63,8 +67,20 @@ services:
     networks:
       - app-network
 
+  # Redis for rate limiting and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
 volumes:
   mongo_data:
+  redis_data:
 
 networks:
   app-network:
