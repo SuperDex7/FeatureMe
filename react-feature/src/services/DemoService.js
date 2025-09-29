@@ -31,7 +31,7 @@ const DemoService = {
       formData.append('file', file);
       
       // Use async endpoint for better performance and to prevent thread pool exhaustion
-      const response = await api.post("/demos/create-async", formData, {
+      const response = await api.post("/demos/create", formData, {
         headers: {"Content-Type": "multipart/form-data"}
       });
       
