@@ -38,7 +38,19 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("/api/user/auth/**").permitAll();
                 registry.requestMatchers("/api/user/me").authenticated();
                 registry.requestMatchers("/api/user/**").authenticated();
+                
+                // SPECIFIC posts endpoints that should be public (must come BEFORE general rule)
+                registry.requestMatchers("GET", "/api/posts/get/**").permitAll();
+                registry.requestMatchers("GET", "/api/posts/views/**").permitAll();
+                registry.requestMatchers("POST", "/api/posts/view/**").permitAll();
+                registry.requestMatchers("GET", "/api/posts/downloads/**").permitAll();
+                registry.requestMatchers("POST", "/api/posts/download/**").permitAll();
+                registry.requestMatchers("GET", "/api/posts/comments/**").permitAll();
+                registry.requestMatchers("GET", "/api/posts/likes/**").permitAll();
+                
+                // All other posts endpoints require authentication
                 registry.requestMatchers("/api/posts/**").authenticated();
+                
                 //registry.requestMatchers("/api/chats/**").authenticated();
                 registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
                 registry.anyRequest().permitAll();

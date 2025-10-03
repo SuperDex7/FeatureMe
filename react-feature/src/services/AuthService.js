@@ -27,16 +27,27 @@ api.interceptors.response.use(
   
   (error) => {
     if (error.response) {
+      // Don't redirect to login for public endpoints or when checking authentication
+      const url = error.config?.url || '';
+      const isPublicEndpoint = url.includes('/posts/get/') || 
+                              url.includes('/posts/view/') || 
+                              url.includes('/posts/download/') ||
+                              url.includes('/posts/views/') ||
+                              url.includes('/posts/downloads/') ||
+                              url.includes('/posts/comments/') ||
+                              url.includes('/posts/likes/');
+      
+      const isAuthCheck = url.includes('/user/me');
+      
       // Handle 401 Unauthorized (JWT expired or invalid)
-      if (error.response.status === 401) {
-        
+      if (error.response.status === 401 && !isPublicEndpoint && !isAuthCheck) {
         // Redirect to login page
         window.location.href = '/login';
         return Promise.reject(error);
       }
       
       // Handle 403 Forbidden
-      if (error.response.status === 403) {
+      if (error.response.status === 403 && !isPublicEndpoint && !isAuthCheck) {
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -50,7 +61,7 @@ api.interceptors.response.use(
           errorMessage.includes('ExpiredJwtException') ||
           errorMessage.includes('Invalid JWT token') ||
           errorMessage.includes('JWT authentication failed')
-        )) {
+        ) && !isPublicEndpoint && !isAuthCheck) {
           
           // Redirect to login page
           window.location.href = '/login';
@@ -92,7 +103,18 @@ export const getCurrentUser = async () => {
     const response = await api.get('/user/me');
     return response.data;
   } catch (error) {
-    console.error('Error getting current user:', error);
+    // Don't log errors for anonymous users - this is expected behavior
+    return null;
+  }
+};
+
+// Safe version that never redirects to login
+export const getCurrentUserSafe = async () => {
+  try {
+    const response = await api.get('/user/me');
+    return response.data;
+  } catch (error) {
+    // Silently return null for anonymous users
     return null;
   }
 };

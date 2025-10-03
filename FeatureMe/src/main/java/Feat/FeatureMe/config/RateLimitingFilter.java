@@ -90,6 +90,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                requestURI.startsWith("/static/") ||
                requestURI.startsWith("/css/") ||
                requestURI.startsWith("/js/") ||
+               requestURI.startsWith("/auth/login/") ||
                requestURI.startsWith("/images/") ||
                requestURI.startsWith("/ws/") ||
                requestURI.equals("/favicon.ico");
@@ -139,6 +140,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/actuator/") || 
                path.startsWith("/static/") ||
+               path.startsWith("/auth/login/") ||
                path.startsWith("/ws/");
     }
 }

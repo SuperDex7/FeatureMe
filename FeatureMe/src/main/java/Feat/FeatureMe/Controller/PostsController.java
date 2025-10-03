@@ -145,16 +145,27 @@ public class PostsController {
         return postsService.updatePost(id, posts);
     }
     @PostMapping("view/{id}")
-    public void AddView(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("User not authenticated");
+    public void AddView(@PathVariable String id, @RequestParam(required = false) String userName) {
+        String finalUserName;
+        
+        if (userName != null && !userName.isEmpty()) {
+            // Frontend passed a username (could be "unknown")
+            finalUserName = userName;
+        } else {
+            // Try to get authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                // No auth, treat as unknown user
+                finalUserName = "unknown";
+            } else {
+                String email = authentication.getName();
+                User user = userService.findByUsernameOrEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+                finalUserName = user.getUserName();
+            }
         }
         
-        String email = authentication.getName();
-        User user = userService.findByUsernameOrEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-        postsService.addView(id, user.getUserName());
+        postsService.addView(id, finalUserName);
     }
     
     @GetMapping("/views/{id}")
@@ -163,24 +174,40 @@ public class PostsController {
     }
 
     @PostMapping("/download/{id}")
-    public ResponseEntity<String> trackDownload(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("User not authenticated");
+    public ResponseEntity<String> trackDownload(@PathVariable String id, @RequestParam(required = false) String userName) {
+        String finalUserName;
+        String finalUserId;
+        
+        if (userName != null && !userName.isEmpty()) {
+            // Frontend passed a username (could be "unknown")
+            finalUserName = userName;
+            finalUserId = "unknown".equals(userName) ? "unknown" : null;
+        } else {
+            // Try to get authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                // No auth, treat as unknown user
+                finalUserName = "unknown";
+                finalUserId = "unknown";
+            } else {
+                String email = authentication.getName();
+                User user = userService.findByUsernameOrEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+                finalUserName = user.getUserName();
+                finalUserId = user.getId();
+            }
         }
         
-        String email = authentication.getName();
-        User user = userService.findByUsernameOrEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-        
         // Create download record
-        postDownloadService.createDownload(id, user.getId(), user.getUserName());
+        postDownloadService.createDownload(id, finalUserId, finalUserName);
         
         // Increment total downloads counter
         postsService.incrementTotalDownloads(id);
         
-        // Still send notification to post author
-        postsService.notifyDownload(id, user.getUserName());
+        // Only send notification if it's a real user
+        if (!"unknown".equals(finalUserName)) {
+            postsService.notifyDownload(id, finalUserName);
+        }
         
         return ResponseEntity.ok("Download tracked successfully");
     }

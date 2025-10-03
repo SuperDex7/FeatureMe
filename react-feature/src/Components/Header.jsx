@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Notifications from "./Notifications";
 import "./Header.css";
-import api, { logout, getCurrentUser } from "../services/AuthService";
+import api, { logout, getCurrentUserSafe } from "../services/AuthService";
 import { clearMyNotifications } from "../services/UserService";
 
 function Header() {
@@ -37,7 +37,7 @@ function Header() {
   
   useEffect(() => {
     const fetchUser = async () => {
-      const user = await getCurrentUser();
+      const user = await getCurrentUserSafe();
       setCurrentUser(user);
     };
     fetchUser();

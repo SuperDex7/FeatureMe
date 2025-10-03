@@ -29,6 +29,11 @@ public class PostDownloadService {
     }
 
     public PostDownload createDownload(String postId, String userId, String userName) {
+        // Handle unknown/anonymous users
+        if ("unknown".equals(userName)) {
+            userId = "unknown";
+        }
+        
         PostDownload download = new PostDownload(
             UUID.randomUUID().toString(),
             postId,

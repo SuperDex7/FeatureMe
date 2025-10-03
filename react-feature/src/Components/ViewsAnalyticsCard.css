@@ -75,6 +75,28 @@
   padding: 1.5rem;
   position: relative;
   z-index: 2;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar styling for analytics card */
+.analytics-card-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.analytics-card-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.analytics-card-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ffa726, #ff6b6b);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.analytics-card-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ffb74d, #ff8a80);
 }
 
 .analytics-posts-grid {
@@ -82,6 +104,29 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* Custom scrollbar styling for posts grid */
+.analytics-posts-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analytics-posts-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.analytics-posts-grid::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ffa726, #ff6b6b);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.analytics-posts-grid::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ffb74d, #ff8a80);
 }
 
 .analytics-post-item {
@@ -344,6 +389,7 @@
   .analytics-posts-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.8rem;
+    max-height: 250px;
   }
   
   .analytics-post-banner {
@@ -365,6 +411,7 @@
   
   .analytics-card-content {
     padding: 1rem;
+    max-height: 400px;
   }
   
   .analytics-card-icon {
@@ -401,6 +448,7 @@
   .analytics-posts-grid {
     grid-template-columns: 1fr 1fr;
     gap: 0.6rem;
+    max-height: 200px;
   }
   
   .analytics-card-header {
@@ -410,6 +458,7 @@
   
   .analytics-card-content {
     padding: 0.8rem;
+    max-height: 350px;
   }
   
   .analytics-card-icon {
@@ -458,6 +507,7 @@
   .analytics-posts-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
+    max-height: 150px;
   }
   
   .analytics-card-header {
@@ -466,6 +516,7 @@
   
   .analytics-card-content {
     padding: 0.6rem;
+    max-height: 300px;
   }
   
   .analytics-card-title h3 {

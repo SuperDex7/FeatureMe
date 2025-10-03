@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import api, { getCurrentUser } from "../services/AuthService";
-import { deleteComment, deletePost, addView } from "../services/PostsService";
+import api, { getCurrentUserSafe } from "../services/AuthService";
+import { deleteComment, deletePost, addView, trackDownload } from "../services/PostsService";
 import "./Post.css";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
@@ -63,7 +63,8 @@ function Post() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const user = await getCurrentUser();
+                // Try to get current user, but don't fail if not authenticated
+                const user = await getCurrentUserSafe();
                 setCurrentUser(user);
                 
                 const res = await api.get(`/posts/get/id/${id}`);
@@ -165,9 +166,10 @@ function Post() {
     };
 
     const handlePlayPause = async () => {
-        // Add view tracking when playing
-        if (!isPlaying && currentUser) {
-            const cooldownKey = `view_${id}_${currentUser?.userName}`;
+        // Add view tracking when playing (for both logged-in and anonymous users)
+        if (!isPlaying) {
+            const userName = currentUser ? currentUser.userName : "unknown";
+            const cooldownKey = `view_${id}_${userName}`;
             const lastViewTime = localStorage.getItem(cooldownKey);
             const now = Date.now();
             const oneMinute = 60 * 1000; // 1 minute in milliseconds
@@ -182,7 +184,7 @@ function Post() {
             
             if (shouldAddView) {
                 try {
-                    await addView(id);
+                    await addView(id, userName);
                     localStorage.setItem(cooldownKey, now.toString());
                 } catch (error) {
                     console.error("Error adding view:", error);
@@ -286,8 +288,14 @@ function Post() {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            // Optionally track the download
-            console.log('Download started for:', post.title);
+            // Track the download
+            try {
+                const userName = currentUser ? currentUser.userName : "unknown";
+                await trackDownload(id, userName);
+                console.log('Download tracked for:', post.title);
+            } catch (error) {
+                console.error('Error tracking download:', error);
+            }
         } catch (error) {
             console.error('Error downloading file:', error);
             alert('Failed to download file. Please try again.');
@@ -352,6 +360,7 @@ function Post() {
                                     <span className="play-icon">{isPlaying ? '⏸️' : '▶️'}</span>
                                     <span className="play-text">{isPlaying ? 'Pause' : 'Play'}</span>
                                 </button>
+                                
                                 <a href={`/profile/${post.author.userName}`}><button className="post-hero-profile-btn">
                                     <span className="profile-icon">👤</span>
                                     View Profile

@@ -20,16 +20,18 @@ export const deletePost = (postId) => {
   return api.delete(`/posts/delete/${postId}`);
 }
 
-export const addView = (id) => {
-  return api.post(`/posts/view/${id}`);
+export const addView = (id, userName = null) => {
+  const url = userName ? `/posts/view/${id}?userName=${encodeURIComponent(userName)}` : `/posts/view/${id}`;
+  return api.post(url);
 }
 
 export const downloadPost = (id) => {
   return api.get(`/posts/get/id/${id}`);
 }
 
-export const trackDownload = (id) => {
-  return api.post(`/posts/download/${id}`);
+export const trackDownload = (id, userName = null) => {
+  const url = userName ? `/posts/download/${id}?userName=${encodeURIComponent(userName)}` : `/posts/download/${id}`;
+  return api.post(url);
 }
 
 export const getPostDownloads = (id) => {

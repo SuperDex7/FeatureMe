@@ -30,8 +30,15 @@ public class PostViewService {
      * Add a view for a post by a user
      */
     public void addView(String postId, String userName) {
-        User user = userRepository.findByUserName(userName)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = null;
+        String profilePic = "../public/dpp.jpg"; // Default profile pic
+        
+        // Handle unknown/anonymous users
+        if (!"unknown".equals(userName)) {
+            user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            profilePic = user.getProfilePic();
+        }
         
         Instant now = Instant.now();
         
@@ -49,7 +56,7 @@ public class PostViewService {
             PostView newView = new PostView(
                 postId,
                 userName,
-                user.getProfilePic(),
+                profilePic,
                 now, // First view time
                 now, // Last view time (same as first for new views)
                 1    // Initial view count

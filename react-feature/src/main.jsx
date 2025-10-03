@@ -30,7 +30,7 @@ const router = createBrowserRouter([
   {path: 'create-post', element: <ProtectedRoute><CreatePost /></ProtectedRoute>},
   {path: 'profiles', element: <ProtectedRoute><ProfilesPage /></ProtectedRoute>},
   {path: "/profile/:username", element: <ProtectedRoute><Profile /></ProtectedRoute>},
-  {path: "/post/:id", element: <ProtectedRoute><Post/></ProtectedRoute>},
+  {path: "/post/:id", element: <Post/>},
   {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},
   {path: 'messages', element: <ProtectedRoute><MessagesPage /></ProtectedRoute>},
   {path: 'subscription', element: <ProtectedRoute><SubscriptionPage /></ProtectedRoute>},
