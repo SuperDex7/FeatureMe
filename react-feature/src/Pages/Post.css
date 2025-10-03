@@ -1113,8 +1113,13 @@
     }
 }
 
+/* Mobile Audio Player - Always Visible */
 @media (max-width: 768px) {
     .audio-player-section {
+        transform: translateY(0) !important;
+        opacity: 1 !important;
+        max-height: none !important;
+        overflow: visible !important;
         padding: 20px 0;
     }
     
@@ -1135,12 +1140,38 @@
     
     .progress-container {
         width: 100%;
+        gap: 10px;
     }
     
     .control-btn {
         width: 60px;
         height: 60px;
         font-size: 24px;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .progress-handle {
+        width: 20px;
+        height: 20px;
+        opacity: 1;
+    }
+    
+    .volume-slider {
+        height: 6px;
+    }
+    
+    .volume-slider::-webkit-slider-thumb {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .volume-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
     }
 }
 

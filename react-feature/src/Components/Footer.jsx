@@ -55,7 +55,7 @@ function Footer() {
             <a href="https://www.tiktok.com/@therealfeatureme" className="footer-social-link" target="_blank" aria-label="TikTok">
               <span className="footer-social-icon">📱</span>
             </a>
-            <a href="#" className="footer-social-link" aria-label="YouTube">
+            <a href="https://youtube.com/@therealfeatureme?si=46iHSZOLEREThHzJ" className="footer-social-link" target="_blank" aria-label="YouTube">
               <span className="footer-social-icon">📺</span>
             </a>
           </div>
