@@ -8,19 +8,39 @@ import api from "../services/AuthService";
 const DUMMY_BANNER = "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80";
 const DUMMY_PROFILE = "https://randomuser.me/api/portraits/men/32.jpg";
 
-// Genre to icon mapping (add more as needed)
+// Genre to icon mapping (expanded to cover new genres)
 const GENRE_ICONS = {
   Rock: "🎸",
+  Punk: "🧷",
   Pop: "🎤",
   Jazz: "🎷",
-  HipHop: "🎧",
+  "Hip Hop": "🎧",
+  Trap: "🔊", // broader support than some newer emojis
+  Drill: "🛠️",
   Electronic: "🎹",
+  Afrobeat: "🥁", // broader support than some newer emojis
   Indie: "🌈",
   Classical: "🎻",
   Country: "🤠",
   Blues: "🎺",
+  Underground: "🕳️",
+  Sample: "🧰",
+  Acapella: "🎙️",
+  "R&B": "🎧",
   Default: "🎵"
 };
+
+// Normalize genre names and provide a robust icon lookup
+function getGenreIcon(genre) {
+  if (!genre) return GENRE_ICONS.Default;
+  const lower = String(genre).toLowerCase();
+  // alias normalization
+  if (lower === 'hiphop' || lower === 'hip-hop') return GENRE_ICONS['Hip Hop'];
+  if (lower === 'r&b' || lower === 'rnb') return GENRE_ICONS['R&B'];
+  if (lower === 'afrobeats') return GENRE_ICONS['Afrobeat'];
+  // direct match first
+  return GENRE_ICONS[genre] || GENRE_ICONS[genre?.trim()] || GENRE_ICONS.Default;
+}
 
 function GenreBubbleScroll({ genreData, onSelect, dropdownOpen }) {
   return (
@@ -51,7 +71,7 @@ function GenreOverlay({ genre, posts, onClose }) {
     <div className="genre-overlay">
       <button className="genre-overlay-close" onClick={onClose}>&times;</button>
       <h2 className="genre-overlay-title">
-        {GENRE_ICONS[genre] || GENRE_ICONS.Default} {genre}
+        {getGenreIcon(genre)} {genre}
       </h2>
       <div className="genre-overlay-grid">
         {posts.map((item) => (
@@ -65,8 +85,8 @@ function GenreOverlay({ genre, posts, onClose }) {
 function GenrePopup({ genreData, selectedGenres, onGenreToggle, onClose, isOpen }) {
   if (!isOpen) return null;
 
-  // Define required genres
-  const requiredGenres = ['Song', 'Beat', 'Loop', 'Instrument','Free', 'Paid', 'Open'];
+  // Define required genres (type-style categories shown in a separate section)
+  const requiredGenres = ['Song', 'Beat', 'Loop', 'Instrument', 'Sample', 'Acapella', 'Free', 'Paid', 'Open'];
   
   // Separate required and regular genres
   const requiredGenreData = requiredGenres.map(reqGenre => 
@@ -91,9 +111,7 @@ function GenrePopup({ genreData, selectedGenres, onGenreToggle, onClose, isOpen 
         style={{ backgroundImage: `url('${banner || DUMMY_BANNER}')` }}
       >
         <div className="feed-genre-popup-overlay-bg"></div>
-        <div className="feed-genre-popup-icon">
-          {GENRE_ICONS[genre] || GENRE_ICONS.Default}
-        </div>
+        <div className="feed-genre-popup-icon">{getGenreIcon(genre)}</div>
         <div className="feed-genre-popup-name">{genre}</div>
       </div>
     </div>
@@ -379,11 +397,11 @@ function Feedf() {
                 {selectedGenres.length === 0 ? (
                   "All Genres"
                 ) : selectedGenres.length === 1 ? (
-                  `${GENRE_ICONS[selectedGenres[0]] || GENRE_ICONS.Default} ${selectedGenres[0]}`
+                  `${getGenreIcon(selectedGenres[0])} ${selectedGenres[0]}`
                 ) : selectedGenres.length <= 3 ? (
-                  selectedGenres.map(genre => `${GENRE_ICONS[genre] || GENRE_ICONS.Default} ${genre}`).join(', ')
+                  selectedGenres.map(genre => `${getGenreIcon(genre)} ${genre}`).join(', ')
                 ) : (
-                  `${selectedGenres.slice(0, 2).map(genre => `${GENRE_ICONS[genre] || GENRE_ICONS.Default} ${genre}`).join(', ')} +${selectedGenres.length - 2} more`
+                  `${selectedGenres.slice(0, 2).map(genre => `${getGenreIcon(genre)} ${genre}`).join(', ')} +${selectedGenres.length - 2} more`
                 )}
               </span>
               <span className="dropdown-arrow">▼</span>

@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
 import { listUsers } from "../services/UserService";
 const GENRES = [
-  "Song","Beat","Loop","Instrument","Open","Free","Paid",'Hip Hop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
-  'Reggae', 'Metal', 'Country', 'Indie', 'Folk', 'Blues'
+  "Song","Beat","Loop", "Sample", "Acapella","Instrument","Open","Free","Paid",'Hip Hop','Underground','Trap','Drill', 'Pop', 'Punk', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
+  'Reggae', 'Metal', 'Country', 'Indie','Folk', 'Blues', 'Afrobeat'
 ];
 
 function CreatePost(){
@@ -697,7 +697,7 @@ function CreatePost(){
           <div className="create-post-genre-category">
             <h4 className="create-post-genre-category-title">Category</h4>
             <div className="create-post-genre-options">
-              {GENRES.slice(0, 7).map((g) => (
+              {GENRES.slice(0, 9).map((g) => (
                 <label key={g} className="create-post-genre-option">
                   <input
                     type="checkbox"
@@ -713,7 +713,7 @@ function CreatePost(){
           <div className="create-post-genre-category">
             <h4 className="create-post-genre-category-title">Music Genres</h4>
             <div className="create-post-genre-options">
-              {GENRES.slice(7).map((g) => (
+              {GENRES.slice(9).map((g) => (
                 <label key={g} className="create-post-genre-option">
                   <input
                     type="checkbox"
