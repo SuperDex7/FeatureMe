@@ -52,7 +52,7 @@ import com.resend.services.emails.model.CreateEmailResponse;
 
 
 
-@CrossOrigin("*")
+
 @RestController
 @RequestMapping("/api/user")
 public class UserController {

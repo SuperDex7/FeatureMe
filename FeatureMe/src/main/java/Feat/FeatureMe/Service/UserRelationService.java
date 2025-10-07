@@ -56,9 +56,6 @@ public class UserRelationService {
             // Remove notification
             removeFollowNotification(following, followerUserName);
             
-            // Update legacy lists for backward compatibility
-            updateLegacyLists(follower, following, false);
-            
             return "Unfollowed";
         } else {
             // Follow
@@ -75,9 +72,6 @@ public class UserRelationService {
             
             // Add notification
             addFollowNotification(following, followerUserName);
-            
-            // Update legacy lists for backward compatibility
-            updateLegacyLists(follower, following, true);
             
             return "Followed";
         }
@@ -279,39 +273,7 @@ public class UserRelationService {
         }
     }
     
-    /**
-     * Update legacy follower/following lists for backward compatibility
-     */
-    private void updateLegacyLists(User follower, User following, boolean isFollow) {
-        // Update follower's following list
-        if (follower.getFollowing() == null) {
-            follower.setFollowing(new ArrayList<>());
-        }
-        
-        if (isFollow) {
-            if (!follower.getFollowing().contains(following.getUserName())) {
-                follower.getFollowing().add(following.getUserName());
-            }
-        } else {
-            follower.getFollowing().remove(following.getUserName());
-        }
-        
-        // Update following's followers list
-        if (following.getFollowers() == null) {
-            following.setFollowers(new ArrayList<>());
-        }
-        
-        if (isFollow) {
-            if (!following.getFollowers().contains(follower.getUserName())) {
-                following.getFollowers().add(follower.getUserName());
-            }
-        } else {
-            following.getFollowers().remove(follower.getUserName());
-        }
-        
-        userRepository.save(follower);
-        userRepository.save(following);
-    }
+    
     
     /**
      * Cleanup notifications if they exceed 30

@@ -52,12 +52,7 @@ public class User implements UserDetails{
     private List<String> socialMedia;
     private List<String> badges;
     private List<String> demo;
-    @Indexed
-    private List<String> friends;
-    @Indexed
-    private List<String> followers;
-    @Indexed
-    private List<String> following;
+    
     @Indexed
     private List<String> featuredOn;
     @Indexed
@@ -88,9 +83,6 @@ public class User implements UserDetails{
                 List<String> socialMedia,
                 List<String> badges,
                 List<String> demo,
-                List<String> friends,
-                List<String> followers,
-                List<String> following,
                 List<String> featuredOn,
                 List<String> likedPosts,
                 List<String> posts,
@@ -111,9 +103,6 @@ public class User implements UserDetails{
         this.socialMedia = socialMedia;
         this.badges = badges;
         this.demo = demo;
-        this.friends = friends;
-        this.followers = followers;
-        this.following = following;
         this.featuredOn = featuredOn;   
         this.likedPosts = likedPosts;
         this.posts = posts;
@@ -251,21 +240,9 @@ public class User implements UserDetails{
         this.demo = demo;
     }
 
-    public List<String> getFriends() {
-        return friends;
-    }
+    
 
-    public void setFriends(List<String> friends) {
-        this.friends = friends;
-    }
-
-    public List<String> getFollowers() {
-        return followers;
-    }
-
-    public void setFollowers(List<String> followers) {
-        this.followers = followers;
-    }
+    
 
     public List<String> getFeaturedOn() {
         return featuredOn;
@@ -291,13 +268,7 @@ public class User implements UserDetails{
         this.posts = posts;
     }
 
-    public List<String> getFollowing() {
-        return following;
-    }
-
-    public void setFollowing(List<String> following) {
-        this.following = following;
-    }
+    
 
     public User user() {
         return this;

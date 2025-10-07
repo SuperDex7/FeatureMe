@@ -161,15 +161,9 @@ public class MongoIndexConfig implements CommandLineRunner {
             indexOps.ensureIndex(new Index().on("subscriptionStatus", org.springframework.data.domain.Sort.Direction.ASC)
                                             .named("subscription_status_idx"));
             
-            // Array field indexes for social features
-            indexOps.ensureIndex(new Index().on("followers", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .named("followers_idx"));
+            // Array field indexes for social features (followers/following removed; use relations collection)
             
-            indexOps.ensureIndex(new Index().on("following", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .named("following_idx"));
-            
-            indexOps.ensureIndex(new Index().on("friends", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .named("friends_idx"));
+            // friends index removed
             
             indexOps.ensureIndex(new Index().on("featuredOn", org.springframework.data.domain.Sort.Direction.ASC)
                                             .named("featured_on_idx"));

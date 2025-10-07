@@ -123,9 +123,6 @@ public class UserService {
             updatedUser.getSocialMedia() != null && !updatedUser.getSocialMedia().isEmpty() ? updatedUser.getSocialMedia() : user.getSocialMedia(),
             updatedUser.getBadges() != null && !updatedUser.getBadges().isEmpty() ? updatedUser.getBadges() : user.getBadges(),
             updatedUser.getDemo() != null && !updatedUser.getDemo().isEmpty() ? updatedUser.getDemo() : user.getDemo(),
-            updatedUser.getFriends() != null ? updatedUser.getFriends() : user.getFriends(),
-            updatedUser.getFollowers() != null ? updatedUser.getFollowers() : user.getFollowers(),  
-            updatedUser.getFollowing() != null ? updatedUser.getFollowing() : user.getFollowing(),
             updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
             updatedUser.getLikedPosts() != null && !updatedUser.getLikedPosts().isEmpty() ? updatedUser.getLikedPosts() : user.getLikedPosts(),
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
@@ -188,9 +185,6 @@ public class UserService {
                 u.getLocation(),
                 u.getSocialMedia(),
                 u.getBadges(),
-                u.getFriends(),
-                u.getFollowers(),   
-                u.getFollowing(),
                 sortedFeaturedOn,
                 sortedPosts,
                 u.getChats(),
@@ -255,9 +249,6 @@ public class UserService {
             user.getLocation(),
             user.getSocialMedia(),
             user.getBadges(),
-            user.getFriends(),
-            user.getFollowers(),
-            user.getFollowing(),
             sortedFeaturedOn,
             sortedPosts,
             user.getChats(),
@@ -303,8 +294,8 @@ public class UserService {
                 u.getBadges() != null ? u.getBadges() : Collections.emptyList(),
                 u.getDemo() != null ? u.getDemo() : Collections.emptyList(),
                 u.getSocialMedia() != null ? u.getSocialMedia() : Collections.emptyList(),
-                u.getFollowers() != null ? u.getFollowers().size() : 0,
-                u.getFollowing() != null ? u.getFollowing().size() : 0,
+                0,
+                0,
                 u.getPosts() != null ? u.getPosts().size() : 0
             );
         });
@@ -391,39 +382,9 @@ public class UserService {
             }
         }
         
-        // 3. Remove user from other users' followers/following lists
-        // Remove from followers lists
-        if (user.getFollowers() != null && !user.getFollowers().isEmpty()) {
-            for (String followerId : user.getFollowers()) {
-                User follower = userRepository.findById(followerId).orElse(null);
-                if (follower != null && follower.getFollowing() != null) {
-                    follower.getFollowing().remove(userName);
-                    userRepository.save(follower);
-                }
-            }
-        }
+        // 3. Remove follow relationships (handled by relations collection below)
         
-        // Remove from following lists
-        if (user.getFollowing() != null && !user.getFollowing().isEmpty()) {
-            for (String followingId : user.getFollowing()) {
-                User following = userRepository.findById(followingId).orElse(null);
-                if (following != null && following.getFollowers() != null) {
-                    following.getFollowers().remove(userName);
-                    userRepository.save(following);
-                }
-            }
-        }
-        
-        // 4. Remove user from friends lists
-        if (user.getFriends() != null && !user.getFriends().isEmpty()) {
-            for (String friendId : user.getFriends()) {
-                User friend = userRepository.findById(friendId).orElse(null);
-                if (friend != null && friend.getFriends() != null) {
-                    friend.getFriends().remove(userName);
-                    userRepository.save(friend);
-                }
-            }
-        }
+        // 4. Friends no longer supported
         
         // 5. Remove user from all posts' features lists (where they are featured)
         postsRepository.removeUserFromAllPostsFeatures(userName);
@@ -562,9 +523,6 @@ public class UserService {
             user.getLocation(),
             user.getSocialMedia(),
             user.getBadges(),
-            user.getFriends(),
-            user.getFollowers(),
-            user.getFollowing(),
             sortedFeaturedOn,
             sortedPosts,
             user.getChats(),

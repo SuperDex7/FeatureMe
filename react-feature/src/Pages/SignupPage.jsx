@@ -27,9 +27,6 @@ function SignupPage() {
     socialMedia: [],
     badges: [],
     demo: [],
-    friends: [],
-    followers: [],
-    following: [],
     featuredOn: [],
     posts: []
   });
