@@ -30,8 +30,8 @@ const DemoService = {
       formData.append("demo", new Blob([JSON.stringify(demoPayload)], {type: "application/json"}));
       formData.append('file', file);
       
-      // Use async endpoint for better performance and to prevent thread pool exhaustion
-      const response = await api.post("/demos/create-async", formData, {
+      // Temporarily use synchronous endpoint for stability
+      const response = await api.post("/demos/create", formData, {
         headers: {"Content-Type": "multipart/form-data"}
       });
       

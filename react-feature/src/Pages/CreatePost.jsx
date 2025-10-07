@@ -238,8 +238,8 @@ function CreatePost(){
       formData.append('file', file);
     }
 
-    // Use async endpoint for better performance and to prevent thread pool exhaustion
-    api.post(`/posts/create-async`, formData, {
+    // Temporarily use synchronous endpoint for stability
+    api.post(`/posts/create`, formData, {
       headers:{"Content-Type": "multipart/form-data"}
     }).then(res => {
       alert("Upload successful!");
