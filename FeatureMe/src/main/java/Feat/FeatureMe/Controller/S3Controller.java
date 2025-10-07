@@ -49,7 +49,7 @@ public class S3Controller
 	}
 	
 	//Uploads a file to AWS S3 asynchronously to prevent thread pool exhaustion.
-	@PostMapping("/upload-async")
+    @PostMapping(path = "/upload-async", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
 	public CompletableFuture<String> uploadFileAsync(@RequestParam MultipartFile file) throws IOException
 	{
 		// Validate file

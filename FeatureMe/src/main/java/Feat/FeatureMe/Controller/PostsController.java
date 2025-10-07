@@ -8,7 +8,6 @@ import java.util.concurrent.CompletableFuture;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -42,7 +41,6 @@ import Feat.FeatureMe.Service.FileUploadService;
 
 
 
-@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/posts")
 public class PostsController {
@@ -101,7 +99,7 @@ public class PostsController {
     @PostMapping(path ="/create-async", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CompletableFuture<PostsDTO> createPostAsync(@RequestPart("post") Posts posts,
                             @RequestPart("file") MultipartFile file) throws IOException {
-        // Get the authenticated user
+        // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
@@ -124,6 +122,8 @@ public class PostsController {
         // Upload file asynchronously and create post when upload completes
         return s3Service.uploadFileAsync(keyName, fileContent)
             .thenApply(s3Url -> {
+                // Restore authentication in async thread
+                SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
                     // Set the S3 URL in the Posts entity
                     posts.setMusic(s3Url);
@@ -133,6 +133,9 @@ public class PostsController {
                     return postsService.getPostById(createdPost.getId());
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to create post after upload: " + e.getMessage(), e);
+                } finally {
+                    // Avoid leaking auth to other tasks on this thread
+                    SecurityContextHolder.clearContext();
                 }
             })
             .exceptionally(throwable -> {

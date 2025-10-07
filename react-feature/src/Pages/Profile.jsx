@@ -161,6 +161,17 @@ function Profile() {
     fetchData();
   }, [username]);
 
+  // Reset content and pagination when switching profiles
+  useEffect(() => {
+    setPosts([]);
+    setTotalPages(0);
+    setPage(0);
+    setFeatureOn([]);
+    setFeatTotalPages(0);
+    setFeatPage(0);
+    setDemos([]);
+  }, [username]);
+
   // Populate edit form when user data is loaded
   useEffect(() => {
     if (user && currentUser?.userName === username) {
@@ -191,33 +202,41 @@ function Profile() {
   }
   // Load posts when activeTab changes or page changes
   useEffect(() => {
-    if (activeTab === "posts" && user && user.posts) {
+    if (activeTab === "posts" && user && Array.isArray(user.posts) && user.posts.length > 0) {
       api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${size}`).then(res => {
         setTotalPages(res.data.page.totalPages)
         setPosts(res.data.content)
       })
+    } else if (activeTab === "posts") {
+      setTotalPages(0)
+      setPosts([])
     }
   }, [activeTab, user, page, size]);
 
   // Load featuredOn when activeTab changes or page changes
   useEffect(() => {
-    if (activeTab === "friends" && user && user.featuredOn) {
+    if (activeTab === "friends" && user && Array.isArray(user.featuredOn) && user.featuredOn.length > 0) {
       api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${featPage}&size=${featSize}`).then(res => {
         setFeatTotalPages(res.data.page.totalPages)
         setFeatureOn(res.data.content)
       })
+    } else if (activeTab === "friends") {
+      setFeatTotalPages(0)
+      setFeatureOn([])
     }
   }, [activeTab, user, featPage, featSize]);
 
   useEffect(() => {
-    if (activeTab === "demos" && user && user.id) {
-      // Fetch demos for the current user
+    if (activeTab === "demos" && user && Array.isArray(user.demo) && user.demo.length > 0 && user.id) {
+      // Fetch demos for the current user only if demos exist
       DemoService.getUserDemos(user.id).then(demos => {
         setDemos(demos)
       }).catch(err => {
         console.error("Error fetching demos:", err)
         setDemos([])
       })
+    } else if (activeTab === "demos") {
+      setDemos([])
     }
   }, [activeTab, user]);
 

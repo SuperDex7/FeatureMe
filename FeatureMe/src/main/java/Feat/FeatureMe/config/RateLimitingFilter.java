@@ -101,7 +101,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private boolean isFileUploadEndpoint(String requestURI) {
-        return requestURI.contains("/upload") || requestURI.contains("/create");
+        return requestURI.contains("/upload") || requestURI.contains("/create-async");
     }
 
     private boolean isLoginEndpoint(String requestURI) {

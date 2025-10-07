@@ -1,6 +1,5 @@
 package Feat.FeatureMe.Controller;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -28,7 +27,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 
 
-@CrossOrigin("*")
 @RestController
 @RequestMapping("/api/demos")
 public class DemoController {
@@ -81,7 +79,7 @@ public class DemoController {
     // Create a demo with async file upload to prevent thread pool exhaustion
     @PostMapping("/create-async")
     public CompletableFuture<Demos> createDemoAsync(@RequestPart("file") MultipartFile file, @RequestPart("demo") Demos demo) throws IOException {
-        // Get the authenticated user
+        // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
@@ -103,6 +101,8 @@ public class DemoController {
         // Upload file asynchronously and create demo when upload completes
         return s3Service.uploadFileAsync(keyName, fileContent)
             .thenApply(s3Url -> {
+                // Restore authentication in async thread
+                SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
                     // Set the S3 URL in the Demo entity
                     demo.setSongUrl(s3Url);
@@ -112,6 +112,9 @@ public class DemoController {
                     return demoService.createPost(user.getId(), demo);
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to create demo after upload: " + e.getMessage(), e);
+                } finally {
+                    // Avoid leaking auth to other tasks on this thread
+                    SecurityContextHolder.clearContext();
                 }
             })
             .exceptionally(throwable -> {

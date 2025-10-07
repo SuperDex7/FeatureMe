@@ -49,7 +49,7 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("GET", "/api/posts/likes/**").permitAll();
                 
                 // All other posts endpoints require authentication
-                registry.requestMatchers("/api/posts/**").authenticated();
+                registry.requestMatchers("/api/posts/**").permitAll();
                 
                 //registry.requestMatchers("/api/chats/**").authenticated();
                 registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
