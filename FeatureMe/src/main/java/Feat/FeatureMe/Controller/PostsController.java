@@ -113,32 +113,30 @@ public class PostsController {
         validateFileTypeForUser(file, user);
         fileUploadService.validateFileForUserByCategory(file, user, "audio");
         
-        // Generate unique filename
+        // Generate unique filename and persist to a temp file to avoid loading the whole file into heap
         String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/posts");
-        
-        // Convert file to byte array for async upload
-        byte[] fileContent = file.getBytes();
-        
-        // Upload file asynchronously and create post when upload completes
-        return s3Service.uploadFileAsync(keyName, fileContent)
+        java.io.File tempFile = java.io.File.createTempFile("post-upload-", ".tmp");
+        file.transferTo(tempFile);
+
+        // Upload file asynchronously from file path (streams from disk), then create post
+        return s3Service.uploadFileAsync(keyName, tempFile.getAbsolutePath())
             .thenApply(s3Url -> {
                 // Restore authentication in async thread
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
-                    // Set the S3 URL in the Posts entity
                     posts.setMusic(s3Url);
-                    
-                    // Create the post and return the DTO
                     Posts createdPost = postsService.createPost(user.getUserName(), posts);
                     return postsService.getPostById(createdPost.getId());
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to create post after upload: " + e.getMessage(), e);
                 } finally {
-                    // Avoid leaking auth to other tasks on this thread
+                    // Cleanup and avoid leaking auth to other tasks on this thread
+                    try { tempFile.delete(); } catch (Exception ignore) {}
                     SecurityContextHolder.clearContext();
                 }
             })
             .exceptionally(throwable -> {
+                try { tempFile.delete(); } catch (Exception ignore) {}
                 throw new RuntimeException("Failed to create post: " + throwable.getMessage(), throwable);
             });
     }

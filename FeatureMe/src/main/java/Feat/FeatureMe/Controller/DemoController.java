@@ -92,32 +92,29 @@ public class DemoController {
         // Validate file with role-based size limits and file types
         fileUploadService.validateFileForUserByCategory(file, user, "audio");
         
-        // Generate unique filename
+        // Generate unique filename and stream from a temp file to avoid heap pressure
         String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/demos");
-        
-        // Convert file to byte array for async upload
-        byte[] fileContent = file.getBytes();
-        
-        // Upload file asynchronously and create demo when upload completes
-        return s3Service.uploadFileAsync(keyName, fileContent)
+        java.io.File tempFile = java.io.File.createTempFile("demo-upload-", ".tmp");
+        file.transferTo(tempFile);
+
+        // Upload file asynchronously from file path (streams from disk), then create demo
+        return s3Service.uploadFileAsync(keyName, tempFile.getAbsolutePath())
             .thenApply(s3Url -> {
                 // Restore authentication in async thread
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
-                    // Set the S3 URL in the Demo entity
                     demo.setSongUrl(s3Url);
                     demo.setCreatorId(user.getId());
-                    
-                    // Create the demo and return it
                     return demoService.createPost(user.getId(), demo);
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to create demo after upload: " + e.getMessage(), e);
                 } finally {
-                    // Avoid leaking auth to other tasks on this thread
+                    try { tempFile.delete(); } catch (Exception ignore) {}
                     SecurityContextHolder.clearContext();
                 }
             })
             .exceptionally(throwable -> {
+                try { tempFile.delete(); } catch (Exception ignore) {}
                 throw new RuntimeException("Failed to create demo: " + throwable.getMessage(), throwable);
             });
     }
