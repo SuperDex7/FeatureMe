@@ -105,11 +105,6 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(CachedUserDetailsService cachedUserDetailsService) {
-        return cachedUserDetailsService;
-    }
-    
-    @Bean
     public OptimizedJwtAuthenticationFilter optimizedJwtAuthenticationFilter(CachedUserDetailsService cachedUserDetailsService) {
         return new OptimizedJwtAuthenticationFilter(jwtService, cachedUserDetailsService);
     }

@@ -10,8 +10,8 @@ export function GetUserById(){
     return api.get("/user/get/id/{id}")
 }
 
-export function getUserInfo(){
-    return api.get("/user/get/{username}");
+export function getUserInfo(username){
+    return api.get(`/user/get/${username}`);
 }
 
 // New User Relations API methods
@@ -71,4 +71,14 @@ export const updateProfile = (profileData, isFormData = false) => {
 // Clear current user's notifications
 export const clearMyNotifications = () => {
     return api.post('/user/notifications/clear');
+};
+
+// Change password
+export const changePassword = (passwordData) => {
+    return api.post('/user/change-password', passwordData);
+};
+
+// Delete account
+export const deleteAccount = (userId) => {
+    return api.delete(`/user/delete/${userId}`);
 };

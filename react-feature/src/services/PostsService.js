@@ -12,6 +12,14 @@ export const getPostById = (id) => {
   return api.get(`/posts/get/id/${id}`);
 }
 
+export const getPostsByUser = (userId, page = 0, size = 10) => {
+  return api.get(`/posts/get/all/id/${userId}/sorted?page=${page}&size=${size}`);
+}
+
+export const getFeaturedPosts = (userId, page = 0, size = 10) => {
+  return api.get(`/posts/get/all/featuredOn/${userId}/sorted?page=${page}&size=${size}`);
+}
+
 export const deleteComment = (commentId) => {
   return api.delete(`/posts/delete/comment/${commentId}`);
 }
