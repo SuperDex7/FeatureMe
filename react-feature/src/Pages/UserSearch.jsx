@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/AuthService";
 import DemoService from "../services/DemoService";
-import AudioPlayer from "../Components/AudioPlayer";
+import AudioPlayer2 from "../Components/AudioPlayer2";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import "./UserSearch.css";
@@ -460,7 +460,7 @@ function UserSearch() {
                 <div className="audio-player-modal">
                     <div className="audio-player-backdrop" onClick={handleDemoClose}></div>
                     <div className="audio-player-container">
-                        <AudioPlayer 
+                        <AudioPlayer2 
                             src={playingDemo.url}
                             title={playingDemo.title}
                             onClose={handleDemoClose}

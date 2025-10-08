@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Header from '../Components/Header';
+import Header3 from '../Components/Header';
 import Footer from '../Components/Footer';
 import Spotlight from '../Components/Spotlight';
 import Notifications from '../Components/Notifications';
@@ -7,7 +7,7 @@ import ShowFollow from '../Components/ShowFollow';
 import ViewsAnalyticsCard from '../Components/ViewsAnalyticsCard';
 import FriendSuggestions from '../Components/FriendSuggestions';
 import { UserRelationsService, clearMyNotifications } from '../services/UserService';
-import '../Styling/HomepageModern.css';
+
 import axios from 'axios';
 import api from '../services/AuthService';
 
@@ -122,7 +122,7 @@ function Homepage() {
 
   return (
     <div className={`homepage-modern-root${latestModalOpen ? ' modal-open' : ''}`}>
-      <Header />
+      <Header3 />
       <main className="homepage-modern-main">
         {/* Hero Card */}
         <section className="hero-card glass-card">

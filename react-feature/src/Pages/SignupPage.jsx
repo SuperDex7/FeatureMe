@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header2 from "../Components/Header2";
 import Footer from "../Components/Footer";
 import "../SignupComp/SignupPage.css";
-import "../Styling/Profile.css";
+
 import axios from 'axios';
 import api from '../services/AuthService';
 import { baseURL } from '../config/api';

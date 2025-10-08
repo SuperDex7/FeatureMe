@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
-import "../Styling/Profile.css";
+
 import { UserRelationsService, updateProfile } from "../services/UserService";
 import api, { getCurrentUser } from "../services/AuthService";
 import BadgeService from "../services/BadgeService";
@@ -1325,7 +1325,7 @@ function Profile() {
               <>
                 <div className="profilePosts">
                   {posts.map((item) => (
-                    <FeedItem key={item.id} {...item} />
+                    <FeedItem2 key={item.id} {...item} />
                   ))}
                 </div>
                 <div id="pageButtons">
@@ -1384,7 +1384,7 @@ function Profile() {
               <>
                 <div className="profilePosts">
                   {featuredOn.map((item) => (
-                    <FeedItem key={item.id} {...item} />
+                    <FeedItem2 key={item.id} {...item} />
                   ))}
                 </div>
                 <div id="pageButtons">

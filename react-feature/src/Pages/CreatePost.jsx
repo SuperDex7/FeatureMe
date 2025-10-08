@@ -319,19 +319,27 @@ function CreatePost(){
   const renderStepIndicator = () => (
     <div className="create-post-step-indicator">
       <div className={`create-post-step ${currentStep >= 1 ? 'active' : ''}`}>
-        <span className="create-post-step-number">1</span>
+        <div className="create-post-step-circle">
+          <span className="create-post-step-number">1</span>
+        </div>
         <span className="create-post-step-label">Song Details</span>
       </div>
       <div className={`create-post-step ${currentStep >= 2 ? 'active' : ''}`}>
-        <span className="create-post-step-number">2</span>
+        <div className="create-post-step-circle">
+          <span className="create-post-step-number">2</span>
+        </div>
         <span className="create-post-step-label">Features</span>
       </div>
       <div className={`create-post-step ${currentStep >= 3 ? 'active' : ''}`}>
-        <span className="create-post-step-number">3</span>
+        <div className="create-post-step-circle">
+          <span className="create-post-step-number">3</span>
+        </div>
         <span className="create-post-step-label">Upload & Download</span>
       </div>
       <div className={`create-post-step ${currentStep >= 4 ? 'active' : ''}`}>
-        <span className="create-post-step-number">4</span>
+        <div className="create-post-step-circle">
+          <span className="create-post-step-number">4</span>
+        </div>
         <span className="create-post-step-label">Preview</span>
       </div>
     </div>

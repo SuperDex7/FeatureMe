@@ -85,6 +85,7 @@
   justify-content: space-between;
   margin-bottom: 3rem;
   position: relative;
+  padding: 0 1rem;
 }
 
 .create-post-step-indicator::before {
@@ -105,9 +106,25 @@
   position: relative;
   z-index: 2;
   transition: all 0.3s ease;
+  flex: 1;
 }
 
-.create-post-step-number {
+.create-post-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 2px;
+  background: rgba(79, 140, 255, 0.2);
+  z-index: 1;
+}
+
+.create-post-step.active:not(:last-child)::after {
+  background: linear-gradient(90deg, #4f8cff, #7f53ac);
+}
+
+.create-post-step-circle {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -116,6 +133,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.create-post-step.active .create-post-step-circle {
+  background: linear-gradient(135deg, #4f8cff 0%, #7f53ac 100%);
+  border-color: #4f8cff;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
+}
+
+.create-post-step-number {
   font-weight: 700;
   font-size: 16px;
   color: #bfc9d1;
@@ -123,14 +153,10 @@
 }
 
 .create-post-step.active .create-post-step-number {
-  background: linear-gradient(135deg, #4f8cff 0%, #7f53ac 100%);
-  border-color: #4f8cff;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.4);
 }
 
 .create-post-step-label {
-  margin-top: 8px;
   font-size: 12px;
   font-weight: 600;
   color: #bfc9d1;
@@ -216,7 +242,7 @@
 
 .create-post-text-input,
 .create-post-text-area {
-  width: 100%;
+  width: 95%;
   padding: 0.875rem 1rem;
   border-radius: 0.75rem;
   border: 1.5px solid rgba(79, 140, 255, 0.2);
@@ -1068,19 +1094,37 @@
     flex-direction: column;
     gap: 1.25rem;
     align-items: center;
+    margin-bottom: 2rem;
   }
   
   .create-post-step-indicator::before {
     display: none;
   }
   
+  .create-post-step:not(:last-child)::after {
+    display: none;
+  }
+  
   .create-post-step {
     flex-direction: row;
     gap: 0.75rem;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .create-post-step-circle {
+    margin-bottom: 0;
+    width: 32px;
+    height: 32px;
+  }
+  
+  .create-post-step-number {
+    font-size: 14px;
   }
   
   .create-post-step-label {
     margin-top: 0;
+    font-size: 11px;
   }
   
   .create-post-features-grid {
@@ -1119,6 +1163,14 @@
   .create-post-genre-popup-content {
     flex: 1;
     min-height: 0;
+  }
+  
+  .create-post-users-list {
+    max-height: 150px;
+  }
+  
+  .create-post-selected-users-list {
+    flex-direction: column;
   }
 }
 
@@ -1161,6 +1213,31 @@
   
   .create-post-genre-popup-footer {
     padding: 0.75rem 1rem;
+  }
+  
+  .create-post-step-indicator {
+    padding: 0 0.5rem;
+  }
+  
+  .create-post-step-circle {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .create-post-step-number {
+    font-size: 12px;
+  }
+  
+  .create-post-step-label {
+    font-size: 10px;
+  }
+  
+  .create-post-title {
+    font-size: 1.75rem;
+  }
+  
+  .create-post-subtitle {
+    font-size: 1rem;
   }
 }
 
@@ -1489,13 +1566,67 @@
   border: 1px dashed rgba(79, 140, 255, 0.3);
 }
 
-/* Responsive adjustments for user search */
+/* Mobile-specific improvements */
 @media (max-width: 768px) {
-  .create-post-users-list {
-    max-height: 150px;
+  .create-post-text-input,
+  .create-post-text-area {
+    font-size: 16px; /* Prevents zoom on iOS */
+    width: 90%;
   }
   
-  .create-post-selected-users-list {
-    flex-direction: column;
+  .create-post-file-upload-label {
+    padding: 2rem 1rem;
+  }
+  
+  .create-post-features-preview {
+    padding: 1rem;
+  }
+  
+  .create-post-preview-card {
+    margin: 0 -0.5rem;
+  }
+  
+  .create-post-preview-content {
+    padding: 1rem;
+  }
+  
+  .create-post-preview-header {
+    padding: 1rem;
+  }
+  
+  .create-post-preview-stats {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-post-text-input,
+  .create-post-text-area {
+    padding: 0.75rem;
+    width: 90%;
+  }
+  
+  .create-post-file-upload-label {
+    padding: 1.5rem 0.75rem;
+  }
+  
+  .create-post-upload-icon {
+    margin-bottom: 0.75rem;
+  }
+  
+  .create-post-features-preview {
+    padding: 0.75rem;
+  }
+  
+  .create-post-preview-content {
+    padding: 0.75rem;
+  }
+  
+  .create-post-preview-header {
+    padding: 0.75rem;
+  }
+  
+  .create-post-preview-stats {
+    padding: 0.75rem;
   }
 }

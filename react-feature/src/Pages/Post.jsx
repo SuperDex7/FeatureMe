@@ -5,7 +5,7 @@ import { deleteComment, deletePost, addView, trackDownload } from "../services/P
 import "./Post.css";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
-import LikesSection from "../Components/LikesSection";
+import LikesSection2 from "../Components/LikesSection";
 import ViewsAnalytics from "../Components/ViewsAnalytics";
 
 function Post() {
@@ -687,7 +687,7 @@ function Post() {
                                 <div className="community-section">
                                     <h2 className="section-title">Community</h2>
                                     
-                                    <LikesSection
+                                    <LikesSection2
                                         postId={id}
                                         likes={localLikes}
                                         onLikeUpdate={handleLikeUpdate}
