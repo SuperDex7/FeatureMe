@@ -1,0 +1,610 @@
+/* LikedPostsItem.css - Luxury Design for Liked Post Items */
+
+/* Grid View Styles */
+.likedposts-item-grid {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.likedposts-item-grid:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 48px rgba(255, 99, 99, 0.2);
+  border-color: rgba(255, 99, 99, 0.3);
+}
+
+.likedposts-item-grid-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.likedposts-item-grid-banner {
+  position: relative;
+  height: 200px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.likedposts-item-grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 99, 99, 0.1) 0%,
+    rgba(255, 182, 193, 0.1) 50%,
+    rgba(255, 218, 185, 0.1) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.likedposts-item-grid:hover .likedposts-item-grid-overlay {
+  opacity: 1;
+}
+
+.likedposts-item-grid-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 99, 99, 0.9);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(255, 99, 99, 0.4);
+  z-index: 2;
+}
+
+.likedposts-item-grid-play-btn:hover {
+  background: rgba(255, 99, 99, 1);
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 6px 25px rgba(255, 99, 99, 0.6);
+}
+
+.likedposts-item-grid-liked-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 99, 99, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 4px 15px rgba(255, 99, 99, 0.3);
+}
+
+.likedposts-liked-icon {
+  font-size: 1.2rem;
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.likedposts-item-grid-info {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.likedposts-item-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.likedposts-item-grid-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.likedposts-item-grid-date {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.likedposts-item-grid-author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.likedposts-item-grid-author-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.likedposts-item-grid-author-name {
+  font-size: 0.9rem;
+  color: rgba(255, 99, 99, 0.9);
+  font-weight: 500;
+}
+
+.likedposts-item-grid-description {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.likedposts-item-grid-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.likedposts-item-grid-genre-tag {
+  padding: 0.3rem 0.8rem;
+  background: rgba(255, 99, 99, 0.2);
+  border: 1px solid rgba(255, 99, 99, 0.3);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: rgba(255, 99, 99, 0.9);
+  font-weight: 500;
+}
+
+.likedposts-item-grid-genre-more {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.likedposts-item-grid-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.likedposts-item-grid-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.likedposts-item-grid-stat-icon {
+  font-size: 0.9rem;
+}
+
+.likedposts-item-grid-stat-count {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.likedposts-item-grid-actions {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  gap: 0.8rem;
+}
+
+.likedposts-item-grid-btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+}
+
+.likedposts-item-grid-btn.primary {
+  background: linear-gradient(135deg, #ff6363 0%, #ff6b9d 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 99, 99, 0.3);
+}
+
+.likedposts-item-grid-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 99, 99, 0.4);
+}
+
+.likedposts-item-grid-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.likedposts-item-grid-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* List View Styles */
+.likedposts-item-list {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.likedposts-item-list:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(255, 99, 99, 0.2);
+  border-color: rgba(255, 99, 99, 0.3);
+}
+
+.likedposts-item-list-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  min-height: 140px;
+}
+
+.likedposts-item-list-media {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.likedposts-item-list-banner {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 0.3s ease;
+}
+
+.likedposts-item-list:hover .likedposts-item-list-banner {
+  transform: scale(1.05);
+}
+
+.likedposts-item-list-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 99, 99, 0.9);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 99, 99, 0.4);
+  z-index: 2;
+}
+
+.likedposts-item-list-play-btn:hover {
+  background: rgba(255, 99, 99, 1);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.likedposts-item-list-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.likedposts-item-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.likedposts-item-list-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.likedposts-item-list-date {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.likedposts-item-list-author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.likedposts-item-list-author-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.likedposts-item-list-author-name {
+  font-size: 0.9rem;
+  color: rgba(255, 99, 99, 0.9);
+  font-weight: 500;
+}
+
+.likedposts-item-list-description {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.likedposts-item-list-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.likedposts-item-list-genre-tag {
+  padding: 0.3rem 0.8rem;
+  background: rgba(255, 99, 99, 0.2);
+  border: 1px solid rgba(255, 99, 99, 0.3);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: rgba(255, 99, 99, 0.9);
+  font-weight: 500;
+}
+
+.likedposts-item-list-genre-more {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.likedposts-item-list-features {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.likedposts-item-list-feat-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.likedposts-item-list-feat-list {
+  font-size: 0.8rem;
+  color: rgba(255, 99, 99, 0.9);
+  font-weight: 500;
+}
+
+.likedposts-item-list-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.likedposts-item-list-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.likedposts-item-list-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.likedposts-item-list-stat-icon {
+  font-size: 0.9rem;
+}
+
+.likedposts-item-list-stat-count {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.likedposts-item-list-buttons {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.likedposts-item-list-btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.likedposts-item-list-btn.primary {
+  background: linear-gradient(135deg, #ff6363 0%, #ff6b9d 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 99, 99, 0.3);
+}
+
+.likedposts-item-list-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 99, 99, 0.4);
+}
+
+.likedposts-item-list-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.likedposts-item-list-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .likedposts-item-list-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .likedposts-item-list-media {
+    width: 100%;
+    height: 160px;
+  }
+
+  .likedposts-item-list-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .likedposts-item-list-stats {
+    gap: 0.8rem;
+  }
+
+  .likedposts-item-grid-info {
+    padding: 1.2rem;
+  }
+
+  .likedposts-item-grid-actions {
+    padding: 0.8rem 1.2rem;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .likedposts-item-grid-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .likedposts-item-list-content {
+    padding: 1rem;
+  }
+
+  .likedposts-item-list-media {
+    height: 120px;
+  }
+
+  .likedposts-item-list-title {
+    font-size: 1.1rem;
+  }
+
+  .likedposts-item-list-description {
+    font-size: 0.8rem;
+  }
+
+  .likedposts-item-grid-banner {
+    height: 160px;
+  }
+
+  .likedposts-item-grid-play-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+
+  .likedposts-item-grid-title {
+    font-size: 1rem;
+  }
+
+  .likedposts-item-grid-info {
+    padding: 1rem;
+    gap: 0.6rem;
+  }
+}
+
+/* Glassmorphism effects */
+.likedposts-item-grid,
+.likedposts-item-list {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Enhanced shadows and depth */
+.likedposts-item-grid {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.likedposts-item-list {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Selection styling */
+.likedposts-item-grid *::selection,
+.likedposts-item-list *::selection {
+  background: rgba(255, 99, 99, 0.3);
+  color: white;
+}
+
+/* Focus states for accessibility */
+.likedposts-item-grid-play-btn:focus,
+.likedposts-item-list-play-btn:focus,
+.likedposts-item-grid-btn:focus,
+.likedposts-item-list-btn:focus {
+  outline: 2px solid #ff6363;
+  outline-offset: 2px;
+}
+
+/* Smooth animations */
+.likedposts-item-grid,
+.likedposts-item-list,
+.likedposts-item-grid-play-btn,
+.likedposts-item-list-play-btn,
+.likedposts-item-grid-btn,
+.likedposts-item-list-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,103 +1,103 @@
 import React, { useState, useEffect } from "react";
-import Header from "../Components/Header";
-import Sidebar from "../Components/Sidebar";
-import Feedf from "../Components/Feedf";
+import Header3 from "../Components/Header";
+import Feed2 from "../Components/Feed2";
 import Footer from "../Components/Footer";
-import "../Styling/FeedS.css"; 
-import Spotlight from "../Components/Spotlight";
+import "../Styling/Feeds2.css"; 
+import Spotlight2 from "../Components/Spotlight";
 import LikedPosts from "../Components/LikedPosts";
 import MyPosts from "../Components/MyPosts";
 
 function Feed() {
   const [activeTab, setActiveTab] = useState('spotlight');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Listen for mobile menu toggle from Header
-  useEffect(() => {
-    const handleMobileMenuToggle = () => {
-      setSidebarOpen(prev => !prev);
-    };
-
-    // Add event listener for mobile menu toggle
-    window.addEventListener('mobileMenuToggle', handleMobileMenuToggle);
-    
-    return () => {
-      window.removeEventListener('mobileMenuToggle', handleMobileMenuToggle);
-    };
-  }, []);
   
+  const navigationItems = [
+    { 
+      id: 'spotlight', 
+      label: 'Spotlight', 
+      icon: '⭐',
+      title: 'Plus Creator Spotlight',
+      subtitle: 'The Best of the Best'
+    },
+    { 
+      id: 'feed', 
+      label: 'Feed', 
+      icon: '📰',
+      title: 'Discover Amazing Music',
+      subtitle: 'Find your next favorite track from talented creators worldwide'
+    },
+    { 
+      id: 'liked', 
+      label: 'Liked Posts', 
+      icon: '❤️',
+      title: 'Your Favorites',
+      subtitle: 'Rediscover the tracks that captured your heart'
+    },
+    { 
+      id: 'myPosts', 
+      label: 'My Posts', 
+      icon: '📝',
+      title: 'Your Creations',
+      subtitle: 'Showcase your musical journey and connect with your audience'
+    }
+  ];
+
+  const currentNavItem = navigationItems.find(item => item.id === activeTab) || navigationItems[0];
+
+  const renderContent = () => {
+    switch(activeTab) {
+      case 'spotlight':
+        return <Spotlight2 />;
+      case 'feed':
+        return <Feed2 />;
+      case 'liked':
+        return <LikedPosts />;
+      case 'myPosts':
+        return <MyPosts />;
+      default:
+        return <Spotlight />;
+    }
+  };
 
   return (
     <div>
       <div className="feed-page">
-        <Header />
+        <Header3 />
         
-        <div className="feed-layout">
-          <Sidebar isOpen={sidebarOpen} />
-          
-          <div className="feed-main-content">
-            {/* Tab Navigation */}
-            <div className="feed-tabs">
-              <button 
-                className={`feed-tab ${activeTab === 'spotlight' ? 'active' : ''}`}
-                onClick={() => setActiveTab('spotlight')}
-              >
-                <span role="img" aria-label="spotlight">⭐</span>
-                Spotlight
-              </button>
-              <button 
-                className={`feed-tab ${activeTab === 'feed' ? 'active' : ''}`}
-                onClick={() => setActiveTab('feed')}
-              >
-                <span role="img" aria-label="feed">📰</span>
-                Feed
-              </button>
-              <button 
-                className={`feed-tab ${activeTab === 'liked' ? 'active' : ''}`}
-                onClick={() => setActiveTab('liked')}
-              >
-                <span role="img" aria-label="liked">❤️</span>
-                Liked Posts
-              </button>
-              <button 
-                className={`feed-tab ${activeTab === 'myPosts' ? 'active' : ''}`}
-                onClick={() => setActiveTab('myPosts')}
-              >
-                <span role="img" aria-label="my posts">📝</span>
-                My Posts
-              </button>
-            </div>
-
-            {/* Tab Content */}
-            <div className="feed-tab-content">
-              {activeTab === 'spotlight' && (
-                <div className="spotlight-tab">
-                  <Spotlight />
-                </div>
-              )}
+        <main className="posts-main-container">
+          {/* Hero Section with Integrated Navigation */}
+          <div className="posts-hero-section">
+            <div className="posts-hero-content">
+              <h1 className="posts-hero-title">{currentNavItem.title}</h1>
+              <p className="posts-hero-subtitle">{currentNavItem.subtitle}</p>
               
-              {activeTab === 'feed' && (
-                <div className="feed-tab">
-                  <Feedf />
-                </div>
-              )}
-              
-              {activeTab === 'liked' && (
-                <div className="liked-posts-tab">
-                  <LikedPosts />
-                </div>
-              )}
-              
-              {activeTab === 'myPosts' && (
-                <div className="my-posts-tab">
-                  <MyPosts />
-                </div>
-              )}
+              {/* Integrated Tab Navigation */}
+              <div className="posts-tab-container">
+                {navigationItems.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`posts-tab ${activeTab === item.id ? 'active' : ''}`}
+                    onClick={() => setActiveTab(item.id)}
+                  >
+                    <span className="posts-tab-icon" role="img" aria-label={item.label}>
+                      {item.icon}
+                    </span>
+                    <span className="posts-tab-text">{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Tab Content */}
+          <div className="posts-tab-content">
+            <div className="posts-tab-section">
+              {renderContent()}
+            </div>
+          </div>
+        </main>
+        
+        <Footer />
       </div>
-      <Footer />
     </div>
   );
 }

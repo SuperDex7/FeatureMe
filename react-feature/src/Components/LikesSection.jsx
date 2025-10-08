@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
-import "./LikesSection.css";
+import "../Styling/LikesSection.css";
 
 function LikesSection({ 
   postId, 
@@ -8,7 +8,6 @@ function LikesSection({
   onLikeUpdate,
   showLikes, 
   setShowLikes
-  // Removed maxHeight prop to use CSS-controlled height
 }) {
   const [localLikes, setLocalLikes] = useState(likes || []);
   const [currentUser, setCurrentUser] = useState(null);
@@ -18,7 +17,8 @@ function LikesSection({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showAllLikes, setShowAllLikes] = useState(false);
-  const pageSize = 20;
+  const [isLiking, setIsLiking] = useState(false);
+  const pageSize = 24;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -27,11 +27,9 @@ function LikesSection({
     };
     fetchUser();
     
-    // Get total likes count
     fetchLikesSummary();
   }, [postId]);
 
-  // Fetch likes summary to get total count
   const fetchLikesSummary = async () => {
     try {
       const response = await api.get(`/posts/likes/${postId}/summary`);
@@ -42,7 +40,6 @@ function LikesSection({
     }
   };
 
-  // Load paginated likes
   const loadPaginatedLikes = async (page = 0, append = false) => {
     if (loading) return;
     
@@ -66,12 +63,10 @@ function LikesSection({
     }
   };
 
-  // Load more likes
   const loadMoreLikes = () => {
     loadPaginatedLikes(currentPage + 1, true);
   };
 
-  // Toggle between showing recent likes and all likes
   const toggleShowAllLikes = () => {
     if (!showAllLikes) {
       loadPaginatedLikes(0, false);
@@ -79,20 +74,20 @@ function LikesSection({
     setShowAllLikes(!showAllLikes);
   };
 
-  const handleLike = (e) => {
+  const handleLike = async (e) => {
     e.preventDefault();
     
-    if (!currentUser) return;
+    if (!currentUser || isLiking) return;
+    
+    setIsLiking(true);
     
     // Optimistically update UI
     const isLiked = localLikes.some(like => like.userName === currentUser.userName);
     let updatedLikes;
     
     if (isLiked) {
-      // Unlike - remove user from likes
       updatedLikes = localLikes.filter(like => like.userName !== currentUser.userName);
     } else {
-      // Like - add user to likes
       const newLike = {
         userName: currentUser.userName,
         profilePic: currentUser.profilePic
@@ -100,124 +95,132 @@ function LikesSection({
       updatedLikes = [...localLikes, newLike];
     }
     
-    // Update local state immediately
     setLocalLikes(updatedLikes);
     
-    // Call parent callback to update the feed item
     if (onLikeUpdate) {
       onLikeUpdate(updatedLikes);
     }
     
-    // Send to backend
-    api.post(`/posts/add/like/${postId}`)
-    .then(res => {
-      // Fetch updated post from server to get accurate data
-      return api.get(`/posts/get/id/${postId}`);
-    })
-    .then(postRes => {
+    try {
+      await api.post(`/posts/add/like/${postId}`);
+      const postRes = await api.get(`/posts/get/id/${postId}`);
+      
       if (postRes.data && postRes.data.likes) {
-        // Update with server data
         setLocalLikes(postRes.data.likes);
         if (onLikeUpdate) {
           onLikeUpdate(postRes.data.likes);
         }
         
-        // Refresh pagination data
         fetchLikesSummary();
         if (showAllLikes) {
           loadPaginatedLikes(0, false);
         }
       }
-    })
-    .catch(err => {
+    } catch (err) {
       console.error('Error updating like:', err);
-      // Revert on error
       setLocalLikes(likes || []);
       if (onLikeUpdate) {
         onLikeUpdate(likes || []);
       }
-    });
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const isUserLiked = currentUser ? localLikes.some(like => like.userName === currentUser.userName) : false;
 
   return (
-    <div className="likes-section-container">
-      <div className="likes-section-header">
-        <h3 className="likes-section-title">Likes</h3>
-        <div className="likes-header-controls">
-          <span className="likes-count">{totalLikes || localLikes.length}</span>
-          {totalLikes > (localLikes?.length || 0) && (
-            <button 
-              className="view-all-likes-btn"
-              onClick={toggleShowAllLikes}
-            >
-              {showAllLikes ? 'Show Recent' : `View All ${totalLikes}`}
-            </button>
-          )}
-        </div>
-      </div>
-      
-      <div className="likes-section-body">
-        <div className="like-button-container">
-          <button 
-            className={`like-btn ${isUserLiked ? 'liked' : ''}`}
-            onClick={handleLike}
-          >
-            <span className="like-icon">❤️</span>
-            <span className="like-text">
-              {isUserLiked ? 'Unlike' : 'Like'}
-            </span>
-          </button>
+    <div className="posts-likes-container">
+      {/* Header */}
+      <div className="posts-likes-header">
+        <div className="posts-likes-title-section">
+          <div className="posts-likes-icon">❤️</div>
+          <h3 className="posts-likes-title">Likes</h3>
+          <div className="posts-likes-count">{totalLikes || localLikes.length}</div>
         </div>
         
-        <div className="likes-list">
-          {(showAllLikes ? paginatedLikes : localLikes) && (showAllLikes ? paginatedLikes : localLikes).length > 0 ? (
-            (showAllLikes ? paginatedLikes : localLikes).map((like, index) => (
+        {totalLikes > (localLikes?.length || 0) && (
+          <button 
+            className="posts-view-all-btn"
+            onClick={toggleShowAllLikes}
+          >
+            {showAllLikes ? 'Recent' : `View All`}
+          </button>
+        )}
+      </div>
+
+      {/* Like Button */}
+      <div className="posts-like-button-section">
+        <button 
+          className={`posts-like-btn ${isUserLiked ? 'posts-liked' : ''} ${isLiking ? 'posts-liking' : ''}`}
+          onClick={handleLike}
+          disabled={isLiking}
+        >
+          <div className="posts-like-btn-content">
+            <span className="posts-like-icon">
+              {isLiking ? '⏳' : isUserLiked ? '❤️' : '🤍'}
+            </span>
+            <span className="posts-like-text">
+              {isLiking ? 'Processing...' : isUserLiked ? 'Liked' : 'Like'}
+            </span>
+          </div>
+          {isUserLiked && <div className="posts-like-particles"></div>}
+        </button>
+      </div>
+
+      {/* Likes Grid */}
+      <div className="posts-likes-content">
+        {(showAllLikes ? paginatedLikes : localLikes) && (showAllLikes ? paginatedLikes : localLikes).length > 0 ? (
+          <div className="posts-likes-grid">
+            {(showAllLikes ? paginatedLikes : localLikes).map((like, index) => (
               like && like.userName ? (
-                <div key={index} className="like-item">
-                  <div className="like-avatar-container">
-                    <a href={`/profile/${like.userName}`}>
+                <div key={index} className="posts-like-item">
+                  <a href={`/profile/${like.userName}`} className="posts-like-link">
+                    <div className="posts-like-avatar-container">
                       <img 
-                        className="like-avatar" 
-                        src={like.profilePic} 
-                        alt={like.userName} 
+                        className="posts-like-avatar" 
+                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
+                        alt={like.userName}
+                        loading="lazy"
                       />
-                    </a>
-                  </div>
-                  <div className="like-content">
-                    <a href={`/profile/${like.userName}`} className="like-username">
-                      {like.userName}
-                    </a>
-                  </div>
+                      <div className="posts-like-avatar-border"></div>
+                    </div>
+                    <div className="posts-like-info">
+                      <span className="posts-like-username">{like.userName}</span>
+                    </div>
+                  </a>
                 </div>
               ) : null
-            ))
-          ) : (
-            <div className="no-likes">
-              <div className="no-likes-icon">💔</div>
-              <p>No likes yet. Be the first to like this post!</p>
-            </div>
-          )}
-          
-          {/* Load More Button for Pagination */}
-          {showAllLikes && hasMore && !loading && (
-            <div className="load-more-likes">
-              <button 
-                className="load-more-btn"
-                onClick={loadMoreLikes}
-              >
-                Load More Likes
-              </button>
-            </div>
-          )}
-          
-          {loading && (
-            <div className="likes-loading">
-              <span>Loading likes...</span>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="posts-no-likes">
+            <div className="posts-no-likes-icon">💔</div>
+            <h4 className="posts-no-likes-title">No likes yet</h4>
+            <p className="posts-no-likes-text">Be the first to show some love!</p>
+          </div>
+        )}
+
+        {/* Load More */}
+        {showAllLikes && hasMore && !loading && (
+          <div className="posts-load-more-section">
+            <button 
+              className="posts-load-more-btn"
+              onClick={loadMoreLikes}
+            >
+              <span className="posts-load-more-icon">➕</span>
+              <span className="posts-load-more-text">Load More</span>
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="posts-likes-loading">
+            <div className="posts-loading-spinner"></div>
+            <span className="posts-loading-text">Loading likes...</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import AudioPlayer from "./AudioPlayer";
-import CommentSection from "./CommentSection";
-import LikesSection from "./LikesSection";
+import AudioPlayer2 from "./AudioPlayer2";
+import CommentSection2 from "./CommentSection2";
+import LikesSection2 from "./LikesSection";
 import ViewsAnalytics from "./ViewsAnalytics";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
+import "./Spotlight.css";
 
 function SpotlightItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0, totalDownloads = 0, freeDownload = false }) {
   const { userName, profilePic, banner } = author ?? {};
@@ -44,6 +45,7 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     
     setShowAudioPlayer(true);
   };
+
   const handleLikeUpdate = (updatedLikes) => {
     setLocalLikes(updatedLikes);
   };
@@ -57,7 +59,6 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     
     try {
       await deletePost(id);
-      // Close modal and reload page
       onClose();
       window.location.reload();
     } catch (err) {
@@ -68,46 +69,62 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
     }
   };
 
-
   return (
-    <div className={`spotlight-modal-overlay${open ? '' : ' modal-closed'}`} onClick={onClose}>
-      <div className={`spotlight-modal${open ? '' : ' modal-closed'}`} onClick={e => e.stopPropagation()}>
+    <div className="spotlight-modal-overlay" onClick={onClose}>
+      <div className="spotlight-modal" onClick={e => e.stopPropagation()}>
         <button className="spotlight-modal-close" onClick={onClose}>&times;</button>
-        <div className="spotlight-modal-banner" style={{ backgroundImage: `url('${banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"}')` }} />
+        
+        {/* Premium Modal Header */}
+        <div className="spotlight-modal-header">
+          <div className="spotlight-modal-banner" style={{ backgroundImage: `url('${banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"}')` }} />
+          <div className="spotlight-modal-overlay-gradient"></div>
+        </div>
+        
         <div className="spotlight-modal-content">
-          <div className="spotlight-modal-header-row">
+          {/* Premium Profile Section */}
+          <div className="spotlight-modal-profile-section">
             <div className="spotlight-modal-profile">
               <img className="spotlight-modal-profile-pic" src={profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} alt="profile" />
-              <span className="spotlight-modal-author"><a href={`/profile/${userName}`}>{userName}</a></span>
+              <div className="spotlight-modal-profile-info">
+                <span className="spotlight-modal-author">
+                  <a href={`/profile/${userName}`}>{userName}</a>
+                </span>
+                <span className="spotlight-modal-time">{new Date(time).toLocaleDateString()}</span>
+              </div>
             </div>
-            <span className="spotlight-modal-time">{new Date(time).toLocaleDateString()}</span>
+            <div className="spotlight-modal-premium-badge">
+              <span className="spotlight-premium-icon">⭐</span>
+              <span>Plus Creator</span>
+            </div>
           </div>
           
           {/* Features */}
           {features && Array.isArray(features) && features.length > 0 && (
-                <div className="feed-card-features">
-                  <span className="feed-card-feat-label">Feat:</span>
-                  <span className="feed-card-feat-list">
+            <div className="spotlight-modal-features">
+              <span className="spotlight-modal-feat-label">Featuring:</span>
+              <div className="spotlight-modal-feat-list">
                 {features.map((feature, index) => (
-                  <span key={index}>
+                  <span key={index} className="spotlight-modal-feat-item">
                     <a href={`/profile/${feature}`}>{feature}</a>
-                    {index < features.length - 1 && ", "}
                   </span>
                 ))}
-              </span>
+              </div>
             </div>
           )}
           
-          <div className="spotlight-modal-title-row">
+          {/* Title and Play Button */}
+          <div className="spotlight-modal-title-section">
             <h2 className="spotlight-modal-title">{title}</h2>
             {!showAudioPlayer && (
               <button className="spotlight-modal-play-btn" onClick={handlePlayClick} title="Play">
-                <span>&#9654;</span>
+                <span className="spotlight-play-icon">&#9654;</span>
+                <span className="spotlight-play-text">Play</span>
               </button>
             )}
           </div>
           
-          <div className="spotlight-modal-desc">{description}</div>
+          {/* Description */}
+          <div className="spotlight-modal-description">{description}</div>
           
           {/* Genre Tags */}
           {genre && Array.isArray(genre) && genre.length > 0 && (
@@ -117,9 +134,11 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               ))}
             </div>
           )}
+          
+          {/* Audio Player */}
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer 
+              <AudioPlayer2 
                 src={music} 
                 onClose={() => setShowAudioPlayer(false)} 
                 title={title} 
@@ -128,65 +147,103 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
               />
             </div>
           )}
-          <div className="spotlight-modal-stats-row" style={{ justifyContent: 'flex-end', gap: '1.2rem' }}>
-            <span
-              className={`spotlight-modal-likes${!showComments ? ' active' : ''}`}
-              style={{ cursor: 'pointer' }}
-              onClick={() => setShowComments(false)}
-            >❤️ {localLikes.length}</span>
-            <span
-              className={`spotlight-modal-comments${showComments ? ' active' : ''}`}
-              style={{ cursor: 'pointer' }}
-              onClick={() => setShowComments(true)}
-            >💬 {totalComments || 0}</span>
-            <span className="spotlight-modal-views-count">👁️ {totalViews || 0}</span>
+          
+          {/* Stats Section */}
+          <div className="spotlight-modal-stats">
+            <div className="spotlight-modal-stat-item">
+              <span className="spotlight-modal-stat-icon">❤️</span>
+              <span className="spotlight-modal-stat-value">{localLikes.length}</span>
+              <span className="spotlight-modal-stat-label">Likes</span>
+            </div>
+            <div className="spotlight-modal-stat-item">
+              <span className="spotlight-modal-stat-icon">💬</span>
+              <span className="spotlight-modal-stat-value">{totalComments || 0}</span>
+              <span className="spotlight-modal-stat-label">Comments</span>
+            </div>
+            <div className="spotlight-modal-stat-item">
+              <span className="spotlight-modal-stat-icon">👁️</span>
+              <span className="spotlight-modal-stat-value">{totalViews || 0}</span>
+              <span className="spotlight-modal-stat-label">Views</span>
+            </div>
             {currentUser && currentUser.userName === userName && (
-              currentUser.role === 'USERPLUS' && (
-              <span
-                className="spotlight-modal-views"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setShowViewsAnalytics(true)}
-                title="View Analytics (Premium Feature)"
-              >📊 Analytics</span>
-              )|| <span
-                className="spotlight-modal-views"
-                style={{ cursor: 'pointer' }}
-                onClick={() => alert('Get a Plus Membership to view analytics')}
-                title="View Analytics (Premium Feature)"
-              >📊 Analytics</span>
+              <div className="spotlight-modal-stat-item spotlight-analytics-item">
+                <span 
+                  className="spotlight-modal-stat-icon"
+                  onClick={() => setShowViewsAnalytics(true)}
+                  style={{ cursor: 'pointer' }}
+                  title="View Analytics"
+                >
+                  📊
+                </span>
+                <span className="spotlight-modal-stat-label">Analytics</span>
+              </div>
             )}
           </div>
           
-          {!showComments ? (
-            <LikesSection
-              postId={id}
-              likes={localLikes}
-              onLikeUpdate={handleLikeUpdate}
-              showLikes={!showComments}
-              setShowLikes={setShowComments}
-            />
-          ) : (
-            <CommentSection
-              postId={id}
-              comments={comments}
-              onAddComment={onAddComment}
-              showComments={showComments}
-              setShowComments={setShowComments}
-              postAuthor={author}
-            />
-          )}
+          {/* Interaction Section */}
+          <div className="spotlight-modal-interactions">
+            <div className="spotlight-modal-interaction-tabs">
+              <button 
+                className={`spotlight-modal-tab ${!showComments ? 'active' : ''}`}
+                onClick={() => setShowComments(false)}
+              >
+                <span>❤️</span>
+                <span>Likes ({localLikes.length})</span>
+              </button>
+              <button 
+                className={`spotlight-modal-tab ${showComments ? 'active' : ''}`}
+                onClick={() => setShowComments(true)}
+              >
+                <span>💬</span>
+                <span>Comments ({totalComments || 0})</span>
+              </button>
+            </div>
+            
+            <div className="spotlight-modal-interaction-content">
+              {!showComments ? (
+                <LikesSection2
+                  postId={id}
+                  likes={localLikes}
+                  onLikeUpdate={handleLikeUpdate}
+                  showLikes={!showComments}
+                  setShowLikes={setShowComments}
+                />
+              ) : (
+                <CommentSection2
+                  postId={id}
+                  comments={comments}
+                  onAddComment={onAddComment}
+                  showComments={showComments}
+                  setShowComments={setShowComments}
+                  postAuthor={author}
+                  totalCommentsFromPost={totalComments}
+                  maxHeight="350px"
+                  placeholder="Share your thoughts on this track..."
+                  theme="modern"
+                />
+              )}
+            </div>
+          </div>
           
-          <div className="spotlight-modal-actions-row">
-          <a href={`/post/${id}`}><button className="feed-card-action-btn">Go To Post</button></a>
-            <a href={`/profile/${userName}`}><button className="feed-card-action-btn">View Profile</button></a>
+          {/* Action Buttons */}
+          <div className="spotlight-modal-actions">
+            <a href={`/post/${id}`} className="spotlight-modal-action-btn spotlight-primary-btn">
+              <span>🔗</span>
+              <span>Go To Post</span>
+            </a>
+            <a href={`/profile/${userName}`} className="spotlight-modal-action-btn spotlight-secondary-btn">
+              <span>👤</span>
+              <span>View Profile</span>
+            </a>
             {currentUser && currentUser.userName === userName && (
               <button 
-                className="spotlight-modal-action-btn delete-btn" 
+                className="spotlight-modal-action-btn spotlight-danger-btn" 
                 onClick={handleDeletePost}
                 disabled={isDeleting}
                 title="Delete post"
               >
-                {isDeleting ? 'Deleting...' : '🗑️ Delete'}
+                <span>{isDeleting ? '⏳' : '🗑️'}</span>
+                <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
               </button>
             )}
           </div>
@@ -200,14 +257,13 @@ function SpotlightItemModal({ open, onClose, id, author, description, time, titl
             postAuthor={author}
             totalDownloads={totalDownloads}
           />
-          
         </div>
       </div>
     </div>
   );
 }
 
-function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, freeDownload = false }) {
+function SpotlightItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, freeDownload = false, viewMode = 'grid' }) {
   const { userName, profilePic, banner } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -216,7 +272,6 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
   const [currentUser, setCurrentUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Get current user on component mount
   useEffect(() => {
     const fetchUser = async () => {
       const user = await getCurrentUser();
@@ -228,11 +283,10 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
   const openAudioPlayer = async (e) => {
     e.stopPropagation();
     
-    // Check cooldown before adding view
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
     const lastViewTime = localStorage.getItem(cooldownKey);
     const now = Date.now();
-    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
+    const oneMinute = 15 * 1000;
     
     let shouldAddView = true;
     if (lastViewTime) {
@@ -254,19 +308,10 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     setShowAudioPlayer(true);
   };
 
-  const handleAddComment = () => {
-    if (commentInput.trim()) {
-      setAllComments([...allComments, commentInput.trim()]);
-      setCommentInput("");
-    }
-  };
-
   const handleModalAddComment = (comment, isServerRefresh = false) => {
     if (isServerRefresh && Array.isArray(comment)) {
-      // Server refresh - replace all comments with server data
       setAllComments(comment);
     } else if (typeof comment === 'object' && comment.comment) {
-      // Single comment object - add to existing comments
       setAllComments(prev => [...(prev || []), comment]);
     }
   };
@@ -280,8 +325,6 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     
     try {
       await deletePost(id);
-      // You might want to call a callback to remove this post from the parent component's list
-      // For now, we'll just reload the page
       window.location.reload();
     } catch (err) {
       console.error('Error deleting post:', err);
@@ -291,63 +334,58 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
     }
   };
 
-
-
-  return (
-    <>
-      <div
-        className="spotlight-card-glass"
-        onClick={() => setModalOpen(true)}
-        style={{ cursor: "pointer" }}
-      >
-        <div className="spotlight-card-banner" style={{ backgroundImage: `url('${banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"}')` }} />
-        <div className="spotlight-card-content">
-          <div className="spotlight-card-header-row">
-            <div className="spotlight-card-profile">
-              <img className="spotlight-card-profile-pic" src={profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} alt="profile" />
-              <span className="spotlight-card-author">{userName}</span>
+  if (viewMode === 'list') {
+    return (
+      <>
+        <div className="spotlight-list-item" onClick={() => setModalOpen(true)}>
+          <div className="spotlight-list-banner" style={{ backgroundImage: `url('${banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"}')` }} />
+          <div className="spotlight-list-content">
+            <div className="spotlight-list-header">
+              <div className="spotlight-list-profile">
+                <img className="spotlight-list-profile-pic" src={profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} alt="profile" />
+                <div className="spotlight-list-profile-info">
+                  <span className="spotlight-list-author">{userName}</span>
+                  <span className="spotlight-list-time">{new Date(time).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <div className="spotlight-list-premium-badge">
+                <span>⭐ Plus</span>
+              </div>
             </div>
-            <span className="spotlight-card-time">{new Date(time).toLocaleDateString()}</span>
-          </div>
-          
-          {features && features.length > 0 && (
-            <div className="spotlight-card-features">
-              <span className="spotlight-card-feat-label">Feat:</span>
-              <span className="spotlight-card-feat-list">{features.join(", ")}</span>
+            
+            <div className="spotlight-list-main">
+              <div className="spotlight-list-title-section">
+                <h3 className="spotlight-list-title">{title}</h3>
+                {!showAudioPlayer && (
+                  <button className="spotlight-list-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }}>
+                    <span>▶️</span>
+                  </button>
+                )}
+              </div>
+              
+              {description && (
+                <p className="spotlight-list-description">{description}</p>
+              )}
+              
+              {genre && Array.isArray(genre) && genre.length > 0 && (
+                <div className="spotlight-list-genres">
+                  {genre.map((genreItem, index) => (
+                    <span key={index} className="spotlight-list-genre-tag">{genreItem}</span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          
-          <div className="spotlight-card-title-row">
-            <h2 className="spotlight-card-title">{title}</h2>
-            {!showAudioPlayer && (
-              <button className="spotlight-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }} title="Play">
-                <span>&#9654;</span>
-              </button>
-            )}
-          </div>
-          
-          {description && description.trim() && (
-            <div className="spotlight-card-desc">{description}</div>
-          )}
-          
-          {/* Genre Tags */}
-          {genre && Array.isArray(genre) && genre.length > 0 && (
-            <div className="spotlight-card-genres">
-              {genre.map((genreItem, index) => (
-                <span key={index} className="spotlight-card-genre-tag">{genreItem}</span>
-              ))}
+            
+            <div className="spotlight-list-stats">
+              <span className="spotlight-list-stat">❤️ {likes.length}</span>
+              <span className="spotlight-list-stat">💬 {totalComments || 0}</span>
+              <span className="spotlight-list-stat">👁️ {totalViews || 0}</span>
             </div>
-          )}
-          
-          <div className="spotlight-card-stats-row">
-            <span className="spotlight-card-likes">❤️ {likes.length}</span>
-            <span className="spotlight-card-comments" onClick={e => { e.stopPropagation(); setModalOpen(true); }} style={{ cursor: "pointer" }}>💬 {totalComments || 0}</span>
-            <span className="spotlight-card-views-count">👁️ {totalViews || 0}</span>
           </div>
           
           {showAudioPlayer && (
             <div onClick={e => e.stopPropagation()}>
-              <AudioPlayer 
+              <AudioPlayer2 
                 src={music} 
                 onClose={() => setShowAudioPlayer(false)} 
                 title={title} 
@@ -357,6 +395,105 @@ function SpotlightItem({ id, author, description, time, title, features, genre, 
             </div>
           )}
         </div>
+        
+        <SpotlightItemModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          id={id}
+          author={author}
+          description={description}
+          time={time}
+          title={title}
+          features={features}
+          genre={genre}
+          music={music}
+          comments={allComments}
+          likes={likes}
+          onAddComment={handleModalAddComment}
+          currentUser={currentUser}
+          totalViews={totalViews}
+          totalComments={totalComments}
+          freeDownload={freeDownload}
+        />
+      </>
+    );
+  }
+
+  // Grid view (default)
+  return (
+    <>
+      <div className="spotlight-card" onClick={() => setModalOpen(true)}>
+        <div className="spotlight-card-header">
+          <div className="spotlight-card-banner" style={{ backgroundImage: `url('${banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"}')` }} />
+          <div className="spotlight-card-overlay"></div>
+          <div className="spotlight-card-premium-badge">
+            <span className="spotlight-premium-icon">⭐</span>
+            <span>Plus</span>
+          </div>
+          {!showAudioPlayer && (
+            <button className="spotlight-card-play-btn" onClick={e => { e.stopPropagation(); openAudioPlayer(e); }}>
+              <span className="spotlight-card-play-icon">▶️</span>
+            </button>
+          )}
+        </div>
+        
+        <div className="spotlight-card-content">
+          <div className="spotlight-card-profile">
+            <img className="spotlight-card-profile-pic" src={profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} alt="profile" />
+            <div className="spotlight-card-profile-info">
+              <span className="spotlight-card-author">{userName}</span>
+              <span className="spotlight-card-time">{new Date(time).toLocaleDateString()}</span>
+            </div>
+          </div>
+          
+          <h3 className="spotlight-card-title">{title}</h3>
+          
+          {description && (
+            <p className="spotlight-card-description">{description}</p>
+          )}
+          
+          {features && features.length > 0 && (
+            <div className="spotlight-card-features">
+              <span className="spotlight-card-feat-label">Feat:</span>
+              <span className="spotlight-card-feat-list">{features.join(", ")}</span>
+            </div>
+          )}
+          
+          {genre && Array.isArray(genre) && genre.length > 0 && (
+            <div className="spotlight-card-genres">
+              {genre.map((genreItem, index) => (
+                <span key={index} className="spotlight-card-genre-tag">{genreItem}</span>
+              ))}
+            </div>
+          )}
+          
+          <div className="spotlight-card-stats">
+            <div className="spotlight-card-stat">
+              <span className="spotlight-card-stat-icon">❤️</span>
+              <span className="spotlight-card-stat-value">{likes.length}</span>
+            </div>
+            <div className="spotlight-card-stat">
+              <span className="spotlight-card-stat-icon">💬</span>
+              <span className="spotlight-card-stat-value">{totalComments || 0}</span>
+            </div>
+            <div className="spotlight-card-stat">
+              <span className="spotlight-card-stat-icon">👁️</span>
+              <span className="spotlight-card-stat-value">{totalViews || 0}</span>
+            </div>
+          </div>
+        </div>
+        
+        {showAudioPlayer && (
+          <div onClick={e => e.stopPropagation()}>
+            <AudioPlayer2 
+              src={music} 
+              onClose={() => setShowAudioPlayer(false)} 
+              title={title} 
+              postId={id}
+              freeDownload={freeDownload}
+            />
+          </div>
+        )}
       </div>
       
       <SpotlightItemModal
