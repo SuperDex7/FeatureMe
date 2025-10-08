@@ -7,7 +7,7 @@ function MyPosts() {
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [size, setSize] = useState(8);
+  const [size, setSize] = useState(6);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
