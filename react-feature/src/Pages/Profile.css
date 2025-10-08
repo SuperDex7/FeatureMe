@@ -54,6 +54,7 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #0a0b0f 0%, #1a1d29 50%, #232946 100%);
   color: rgba(255, 255, 255, 0.87);
+  margin-top: 50px;
 }
 
 /* Main Container */
@@ -102,6 +103,8 @@
   position: relative;
   padding: 2rem;
   display: flex;
+  margin-top: -15px;
+  z-index: -1231;
   gap: 2rem;
   align-items: flex-start;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
@@ -945,6 +948,8 @@
   .profile-avatar {
     width: 120px;
     height: 120px;
+    margin-left: 220px;
+    margin-top: 10px;
   }
   
   .profile-username {
@@ -990,6 +995,8 @@
   .profile-avatar {
     width: 100px;
     height: 100px;
+    margin-left: 130px;
+    margin-top: 10px;
   }
   
   .profile-username {
