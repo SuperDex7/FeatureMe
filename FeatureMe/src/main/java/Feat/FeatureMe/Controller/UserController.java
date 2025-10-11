@@ -194,7 +194,6 @@ public class UserController {
             String ppPath = ppTemp.getAbsolutePath();
             String s3Url = s3Service.uploadFile(ppName, ppPath);
             user.setProfilePic(s3Url);
-            
             // Clean up temp file
             ppTemp.delete();
         } else {

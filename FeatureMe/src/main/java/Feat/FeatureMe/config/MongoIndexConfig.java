@@ -1,6 +1,7 @@
 package Feat.FeatureMe.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.index.IndexOperations;
@@ -21,6 +22,7 @@ import org.springframework.core.annotation.Order;
  * - TTL indexes for data cleanup
  */
 @Configuration
+@EnableMongoAuditing // Enable @CreatedDate and @LastModifiedDate annotations
 @Order(1) // Run early in startup
 public class MongoIndexConfig implements CommandLineRunner {
 

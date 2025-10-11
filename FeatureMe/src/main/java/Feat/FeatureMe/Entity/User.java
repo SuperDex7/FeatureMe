@@ -88,8 +88,7 @@ public class User implements UserDetails{
                 List<String> posts,
                 List<String> chats,
                 List<NotificationsDTO> notifications,
-                List<CommentedOnDTO> comments,
-                Instant createdAt) {
+                List<CommentedOnDTO> comments) {
         this.id = id;
         this.userName = userName;
         this.password = password;
@@ -109,7 +108,6 @@ public class User implements UserDetails{
         this.chats = chats;
         this.notifications = notifications;
         this.comments = comments;
-        this.createdAt = Instant.now();
     }
 
     public String getId() {
