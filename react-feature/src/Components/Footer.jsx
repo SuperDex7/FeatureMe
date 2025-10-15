@@ -16,6 +16,7 @@ function Footer() {
               <h3 className="footer-logo">FeatureMe</h3>
             </div>
             <p className="footer-tagline">The ultimate platform for musicians to share, discover, and connect through music.</p>
+            <h6 className="footer-copyright">Logos and Art: <a href="https://www.instagram.com/janeymitch2/" target="_blank"> janeymitch2</a> on Instagram</h6>
           </div>
           
           <div className="footer-links">
