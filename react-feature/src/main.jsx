@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import Feed from './Pages/Feed.jsx'
 import Profile from './Pages/Profile.jsx'
-import Homepage from './Pages/Homepage.jsx'
+import Homepage2 from './Pages/Homepage2.jsx'
 import CreatePost from './Pages/CreatePost.jsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {createBrowserRouter, RouterProvider} from 'react-router-dom'
@@ -17,19 +17,16 @@ import PendingFeatures from './Components/PendingFeatures.jsx'
 import MessagesPage from './Pages/MessagesPage.jsx'
 import SubscriptionPage from './Pages/SubscriptionPage.jsx'
 import UserSearch from './Pages/UserSearch.jsx'
-import Profile2 from './Pages/Profile2.jsx'
-import Homepage2 from './Pages/Homepage2.jsx'
 
 const router = createBrowserRouter([
   {path: '/', element: <App />},
   {path: 'home', element: <ProtectedRoute><Homepage2 /></ProtectedRoute>},
   {path: 'feed', element: <ProtectedRoute><Feed /></ProtectedRoute>},
-  {path: 'profile', element: <ProtectedRoute><Profile /></ProtectedRoute>},
+ {path: "/profile/:username", element: <ProtectedRoute><Profile/></ProtectedRoute>},
   {path: 'signup', element: <SignupPage />},
   {path: 'login', element: <LoginPage />},
   {path: 'forgot-password', element: <ForgotPasswordPage />},
   {path: 'create-post', element: <ProtectedRoute><CreatePost /></ProtectedRoute>},
-  {path: "/profile/:username", element: <ProtectedRoute><Profile2 /></ProtectedRoute>},
   {path: "/post/:id", element: <Post/>},
   {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},
   {path: 'messages', element: <ProtectedRoute><MessagesPage /></ProtectedRoute>},

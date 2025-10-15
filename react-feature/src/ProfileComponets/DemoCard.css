@@ -468,10 +468,10 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 20px;
-  padding: 32px;
-  margin-bottom: 24px;
+  padding: 10px;
+  height: 700px;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .add-demo-form-new::before {
@@ -547,7 +547,7 @@
 }
 
 .form-input-new {
-  width: 100%;
+  width: 90%;
   padding: 16px 20px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
