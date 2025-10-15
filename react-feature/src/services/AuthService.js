@@ -24,7 +24,7 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  
+  /* 
   (error) => {
     if (error.response) {
       // Don't redirect to login for public endpoints or when checking authentication
@@ -72,7 +72,7 @@ api.interceptors.response.use(
     
     return Promise.reject(error);
   }
-  
+  */
 );
 
 // Helper functions

@@ -176,8 +176,8 @@ export default function Profile() {
   const loadDemos = async () => {
     if (!user || !user.demo || user.demo.length === 0 || !user.id) {
       setDemos([]);
-      return;
-    }
+        return;
+      }
     try {
       const list = await DemoService.getUserDemos(user.id);
       // Reverse the order so newer demos appear first
@@ -255,7 +255,7 @@ export default function Profile() {
   };
 
   if (loading) {
-    return (
+  return (
       <div className="profile">
         <div className="profile-main">
           <div className="profile-card" style={{ margin: '32px' }}>Loading profile...</div>
@@ -271,12 +271,12 @@ export default function Profile() {
           <div className="profile-card" style={{ margin: '32px' }}>
             <h2 className="profile-card-title">Profile not found</h2>
             <button className="profile-btn" onClick={() => navigate('/')}>Go Home</button>
-          </div>
-        </div>
-      </div>
+                </div>
+              </div>
+                </div>
     );
   }
-
+  
   return (
     <div className="profile">
       <Header />
@@ -292,17 +292,36 @@ export default function Profile() {
             }}
           />
           <div className="profile-container">
-          <div className="profile-hero-content">
+          <div 
+            className="profile-hero-content"
+            style={user.role === 'USERPLUS' ? {
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1)), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)), var(--profile-surface)',
+              border: '1px solid rgba(139, 92, 246, 0.2)'
+            } : {}}
+          >
             <img className="profile-avatar" src={user.profilePic || '/dpp.jpg'} alt={user.userName} />
             <div className="profile-identity">
-              <h1 className="profile-name">{user.userName}</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h1 className="profile-name">{user.userName}</h1>
+                {user.role === 'USERPLUS' && (
+                  <img 
+                    src="/SVGs/Logo Gradient.svg" 
+                    alt="FeatureMe" 
+                    style={{ 
+                      width: '24px', 
+                      height: '24px',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                    }} 
+                  />
+                )}
+                    </div>
               {user.location && <p className="profile-title">📍 {user.location}</p>}
               {user.bio && (
                 <p className="profile-paragraph" style={{ marginTop: 6, marginBottom: 0 }}>
                   {user.bio.length > 120 ? (
                     <>
                       {user.bio.slice(0, 120)}...
-                      <button
+            <button 
                         className="profile-tab"
                         style={{ padding: '2px 6px', marginLeft: 6 }}
                         onClick={() => {
@@ -310,8 +329,8 @@ export default function Profile() {
                           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }}
                       >Read more</button>
-                    </>
-                  ) : (
+                        </>
+                      ) : (
                     user.bio
                   )}
                 </p>
@@ -337,8 +356,8 @@ export default function Profile() {
                       </span>
                     );
                   })}
-                </div>
-              )}
+                  </div>
+                )}
               {/* Social links */}
               <div className="profile-socials">
                 {(user.socialMedia || []).slice(0, 6).map((link, i) => (
@@ -347,15 +366,15 @@ export default function Profile() {
                   </a>
                 ))}
               </div>
-            </div>
+                </div>
             {/* Quick actions on right */}
             <div className="profile-hero-actions" style={{ display: 'grid', alignContent: 'center', justifyItems: 'end', gap: 8 }}>
               {currentUser && currentUser.userName !== username ? (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="profile-btn profile-btn--primary" onClick={handleFollow}>{isFollowing ? '✓ Following' : '+ Follow'}</button>
                   <button className="profile-btn" onClick={() => navigate(`/messages?createChat=true&user=${username}`)}>💬 Message</button>
-                </div>
-              ) : (
+                  </div>
+                ) : (
                 <button className="profile-btn" onClick={() => setIsEditing(true)}>✏️ Edit Profile</button>
               )}
               {/* Compact stats */}
@@ -368,7 +387,7 @@ export default function Profile() {
                   <button className="profile-stat-button" onClick={() => { setFollowPopupType('followers'); setShowFollow(true); }}>
                     <span className="profile-stat-value">{relationshipSummary?.followersCount || 0}</span>
                     <span className="profile-stat-label">Followers</span>
-                  </button>
+                      </button>
                 </li>
                 <li>
                   <button className="profile-stat-button" onClick={() => { setFollowPopupType('following'); setShowFollow(true); }}>
@@ -377,10 +396,10 @@ export default function Profile() {
                   </button>
                 </li>
               </ul>
+                </div>
+              </div>
+              
             </div>
-          </div>
-          
-          </div>
         </section>
 
         <div className="profile-grid profile-grid--two">
@@ -396,7 +415,7 @@ export default function Profile() {
           <section className="profile-card">
             <div className="profile-tabs" style={{ padding: 0, marginBottom: '12px' }}>
               {['Posts', 'Demos', 'Featured'].map((t) => (
-                <button
+            <button 
                   key={t}
                   className={`profile-tab ${(
                     (t === 'Posts' && activeTab === 'posts') ||
@@ -406,9 +425,9 @@ export default function Profile() {
                   onClick={() => setActiveTab(t.toLowerCase())}
                 >{t}</button>
               ))}
-            </div>
+                </div>
             {activeTab === 'posts' && (
-              <div>
+                  <div>
                 <h2 className="profile-card-title">Posts</h2>
                 {currentUser?.userName === username && (
                   <button className="profile-btn profile-btn--cta" onClick={() => navigate('/create-post')}>➕ Create Post</button>
@@ -433,7 +452,7 @@ export default function Profile() {
                         freeDownload={post.freeDownload}
                       />
                     ))}
-                  </div>
+                </div>
                 ) : (
                   <p className="profile-paragraph">No posts yet</p>
                 )}
@@ -441,13 +460,13 @@ export default function Profile() {
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button className="profile-btn" disabled={postsPage === 0} onClick={() => loadPosts(postsPage - 1)}>Previous</button>
                     <button className="profile-btn" disabled={postsPage >= postsTotalPages - 1} onClick={() => loadPosts(postsPage + 1)}>Next</button>
-                  </div>
-                )}
-              </div>
+                </div>
+            )}
+          </div>
             )}
 
             {activeTab === 'demos' && (
-              <div>
+                  <div>
                 <h2 className="profile-card-title">Demos</h2>
                 <DemoGrid
                   demos={demos}
@@ -464,8 +483,8 @@ export default function Profile() {
                     }
                   }}
                 />
-              </div>
-            )}
+                </div>
+                )}
 
             {activeTab === 'featured' && (
                   <div>
@@ -498,32 +517,32 @@ export default function Profile() {
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button className="profile-btn" disabled={featPage === 0} onClick={() => loadFeatures(featPage - 1)}>Previous</button>
                     <button className="profile-btn" disabled={featPage >= featTotalPages - 1} onClick={() => loadFeatures(featPage + 1)}>Next</button>
-                </div>
-                )}
               </div>
-            )}
+                )}
+          </div>
+        )}
           </section>
 
           {/* Connections card removed; main content widened */}
         </div>
-
         
-      </div>
+        
+                </div>
       <Footer />
 
-      <ShowFollow 
-        userName={username}
-        isOpen={showFollow}
+        <ShowFollow 
+          userName={username}
+          isOpen={showFollow}
         onClose={() => setShowFollow(false)}
-        type={followPopupType}
-      />
+          type={followPopupType}
+        />
 
       {isEditing && (
         <div className="profile-card" style={{ position: 'fixed', inset: '100px 20px 20px', maxWidth: 560, margin: 'auto', zIndex: 50, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h2 className="profile-card-title" style={{ margin: 0 }}>Edit Profile</h2>
             <button type="button" className="profile-btn" onClick={() => setIsEditing(false)} aria-label="Close edit profile">✕</button>
-          </div>
+              </div>
           <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: 12 }}>
             {/* Basic Information */}
             <h3 className="profile-card-title" style={{ margin: 0 }}>Basic Information</h3>
@@ -544,7 +563,7 @@ export default function Profile() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <label className="profile-btn" style={{ cursor: 'pointer' }}>
                   <input type="radio" name="ppMethod" value="url" checked={uploadMethod.profilePic === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'url' })} /> URL
-                </label>
+                  </label>
                 <label className="profile-btn" style={{ cursor: 'pointer' }}>
                   <input type="radio" name="ppMethod" value="file" checked={uploadMethod.profilePic === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'file' })} /> File
                 </label>
@@ -572,7 +591,7 @@ export default function Profile() {
                 <label className="profile-btn" style={{ cursor: 'pointer' }}>
                   <input type="radio" name="bannerMethod" value="file" checked={uploadMethod.banner === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'file' })} /> File
                 </label>
-              </div>
+          </div>
               {uploadMethod.banner === 'url' ? (
                 <label>
                   <div className="profile-stat-label" style={{ marginBottom: 6 }}>Banner Image URL</div>
@@ -583,14 +602,14 @@ export default function Profile() {
                   <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Banner Image</div>
                   <input ref={bannerInputRef} type="file" accept="image/*" />
                 </label>
-              )}
-            </div>
+                )}
+              </div>
 {/* Social Links (USERPLUS only) */}
             {currentUser?.role === 'USERPLUS' && (
             <div style={{ display: 'grid', gap: 8 }}>
               <h3 className="profile-card-title" style={{ margin: 0 }}>Social Links</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button
+                <button 
                   type="button"
                   className="profile-btn"
                   onClick={() => {
@@ -603,7 +622,7 @@ export default function Profile() {
               <div style={{ display: 'grid', gap: 8 }}>
                 {(editForm.socialMedia || []).map((link, idx) => (
                   <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}>
-                    <input
+                  <input
                       className="profile-input"
                       placeholder="https://example.com/your-profile"
                       value={link}
@@ -616,48 +635,48 @@ export default function Profile() {
                         });
                       }}
                     />
-                    <button
+                <button 
                       type="button"
                       className="profile-btn"
                       onClick={() => setEditForm(prev => ({ ...prev, socialMedia: (prev.socialMedia || []).filter((_, i) => i !== idx) }))}
                       title="Remove link"
                     >✕</button>
-                  </div>
-                ))}
               </div>
+                ))}
             </div>
-            )}
+          </div>
+        )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" className="profile-btn" onClick={() => setIsEditing(false)}>Cancel</button>
               <button type="submit" disabled={editLoading} className="profile-btn profile-btn--primary">{editLoading ? 'Saving...' : 'Save'}</button>
-            </div>
+      </div>
           </form>
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--profile-border)' }}>
             <h3 className="profile-card-title">Danger Zone</h3>
             <p className="profile-paragraph">Deleting your account will permanently remove your profile, posts, demos, and relationships.</p>
             <button className="profile-btn" onClick={() => setShowDeleteModal(true)}>🗑️ Delete Account</button>
-          </div>
-        </div>
-      )}
-
+      </div>
+            </div>
+        )}
+        
       {showDeleteModal && (
         <div className="profile-card" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 60 }} onClick={() => setShowDeleteModal(false)}>
           <div className="profile-card" style={{ width: 'min(560px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 className="profile-card-title">Delete Account</h3>
               <button className="profile-btn" onClick={() => setShowDeleteModal(false)} disabled={deleting}>✕</button>
-            </div>
+                </div>
             <p className="profile-paragraph">This action cannot be undone. Type <strong>DELETE</strong> to confirm.</p>
             <input className="profile-input" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" disabled={deleting} />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="profile-btn" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
               <button className="profile-btn profile-btn--primary" onClick={handleAccountDelete} disabled={deleting || deleteConfirm !== 'DELETE'}>
                 {deleting ? 'Deleting...' : 'Delete Account'}
-              </button>
-            </div>
+                    </button>
+                </div>
+              </div>
           </div>
-      </div>
-      )}
+        )}
 
       {showAddDemo && (
         <div className="profile-card" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 60 }} onClick={() => setShowAddDemo(false)}>
@@ -665,15 +684,15 @@ export default function Profile() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 className="profile-card-title">Add Demo</h3>
               <button className="profile-btn" onClick={() => setShowAddDemo(false)}>✕</button>
-            </div>
-            <AddDemo
+                </div>
+              <AddDemo 
               setAddDemo={setShowAddDemo}
               onDemoAdded={() => { loadDemos(); setShowAddDemo(false); }}
               userRole={currentUser?.role}
             />
-          </div>
-        </div>
-      )}
+                </div>
+              </div>
+            )}
     </div>
   );
 }

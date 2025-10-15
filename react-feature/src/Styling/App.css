@@ -643,13 +643,17 @@
 .partner-logo {
   width: 160px;
   height: 80px;
+  background-color: white;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   border-radius: 1rem;
   opacity: 0.6;
   transition: all 0.3s ease;
-  filter: grayscale(100%) brightness(0.8);
+  
   border: 1px solid rgba(127, 83, 172, 0.1);
 }
 

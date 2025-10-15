@@ -1,12 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './Header2.css';
 
 function Header2() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
 
   return (
     <header className="header2">
@@ -22,21 +17,8 @@ function Header2() {
           </a>
         </div>
 
-        {/* Mobile Menu Toggle */}
-        <button 
-          className="header2-mobile-toggle" 
-          onClick={toggleMenu}
-          aria-label="Toggle menu"
-        >
-          <span className={`header2-hamburger ${isMenuOpen ? 'active' : ''}`}>
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
-        </button>
-
         {/* Navigation */}
-        <nav className={`header2-nav ${isMenuOpen ? 'active' : ''}`}>
+        <nav className="header2-nav">
           {/* TODO: Add navigation links when pages are ready */}
           {/* <a href="/#features" className="header2-nav-link">
             <span className="header2-nav-text">Features</span>
