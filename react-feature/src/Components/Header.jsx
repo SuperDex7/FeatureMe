@@ -83,8 +83,11 @@ function Header() {
         {/* Logo Section */}
         <div className="header-logo">
           <a href="/home" className="header-logo-link">
-            <div className="header-logo-icon">🎵</div>
-            <span className="header-logo-text">FeatureMe</span>
+            <img 
+              src="/SVGs/Logo Lockup Gradient.svg" 
+              alt="FeatureMe Logo" 
+              className="header-logo-icon"
+            />
           </a>
         </div>
 

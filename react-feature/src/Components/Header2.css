@@ -45,17 +45,10 @@
 }
 
 .header2-logo-icon {
-  font-size: 2rem;
+  height: 50px;
+  width: auto;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.header2-logo-text {
-  font-size: 1.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  transition: all 0.3s ease;
 }
 
 /* Mobile Toggle */
@@ -280,12 +273,8 @@
     height: 60px;
   }
 
-  .header2-logo-text {
-    font-size: 1.3rem;
-  }
-
   .header2-logo-icon {
-    font-size: 1.8rem;
+    height: 45px;
   }
 
   .header2-nav {

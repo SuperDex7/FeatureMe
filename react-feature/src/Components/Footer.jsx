@@ -7,7 +7,14 @@ function Footer() {
       <div className="footer-container">
         <div className="footer-main">
           <div className="footer-brand">
-            <h3 className="footer-logo">FeatureMe</h3>
+            <div className="footer-logo-container">
+              <img 
+                src="/SVGs/Logo Gradient.svg" 
+                alt="FeatureMe Logo" 
+                className="footer-logo-symbol"
+              />
+              <h3 className="footer-logo">FeatureMe</h3>
+            </div>
             <p className="footer-tagline">The ultimate platform for musicians to share, discover, and connect through music.</p>
           </div>
           

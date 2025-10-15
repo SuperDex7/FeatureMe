@@ -8,7 +8,6 @@ import Homepage from './Pages/Homepage.jsx'
 import CreatePost from './Pages/CreatePost.jsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {createBrowserRouter, RouterProvider} from 'react-router-dom'
-import ProfilesPage from './Pages/ProfilesPage.jsx'
 import SignupPage from './Pages/SignupPage.jsx'
 import LoginPage from './Pages/LoginPage.jsx'
 import ForgotPasswordPage from './Pages/ForgotPasswordPage.jsx'
@@ -30,7 +29,6 @@ const router = createBrowserRouter([
   {path: 'login', element: <LoginPage />},
   {path: 'forgot-password', element: <ForgotPasswordPage />},
   {path: 'create-post', element: <ProtectedRoute><CreatePost /></ProtectedRoute>},
-  {path: 'profiles', element: <ProtectedRoute><ProfilesPage /></ProtectedRoute>},
   {path: "/profile/:username", element: <ProtectedRoute><Profile2 /></ProtectedRoute>},
   {path: "/post/:id", element: <Post/>},
   {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},
@@ -38,6 +36,7 @@ const router = createBrowserRouter([
   {path: 'subscription', element: <ProtectedRoute><SubscriptionPage /></ProtectedRoute>},
   {path: 'user-search', element: <ProtectedRoute><UserSearch /></ProtectedRoute>},
   {path: '*', element: <h1>404</h1>}
+  
 ])
 const queryClient = new QueryClient()
 

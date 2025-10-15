@@ -30,6 +30,13 @@ function App() {
         </div>
         <div className="hero-content">
           <div className="hero-text">
+            <div className="hero-logo-section">
+              <img 
+                src="/SVGs/Logo+Text Gradient.svg" 
+                alt="FeatureMe Logo" 
+                className="hero-logo"
+              />
+            </div>
             <div className="hero-badge">
               <span className="hero-badge-icon">🎵</span>
               <span>Join the Music Revolution</span>
@@ -67,10 +74,17 @@ function App() {
             </div>
           </div>
           <div className="hero-visual">
+            <div className="hero-visual-background">
+              <div className="hero-visual-overlay">
+                <img src="/Jpgs/Asset 13.jpg" alt="Music Studio" className="hero-bg-image hero-bg-1" />
+                <img src="/Jpgs/Asset 14.jpg" alt="Recording Session" className="hero-bg-image hero-bg-2" />
+                <img src="/Jpgs/Asset 15.jpg" alt="Music Equipment" className="hero-bg-image hero-bg-3" />
+              </div>
+            </div>
             <div className="hero-card-stack">
               <div className="hero-card hero-card-1">
                 <div className="hero-card-header">
-                  <div className="hero-card-avatar"></div>
+                  <div className="hero-card-avatar" style={{backgroundImage: 'url(/Jpgs/Asset 12.jpg)'}}></div>
                   <div className="hero-card-info">
                     <div className="hero-card-name">Alex Chen</div>
                     <div className="hero-card-role">Producer</div>
@@ -87,7 +101,7 @@ function App() {
               </div>
               <div className="hero-card hero-card-2">
                 <div className="hero-card-header">
-                  <div className="hero-card-avatar"></div>
+                  <div className="hero-card-avatar" style={{backgroundImage: 'url(/Jpgs/Asset 13.jpg)'}}></div>
                   <div className="hero-card-info">
                     <div className="hero-card-name">Maya Rodriguez</div>
                     <div className="hero-card-role">Vocalist</div>
@@ -104,7 +118,7 @@ function App() {
               </div>
               <div className="hero-card hero-card-3">
                 <div className="hero-card-header">
-                  <div className="hero-card-avatar"></div>
+                  <div className="hero-card-avatar" style={{backgroundImage: 'url(/Jpgs/Asset 14.jpg)'}}></div>
                   <div className="hero-card-info">
                     <div className="hero-card-name">DJ Krypto</div>
                     <div className="hero-card-role">DJ</div>
@@ -188,6 +202,13 @@ function App() {
       <section className="partners-section">
         <div className="partners-container">
           <div className="partners-header">
+            <div className="partners-logo-section">
+              <img 
+                src="/SVGs/Logo Lockup Gradient.svg" 
+                alt="FeatureMe" 
+                className="partners-logo"
+              />
+            </div>
             <h2 className="partners-title">Get Noticed by Industry Leaders</h2>
             <p className="partners-subtitle">Showcase your talent to major record labels and industry professionals</p>
           </div>
@@ -255,6 +276,13 @@ function App() {
       <section className="cta-section">
         <div className="cta-container">
           <div className="cta-content">
+            <div className="cta-logo-section">
+              <img 
+                src="/SVGs/Logo+Text White.svg" 
+                alt="FeatureMe" 
+                className="cta-logo"
+              />
+            </div>
             <h2 className="cta-title">Ready to Start Your Music Journey?</h2>
             <p className="cta-description">Be among the first to experience the future of music collaboration. Start creating, connecting, and getting discovered today.</p>
             <div className="cta-actions">

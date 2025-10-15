@@ -25,6 +25,25 @@
   max-width: 400px;
 }
 
+.footer-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.footer-logo-symbol {
+  height: 40px;
+  width: auto;
+  filter: drop-shadow(0 2px 4px rgba(127, 83, 172, 0.3));
+  transition: all 0.3s ease;
+}
+
+.footer-logo-symbol:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 4px 8px rgba(127, 83, 172, 0.4));
+}
+
 .footer-logo {
   font-size: 2rem;
   font-weight: 800;
@@ -32,7 +51,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin: 0 0 1rem 0;
+  margin: 0;
   letter-spacing: 1px;
 }
 
@@ -175,6 +194,10 @@
     justify-content: center;
   }
   
+  .footer-logo-symbol {
+    height: 35px;
+  }
+  
   .footer-logo {
     font-size: 1.75rem;
   }
@@ -187,6 +210,10 @@
 @media (max-width: 480px) {
   .footer-container {
     padding: 1.5rem 0.75rem 1rem 0.75rem;
+  }
+  
+  .footer-logo-symbol {
+    height: 30px;
   }
   
   .footer-logo {
