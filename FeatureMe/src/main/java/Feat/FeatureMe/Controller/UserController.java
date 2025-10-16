@@ -168,7 +168,7 @@ public class UserController {
     
 
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public User createUser(@RequestPart User user,
+    public ResponseEntity<?> createUser(@RequestPart User user,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
         
@@ -231,7 +231,15 @@ public class UserController {
             user.setBanner("/pb.jpg");
         }
         
-        return userService.createUser(user);
+        try {
+            User createdUser = userService.createUser(user);
+            return ResponseEntity.ok(createdUser);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Internal server error during user creation");
+        }
     }
     @PatchMapping("/update")
     public void updateUser(@RequestPart("user") User userUpdateData,

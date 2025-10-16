@@ -184,6 +184,11 @@ function SignupPage() {
 
   // Resend verification code
   const handleResendCode = async () => {
+    // Prevent multiple resend attempts
+    if (isVerifying) {
+      return;
+    }
+    
     // Ask for confirmation before resending
     const confirmed = window.confirm(
       "Are you sure you want to resend the verification code?\n\n" +
@@ -344,8 +349,17 @@ function SignupPage() {
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+    
+    setIsSubmitting(true);
     
     // Create user data without confirmPassword
     const { confirmPassword, ...userData } = formData;
@@ -361,7 +375,8 @@ function SignupPage() {
     }
 
     axios.post(`${baseURL}/user/auth/create`, submitData, {
-      headers: { "Content-Type": "multipart/form-data" }
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 30000 // 30 second timeout for file uploads
     })
     .then(res => {
       alert("Account created successfully! Redirecting to login...");
@@ -369,7 +384,19 @@ function SignupPage() {
       navigate('/login');
     })
     .catch(err => {
-      alert("Error creating account. Please try again.");
+      console.error("Signup error:", err);
+      if (err.response?.status === 409) {
+        alert("Email or username already exists. Please try different credentials.");
+      } else if (err.response?.data) {
+        alert(`Signup failed: ${err.response.data}`);
+      } else if (err.code === 'ECONNABORTED') {
+        alert("Request timed out. Please check your connection and try again.");
+      } else {
+        alert("Network error. Please check your connection and try again.");
+      }
+    })
+    .finally(() => {
+      setIsSubmitting(false);
     });
   };
 
@@ -818,8 +845,12 @@ function SignupPage() {
             <button className="back-btn" onClick={handleBack}>
               Back to Form
             </button>
-            <button className="create-account-btn" onClick={handleSubmit}>
-              Create Account
+            <button 
+              className="create-account-btn" 
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
           </div>
         </div>
