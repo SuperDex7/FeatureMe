@@ -90,7 +90,12 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 "http://localhost:3000",  // React frontend (HTTP setup)
                 "http://localhost:5173",  // Vite dev server
                 "https://localhost",      // HTTPS setup with nginx
-                "http://localhost"        // HTTP setup with nginx
+                "http://localhost",       // HTTP setup with nginx
+                "http://10.0.2.2:8080",  // Android emulator backend
+                "http://10.0.0.200:8080", // Your computer's IP for backend
+                "http://10.0.2.2:3000",  // Android emulator React dev
+                "exp://10.0.0.200:8081", // Expo development server
+                "exp://localhost:8081"    // Expo local development
             ));
         }
         
@@ -98,6 +103,9 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
+        
+        // Note: React Native apps don't send cookies by default, so JWT tokens
+        // should be sent in Authorization headers instead of cookies for mobile
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
