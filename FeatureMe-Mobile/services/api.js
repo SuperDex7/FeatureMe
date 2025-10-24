@@ -22,6 +22,13 @@ api.interceptors.request.use(
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        if (__DEV__) {
+          console.log('Adding Bearer token to request:', config.url);
+        }
+      } else {
+        if (__DEV__) {
+          console.log('No auth token found for request:', config.url);
+        }
       }
     } catch (error) {
       console.error('Error getting auth token:', error);

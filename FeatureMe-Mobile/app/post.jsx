@@ -25,6 +25,7 @@ import {
   addComment,
   getCommentsPaginated,
 } from '../services/postsService';
+import LoggedInHeader from '../components/ui/LoggedInHeader';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -401,6 +402,7 @@ export default function PostScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      <LoggedInHeader />
       {/* Post Hero Section */}
       <View style={styles.heroSection}>
         <Image source={{ uri: post.author.banner }} style={styles.heroBackground} />
@@ -811,6 +813,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    paddingTop: 100, // Space for LoggedInHeader
   },
   loadingContainer: {
     flex: 1,

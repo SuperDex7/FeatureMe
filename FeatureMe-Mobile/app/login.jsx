@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import Header from '../components/ui/Header';
+import { login } from '../services/authService';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -40,14 +41,17 @@ export default function LoginPage() {
     setErrorMessage('');
     
     try {
-      // TODO: Implement actual login API call
-      // For now, simulate login
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const result = await login(formData.email, formData.password);
       
-      // Navigate to home/feed after successful login
-      router.replace('/feed');
+      if (result.success) {
+        // Navigate to homepage after successful login
+        router.replace('/homepage');
+      } else {
+        setErrorMessage(result.error || 'Invalid email/username or password. Please try again.');
+      }
     } catch (error) {
-      setErrorMessage('Invalid email/username or password. Please try again.');
+      console.error('Login error:', error);
+      setErrorMessage('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

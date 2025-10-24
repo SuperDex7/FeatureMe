@@ -357,6 +357,7 @@ public class UserController {
             responseBody.put("message", "Login successful");
             responseBody.put("username", user.getUserName());
             responseBody.put("email", user.getEmail());
+            responseBody.put("token", token); // Include token in response for mobile clients
             
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException e) {

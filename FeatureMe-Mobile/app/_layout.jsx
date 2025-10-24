@@ -20,8 +20,12 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{headerShown: false}} />
           <Stack.Screen name="signup" options={{headerShown: false}} />
+          <Stack.Screen name="homepage" options={{headerShown: false}} />
           <Stack.Screen name="post" options={{ headerShown: false }} />
           <Stack.Screen name="feed" options={{ headerShown: false }} />
+          <Stack.Screen name="spotlight" options={{ headerShown: false }} />
+          <Stack.Screen name="my-posts" options={{ headerShown: false }} />
+          <Stack.Screen name="liked-posts" options={{ headerShown: false }} />
           <Stack.Screen name="profile" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
