@@ -22,6 +22,56 @@ import { listPosts, addView, addLike, getLikesSummary, addComment, getCommentsPa
 import { getCurrentUser } from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
 import AuthGuard from '../components/AuthGuard';
+import SpotlightCard from '../components/SpotlightCard';
+import PostCard from '../components/PostCard';
+import { useAudio } from '../contexts/AudioContext';
+
+// Profile Section Component with Navigation
+function ProfileSection({ userName, profilePic, time, styles, formatTime }) {
+  const handleProfilePress = () => {
+    if (!userName) {
+      console.log('No username provided for navigation');
+      return;
+    }
+    console.log('Navigating to profile:', `/profile/${userName}`);
+    router.push(`/profile/${userName}`);
+  };
+
+  // Don't render if no userName
+  if (!userName) {
+    return (
+      <View style={styles.profileSection}>
+        <Image 
+          source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
+          style={styles.avatar}
+          defaultSource={require('../assets/images/dpp.jpg')}
+        />
+        <View style={styles.profileInfo}>
+          <Text style={styles.username}>Unknown User</Text>
+          <Text style={styles.time}>{formatTime(time)}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity 
+      style={styles.profileSection}
+      onPress={handleProfilePress}
+      activeOpacity={0.7}
+    >
+      <Image 
+        source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
+        style={styles.avatar}
+        defaultSource={require('../assets/images/dpp.jpg')}
+      />
+      <View style={styles.profileInfo}>
+        <Text style={styles.username}>{userName}</Text>
+        <Text style={styles.time}>{formatTime(time)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 // Genre to icon mapping
 const GENRE_ICONS = {
@@ -55,7 +105,7 @@ function getGenreIcon(genre) {
   return GENRE_ICONS[genre] || GENRE_ICONS[genre?.trim()] || GENRE_ICONS.Default;
 }
 
-// Feed Item Component
+// FeedItem wrapper using PostCard
 function FeedItem({ 
   id, 
   author, 
@@ -73,15 +123,10 @@ function FeedItem({
   onLikeUpdate,
   onCommentUpdate 
 }) {
-  const { userName, profilePic, banner, role } = author ?? {};
-  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [localLikes, setLocalLikes] = useState(likes);
-  const [localComments, setLocalComments] = useState(comments);
   const [currentUser, setCurrentUser] = useState(null);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [commentText, setCommentText] = useState('');
+  
+  // Use centralized audio context
+  const { playTrack, currentTrack, isPlaying } = useAudio();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -90,17 +135,6 @@ function FeedItem({
     };
     fetchUser();
   }, []);
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
 
   const handlePlayClick = async () => {
     // Check cooldown before adding view
@@ -126,342 +160,43 @@ function FeedItem({
       }
     }
     
-    setShowAudioPlayer(true);
+    // Play track using centralized audio player
+    const trackData = {
+      id,
+      title,
+      author,
+      music,
+      genre,
+      features,
+      description,
+      time
+    };
+    playTrack(trackData);
   };
-
-  const handleLike = async () => {
-    if (!currentUser || isLiking) return;
-    
-    setIsLiking(true);
-    try {
-      await addLike(id);
-      // Optimistically update UI
-      const isCurrentlyLiked = localLikes.some(like => like.userName === currentUser.userName);
-      if (isCurrentlyLiked) {
-        setLocalLikes(prev => prev.filter(like => like.userName !== currentUser.userName));
-      } else {
-        setLocalLikes(prev => [...prev, { userName: currentUser.userName }]);
-      }
-      onLikeUpdate?.(localLikes);
-    } catch (error) {
-      console.error('Error liking post:', error);
-      Alert.alert('Error', 'Failed to like post. Please try again.');
-    } finally {
-      setIsLiking(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUser || isCommenting) return;
-    
-    setIsCommenting(true);
-    try {
-      await addComment(id, commentText.trim());
-      const newComment = {
-        id: Date.now(), // Temporary ID
-        comment: commentText.trim(),
-        userName: currentUser.userName,
-        time: new Date().toISOString()
-      };
-      setLocalComments(prev => [...prev, newComment]);
-      setCommentText('');
-      onCommentUpdate?.(localComments);
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      Alert.alert('Error', 'Failed to add comment. Please try again.');
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const isLiked = currentUser && localLikes.some(like => like.userName === currentUser.userName);
 
   return (
-    <>
-      <TouchableOpacity 
-        style={[
-          styles.feedCard,
-          role === 'USERPLUS' && styles.premiumCard
-        ]}
-        onPress={() => setModalOpen(true)}
-        activeOpacity={0.8}
-      >
-        {/* Card Header with Banner */}
-        <View style={styles.cardHeader}>
-          <Image 
-            source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-            style={styles.cardBanner}
-            defaultSource={require('../assets/images/pb.jpg')}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.cardOverlay}
-          />
-          
-          {/* Play Button Overlay */}
-          {!showAudioPlayer && (
-            <TouchableOpacity 
-              style={styles.playOverlay} 
-              onPress={handlePlayClick}
-            >
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Premium Badge */}
-          {role === 'USERPLUS' && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumIcon}>✨</Text>
-              <Text style={styles.premiumText}>Premium</Text>
-            </View>
-          )}
-
-          {/* Time Badge */}
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeText}>{formatTime(time)}</Text>
-          </View>
-        </View>
-
-        {/* Card Content */}
-        <View style={styles.cardContent}>
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            <Image 
-              source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-              defaultSource={require('../assets/images/dpp.jpg')}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.username}>{userName}</Text>
-              <Text style={styles.time}>{formatTime(time)}</Text>
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>{title}</Text>
-
-          {/* Description */}
-          {description && description.trim() && (
-            <Text style={styles.description} numberOfLines={3}>{description}</Text>
-          )}
-
-          {/* Features */}
-          {features && features.length > 0 && (
-            <View style={styles.featuresContainer}>
-              <Text style={styles.featuresLabel}>Feat:</Text>
-              <Text style={styles.featuresList}>
-                {features.slice(0, 2).map((feature, index) => (
-                  <Text key={index} style={styles.featureLink}>{feature}</Text>
-                ))}
-                {features.length > 2 && (
-                  <Text style={styles.featureMore}>+{features.length - 2} more</Text>
-                )}
-              </Text>
-            </View>
-          )}
-
-          {/* Genre Tags */}
-          {genre && Array.isArray(genre) && genre.length > 0 && (
-            <View style={styles.genresContainer}>
-              {genre.slice(0, 3).map((genreItem, index) => (
-                <View key={index} style={styles.genreTag}>
-                  <Text style={styles.genreIcon}>{getGenreIcon(genreItem)}</Text>
-                  <Text style={styles.genreText}>{genreItem}</Text>
-                </View>
-              ))}
-              {genre.length > 3 && (
-                <Text style={styles.genreMore}>+{genre.length - 3}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={handleLike}
-              disabled={isLiking}
-            >
-              <Text style={[styles.statIcon, isLiked && styles.likedIcon]}>
-                {isLiked ? '❤️' : '🤍'}
-              </Text>
-              <Text style={styles.statCount}>{localLikes.length}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => setModalOpen(true)}
-            >
-              <Text style={styles.statIcon}>💬</Text>
-              <Text style={styles.statCount}>{totalComments || localComments.length}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.statItem}>
-              <Text style={styles.statIcon}>👁️</Text>
-              <Text style={styles.statCount}>{totalViews || 0}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Modal */}
-      <Modal
-        visible={modalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Post Details</Text>
-              <TouchableOpacity 
-                style={styles.modalCloseBtn}
-                onPress={() => setModalOpen(false)}
-              >
-                <Text style={styles.modalCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBanner}>
-                <Image 
-                  source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-                  style={styles.modalBannerImage}
-                  defaultSource={require('../assets/images/pb.jpg')}
-                />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.8)']}
-                  style={styles.modalBannerOverlay}
-                />
-                <View style={styles.modalBannerContent}>
-                  <Text style={styles.modalPostTitle}>{title}</Text>
-                  <Text style={styles.modalPostSubtitle}>by {userName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.modalMainContent}>
-                <View style={styles.modalProfileSection}>
-                  <Image 
-                    source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-                    style={styles.modalAvatar}
-                    defaultSource={require('../assets/images/dpp.jpg')}
-                  />
-                  <View style={styles.modalProfileInfo}>
-                    <Text style={styles.modalUsername}>{userName}</Text>
-                    <Text style={styles.modalDate}>{formatTime(time)}</Text>
-                  </View>
-                </View>
-
-                {description && description.trim() && (
-                  <Text style={styles.modalDescription}>{description}</Text>
-                )}
-
-                {/* Features */}
-                {features && Array.isArray(features) && features.length > 0 && (
-                  <View style={styles.modalFeatures}>
-                    <Text style={styles.modalFeaturesLabel}>Featuring:</Text>
-                    <View style={styles.modalFeaturesList}>
-                      {features.map((feature, index) => (
-                        <TouchableOpacity key={index} style={styles.modalFeatureTag}>
-                          <Text style={styles.modalFeatureText}>{feature}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-                
-                {/* Genre Tags */}
-                {genre && Array.isArray(genre) && genre.length > 0 && (
-                  <View style={styles.modalGenres}>
-                    {genre.map((genreItem, index) => (
-                      <View key={index} style={styles.modalGenreTag}>
-                        <Text style={styles.modalGenreText}>{genreItem}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Stats Grid */}
-                <View style={styles.modalStatsGrid}>
-                  <TouchableOpacity 
-                    style={styles.modalStatItem}
-                    onPress={handleLike}
-                    disabled={isLiking}
-                  >
-                    <Text style={[styles.modalStatIcon, isLiked && styles.likedIcon]}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.modalStatNumber}>{localLikes.length}</Text>
-                    <Text style={styles.modalStatLabel}>Likes</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>💬</Text>
-                    <Text style={styles.modalStatNumber}>{totalComments || localComments.length}</Text>
-                    <Text style={styles.modalStatLabel}>Comments</Text>
-                  </View>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>👁️</Text>
-                    <Text style={styles.modalStatNumber}>{totalViews || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Views</Text>
-                  </View>
-                </View>
-
-                {/* Comments Section */}
-                <View style={styles.commentsSection}>
-                  <Text style={styles.commentsTitle}>Comments</Text>
-                  
-                  {localComments.length > 0 ? (
-                    <View style={styles.commentsList}>
-                      {localComments.slice(-5).map((comment, index) => (
-                        <View key={comment.id || index} style={styles.commentItem}>
-                          <Text style={styles.commentAuthor}>{comment.userName}</Text>
-                          <Text style={styles.commentText}>{comment.comment}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.noComments}>No comments yet</Text>
-                  )}
-
-                  {/* Add Comment */}
-                  <View style={styles.addCommentContainer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      placeholder="Add a comment..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      multiline
-                      maxLength={200}
-                    />
-                    <TouchableOpacity 
-                      style={[
-                        styles.commentButton,
-                        (!commentText.trim() || isCommenting) && styles.commentButtonDisabled
-                      ]}
-                      onPress={handleAddComment}
-                      disabled={!commentText.trim() || isCommenting}
-                    >
-                      {isCommenting ? (
-                        <ActivityIndicator size="small" color="#667eea" />
-                      ) : (
-                        <Text style={styles.commentButtonText}>Post</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    </>
+    <PostCard
+      id={id}
+      author={author}
+      description={description}
+      time={time}
+      title={title}
+      features={features}
+      genre={genre}
+      music={music}
+      comments={comments}
+      likes={likes}
+      totalViews={totalViews}
+      totalComments={totalComments}
+      freeDownload={freeDownload}
+      onLikeUpdate={onLikeUpdate}
+      onCommentUpdate={onCommentUpdate}
+      currentUser={currentUser}
+      variant="default"
+      showModal={true}
+      currentTrack={currentTrack}
+      isPlaying={isPlaying}
+    />
   );
 }
 
@@ -586,410 +321,8 @@ function GenreFilterModal({ isOpen, onClose, genreData, selectedGenres, onGenreT
   );
 }
 
-// Spotlight Item Component (simplified version)
-function SpotlightItem({ 
-  id, 
-  author, 
-  description, 
-  time, 
-  title, 
-  features, 
-  genre, 
-  music, 
-  comments = [], 
-  likes = [], 
-  totalViews = 0, 
-  totalComments = 0, 
-  freeDownload = false,
-  onLikeUpdate,
-  onCommentUpdate 
-}) {
-  const { userName, profilePic, banner, role } = author ?? {};
-  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [localLikes, setLocalLikes] = useState(likes);
-  const [localComments, setLocalComments] = useState(comments);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [commentText, setCommentText] = useState('');
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    };
-    fetchUser();
-  }, []);
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  const handlePlayClick = async () => {
-    const cooldownKey = `view_${id}_${currentUser?.userName}`;
-    const lastViewTime = await AsyncStorage.getItem(cooldownKey);
-    const now = Date.now();
-    const oneMinute = 15 * 1000;
-    
-    let shouldAddView = true;
-    if (lastViewTime) {
-      const timeSinceLastView = now - parseInt(lastViewTime);
-      if (timeSinceLastView < oneMinute) {
-        shouldAddView = false;
-      }
-    }
-    
-    if (shouldAddView && currentUser) {
-      try {
-        await addView(id);
-        await AsyncStorage.setItem(cooldownKey, now.toString());
-      } catch (error) {
-        console.error("Error adding view:", error);
-      }
-    }
-    
-    setShowAudioPlayer(true);
-  };
-
-  const handleLike = async () => {
-    if (!currentUser || isLiking) return;
-    
-    setIsLiking(true);
-    try {
-      await addLike(id);
-      const isCurrentlyLiked = localLikes.some(like => like.userName === currentUser.userName);
-      if (isCurrentlyLiked) {
-        setLocalLikes(prev => prev.filter(like => like.userName !== currentUser.userName));
-      } else {
-        setLocalLikes(prev => [...prev, { userName: currentUser.userName }]);
-      }
-      onLikeUpdate?.(localLikes);
-    } catch (error) {
-      console.error('Error liking post:', error);
-      Alert.alert('Error', 'Failed to like post. Please try again.');
-    } finally {
-      setIsLiking(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUser || isCommenting) return;
-    
-    setIsCommenting(true);
-    try {
-      await addComment(id, commentText.trim());
-      const newComment = {
-        id: Date.now(),
-        comment: commentText.trim(),
-        userName: currentUser.userName,
-        time: new Date().toISOString()
-      };
-      setLocalComments(prev => [...prev, newComment]);
-      setCommentText('');
-      onCommentUpdate?.(localComments);
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      Alert.alert('Error', 'Failed to add comment. Please try again.');
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const isLiked = currentUser && localLikes.some(like => like.userName === currentUser.userName);
-
-  return (
-    <>
-      <TouchableOpacity 
-        style={styles.spotlightCard}
-        onPress={() => setModalOpen(true)}
-        activeOpacity={0.8}
-      >
-        {/* Card Header with Banner */}
-        <View style={styles.cardHeader}>
-          <Image 
-            source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-            style={styles.cardBanner}
-            defaultSource={require('../assets/images/pb.jpg')}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.cardOverlay}
-          />
-          
-          {/* Play Button Overlay */}
-          {!showAudioPlayer && (
-            <TouchableOpacity 
-              style={styles.playOverlay} 
-              onPress={handlePlayClick}
-            >
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Premium Badge */}
-          <View style={styles.premiumBadge}>
-            <Text style={styles.premiumIcon}>⭐</Text>
-            <Text style={styles.premiumText}>Plus</Text>
-          </View>
-
-          {/* Time Badge */}
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeText}>{formatTime(time)}</Text>
-          </View>
-        </View>
-
-        {/* Card Content */}
-        <View style={styles.cardContent}>
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            <Image 
-              source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-              defaultSource={require('../assets/images/dpp.jpg')}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.username}>{userName}</Text>
-              <Text style={styles.time}>{formatTime(time)}</Text>
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>{title}</Text>
-
-          {/* Description */}
-          {description && description.trim() && (
-            <Text style={styles.description} numberOfLines={3}>{description}</Text>
-          )}
-
-          {/* Features */}
-          {features && features.length > 0 && (
-            <View style={styles.featuresContainer}>
-              <Text style={styles.featuresLabel}>Feat:</Text>
-              <Text style={styles.featuresList}>
-                {features.slice(0, 2).map((feature, index) => (
-                  <Text key={index} style={styles.featureLink}>{feature}</Text>
-                ))}
-                {features.length > 2 && (
-                  <Text style={styles.featureMore}>+{features.length - 2} more</Text>
-                )}
-              </Text>
-            </View>
-          )}
-
-          {/* Genre Tags */}
-          {genre && Array.isArray(genre) && genre.length > 0 && (
-            <View style={styles.genresContainer}>
-              {genre.slice(0, 3).map((genreItem, index) => (
-                <View key={index} style={styles.genreTag}>
-                  <Text style={styles.genreIcon}>{getGenreIcon(genreItem)}</Text>
-                  <Text style={styles.genreText}>{genreItem}</Text>
-                </View>
-              ))}
-              {genre.length > 3 && (
-                <Text style={styles.genreMore}>+{genre.length - 3}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={handleLike}
-              disabled={isLiking}
-            >
-              <Text style={[styles.statIcon, isLiked && styles.likedIcon]}>
-                {isLiked ? '❤️' : '🤍'}
-              </Text>
-              <Text style={styles.statCount}>{localLikes.length}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => setModalOpen(true)}
-            >
-              <Text style={styles.statIcon}>💬</Text>
-              <Text style={styles.statCount}>{totalComments || localComments.length}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.statItem}>
-              <Text style={styles.statIcon}>👁️</Text>
-              <Text style={styles.statCount}>{totalViews || 0}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Modal */}
-      <Modal
-        visible={modalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Premium Post</Text>
-              <TouchableOpacity 
-                style={styles.modalCloseBtn}
-                onPress={() => setModalOpen(false)}
-              >
-                <Text style={styles.modalCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBanner}>
-                <Image 
-                  source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-                  style={styles.modalBannerImage}
-                  defaultSource={require('../assets/images/pb.jpg')}
-                />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.8)']}
-                  style={styles.modalBannerOverlay}
-                />
-                <View style={styles.modalBannerContent}>
-                  <Text style={styles.modalPostTitle}>{title}</Text>
-                  <Text style={styles.modalPostSubtitle}>by {userName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.modalMainContent}>
-                <View style={styles.modalProfileSection}>
-                  <Image 
-                    source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-                    style={styles.modalAvatar}
-                    defaultSource={require('../assets/images/dpp.jpg')}
-                  />
-                  <View style={styles.modalProfileInfo}>
-                    <Text style={styles.modalUsername}>{userName}</Text>
-                    <Text style={styles.modalDate}>{formatTime(time)}</Text>
-                  </View>
-                </View>
-
-                {description && description.trim() && (
-                  <Text style={styles.modalDescription}>{description}</Text>
-                )}
-
-                {/* Features */}
-                {features && Array.isArray(features) && features.length > 0 && (
-                  <View style={styles.modalFeatures}>
-                    <Text style={styles.modalFeaturesLabel}>Featuring:</Text>
-                    <View style={styles.modalFeaturesList}>
-                      {features.map((feature, index) => (
-                        <TouchableOpacity key={index} style={styles.modalFeatureTag}>
-                          <Text style={styles.modalFeatureText}>{feature}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-                
-                {/* Genre Tags */}
-                {genre && Array.isArray(genre) && genre.length > 0 && (
-                  <View style={styles.modalGenres}>
-                    {genre.map((genreItem, index) => (
-                      <View key={index} style={styles.modalGenreTag}>
-                        <Text style={styles.modalGenreText}>{genreItem}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Stats Grid */}
-                <View style={styles.modalStatsGrid}>
-                  <TouchableOpacity 
-                    style={styles.modalStatItem}
-                    onPress={handleLike}
-                    disabled={isLiking}
-                  >
-                    <Text style={[styles.modalStatIcon, isLiked && styles.likedIcon]}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.modalStatNumber}>{localLikes.length}</Text>
-                    <Text style={styles.modalStatLabel}>Likes</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>💬</Text>
-                    <Text style={styles.modalStatNumber}>{totalComments || localComments.length}</Text>
-                    <Text style={styles.modalStatLabel}>Comments</Text>
-                  </View>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>👁️</Text>
-                    <Text style={styles.modalStatNumber}>{totalViews || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Views</Text>
-                  </View>
-                </View>
-
-                {/* Comments Section */}
-                <View style={styles.commentsSection}>
-                  <Text style={styles.commentsTitle}>Comments</Text>
-                  
-                  {localComments.length > 0 ? (
-                    <View style={styles.commentsList}>
-                      {localComments.slice(-5).map((comment, index) => (
-                        <View key={comment.id || index} style={styles.commentItem}>
-                          <Text style={styles.commentAuthor}>{comment.userName}</Text>
-                          <Text style={styles.commentText}>{comment.comment}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.noComments}>No comments yet</Text>
-                  )}
-
-                  {/* Add Comment */}
-                  <View style={styles.addCommentContainer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      placeholder="Add a comment..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      multiline
-                      maxLength={200}
-                    />
-                    <TouchableOpacity 
-                      style={[
-                        styles.commentButton,
-                        (!commentText.trim() || isCommenting) && styles.commentButtonDisabled
-                      ]}
-                      onPress={handleAddComment}
-                      disabled={!commentText.trim() || isCommenting}
-                    >
-                      {isCommenting ? (
-                        <ActivityIndicator size="small" color="#667eea" />
-                      ) : (
-                        <Text style={styles.commentButtonText}>Post</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
-}
-
 // Liked Posts Item Component (simplified version)
+// LikedPostsItem wrapper using PostCard
 function LikedPostsItem({ 
   id, 
   author, 
@@ -1007,15 +340,10 @@ function LikedPostsItem({
   onLikeUpdate,
   onCommentUpdate 
 }) {
-  const { userName, profilePic, banner, role } = author ?? {};
-  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [localLikes, setLocalLikes] = useState(likes);
-  const [localComments, setLocalComments] = useState(comments);
   const [currentUser, setCurrentUser] = useState(null);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [commentText, setCommentText] = useState('');
+  
+  // Use centralized audio context
+  const { playTrack, currentTrack, isPlaying } = useAudio();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -1024,17 +352,6 @@ function LikedPostsItem({
     };
     fetchUser();
   }, []);
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
 
   const handlePlayClick = async () => {
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
@@ -1059,351 +376,46 @@ function LikedPostsItem({
       }
     }
     
-    setShowAudioPlayer(true);
+    // Play track using centralized audio player
+    const trackData = {
+      id,
+      title,
+      author,
+      music,
+      genre,
+      features,
+      description,
+      time
+    };
+    playTrack(trackData);
   };
-
-  const handleLike = async () => {
-    if (!currentUser || isLiking) return;
-    
-    setIsLiking(true);
-    try {
-      await addLike(id);
-      const isCurrentlyLiked = localLikes.some(like => like.userName === currentUser.userName);
-      if (isCurrentlyLiked) {
-        setLocalLikes(prev => prev.filter(like => like.userName !== currentUser.userName));
-      } else {
-        setLocalLikes(prev => [...prev, { userName: currentUser.userName }]);
-      }
-      onLikeUpdate?.(localLikes);
-    } catch (error) {
-      console.error('Error liking post:', error);
-      Alert.alert('Error', 'Failed to like post. Please try again.');
-    } finally {
-      setIsLiking(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUser || isCommenting) return;
-    
-    setIsCommenting(true);
-    try {
-      await addComment(id, commentText.trim());
-      const newComment = {
-        id: Date.now(),
-        comment: commentText.trim(),
-        userName: currentUser.userName,
-        time: new Date().toISOString()
-      };
-      setLocalComments(prev => [...prev, newComment]);
-      setCommentText('');
-      onCommentUpdate?.(localComments);
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      Alert.alert('Error', 'Failed to add comment. Please try again.');
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const isLiked = currentUser && localLikes.some(like => like.userName === currentUser.userName);
 
   return (
-    <>
-      <TouchableOpacity 
-        style={[
-          styles.likedCard,
-          role === 'USERPLUS' && styles.premiumCard
-        ]}
-        onPress={() => setModalOpen(true)}
-        activeOpacity={0.8}
-      >
-        {/* Card Header with Banner */}
-        <View style={styles.cardHeader}>
-          <Image 
-            source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-            style={styles.cardBanner}
-            defaultSource={require('../assets/images/pb.jpg')}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.cardOverlay}
-          />
-          
-          {/* Play Button Overlay */}
-          {!showAudioPlayer && (
-            <TouchableOpacity 
-              style={styles.playOverlay} 
-              onPress={handlePlayClick}
-            >
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Liked Badge */}
-          <View style={styles.likedBadge}>
-            <Text style={styles.likedIcon}>❤️</Text>
-            <Text style={styles.likedText}>Liked</Text>
-          </View>
-
-          {/* Premium Badge */}
-          {role === 'USERPLUS' && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumIcon}>✨</Text>
-              <Text style={styles.premiumText}>Premium</Text>
-            </View>
-          )}
-
-          {/* Time Badge */}
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeText}>{formatTime(time)}</Text>
-          </View>
-        </View>
-
-        {/* Card Content */}
-        <View style={styles.cardContent}>
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            <Image 
-              source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-              defaultSource={require('../assets/images/dpp.jpg')}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.username}>{userName}</Text>
-              <Text style={styles.time}>{formatTime(time)}</Text>
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>{title}</Text>
-
-          {/* Description */}
-          {description && description.trim() && (
-            <Text style={styles.description} numberOfLines={3}>{description}</Text>
-          )}
-
-          {/* Features */}
-          {features && features.length > 0 && (
-            <View style={styles.featuresContainer}>
-              <Text style={styles.featuresLabel}>Feat:</Text>
-              <Text style={styles.featuresList}>
-                {features.slice(0, 2).map((feature, index) => (
-                  <Text key={index} style={styles.featureLink}>{feature}</Text>
-                ))}
-                {features.length > 2 && (
-                  <Text style={styles.featureMore}>+{features.length - 2} more</Text>
-                )}
-              </Text>
-            </View>
-          )}
-
-          {/* Genre Tags */}
-          {genre && Array.isArray(genre) && genre.length > 0 && (
-            <View style={styles.genresContainer}>
-              {genre.slice(0, 3).map((genreItem, index) => (
-                <View key={index} style={styles.genreTag}>
-                  <Text style={styles.genreIcon}>{getGenreIcon(genreItem)}</Text>
-                  <Text style={styles.genreText}>{genreItem}</Text>
-                </View>
-              ))}
-              {genre.length > 3 && (
-                <Text style={styles.genreMore}>+{genre.length - 3}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={handleLike}
-              disabled={isLiking}
-            >
-              <Text style={[styles.statIcon, isLiked && styles.likedIcon]}>
-                {isLiked ? '❤️' : '🤍'}
-              </Text>
-              <Text style={styles.statCount}>{localLikes.length}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => setModalOpen(true)}
-            >
-              <Text style={styles.statIcon}>💬</Text>
-              <Text style={styles.statCount}>{totalComments || localComments.length}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.statItem}>
-              <Text style={styles.statIcon}>👁️</Text>
-              <Text style={styles.statCount}>{totalViews || 0}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Modal */}
-      <Modal
-        visible={modalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Liked Post</Text>
-              <TouchableOpacity 
-                style={styles.modalCloseBtn}
-                onPress={() => setModalOpen(false)}
-              >
-                <Text style={styles.modalCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBanner}>
-                <Image 
-                  source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-                  style={styles.modalBannerImage}
-                  defaultSource={require('../assets/images/pb.jpg')}
-                />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.8)']}
-                  style={styles.modalBannerOverlay}
-                />
-                <View style={styles.modalBannerContent}>
-                  <Text style={styles.modalPostTitle}>{title}</Text>
-                  <Text style={styles.modalPostSubtitle}>by {userName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.modalMainContent}>
-                <View style={styles.modalProfileSection}>
-                  <Image 
-                    source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-                    style={styles.modalAvatar}
-                    defaultSource={require('../assets/images/dpp.jpg')}
-                  />
-                  <View style={styles.modalProfileInfo}>
-                    <Text style={styles.modalUsername}>{userName}</Text>
-                    <Text style={styles.modalDate}>{formatTime(time)}</Text>
-                  </View>
-                </View>
-
-                {description && description.trim() && (
-                  <Text style={styles.modalDescription}>{description}</Text>
-                )}
-
-                {/* Features */}
-                {features && Array.isArray(features) && features.length > 0 && (
-                  <View style={styles.modalFeatures}>
-                    <Text style={styles.modalFeaturesLabel}>Featuring:</Text>
-                    <View style={styles.modalFeaturesList}>
-                      {features.map((feature, index) => (
-                        <TouchableOpacity key={index} style={styles.modalFeatureTag}>
-                          <Text style={styles.modalFeatureText}>{feature}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-                
-                {/* Genre Tags */}
-                {genre && Array.isArray(genre) && genre.length > 0 && (
-                  <View style={styles.modalGenres}>
-                    {genre.map((genreItem, index) => (
-                      <View key={index} style={styles.modalGenreTag}>
-                        <Text style={styles.modalGenreText}>{genreItem}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Stats Grid */}
-                <View style={styles.modalStatsGrid}>
-                  <TouchableOpacity 
-                    style={styles.modalStatItem}
-                    onPress={handleLike}
-                    disabled={isLiking}
-                  >
-                    <Text style={[styles.modalStatIcon, isLiked && styles.likedIcon]}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.modalStatNumber}>{localLikes.length}</Text>
-                    <Text style={styles.modalStatLabel}>Likes</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>💬</Text>
-                    <Text style={styles.modalStatNumber}>{totalComments || localComments.length}</Text>
-                    <Text style={styles.modalStatLabel}>Comments</Text>
-                  </View>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>👁️</Text>
-                    <Text style={styles.modalStatNumber}>{totalViews || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Views</Text>
-                  </View>
-                </View>
-
-                {/* Comments Section */}
-                <View style={styles.commentsSection}>
-                  <Text style={styles.commentsTitle}>Comments</Text>
-                  
-                  {localComments.length > 0 ? (
-                    <View style={styles.commentsList}>
-                      {localComments.slice(-5).map((comment, index) => (
-                        <View key={comment.id || index} style={styles.commentItem}>
-                          <Text style={styles.commentAuthor}>{comment.userName}</Text>
-                          <Text style={styles.commentText}>{comment.comment}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.noComments}>No comments yet</Text>
-                  )}
-
-                  {/* Add Comment */}
-                  <View style={styles.addCommentContainer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      placeholder="Add a comment..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      multiline
-                      maxLength={200}
-                    />
-                    <TouchableOpacity 
-                      style={[
-                        styles.commentButton,
-                        (!commentText.trim() || isCommenting) && styles.commentButtonDisabled
-                      ]}
-                      onPress={handleAddComment}
-                      disabled={!commentText.trim() || isCommenting}
-                    >
-                      {isCommenting ? (
-                        <ActivityIndicator size="small" color="#667eea" />
-                      ) : (
-                        <Text style={styles.commentButtonText}>Post</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    </>
+    <PostCard
+      id={id}
+      author={author}
+      description={description}
+      time={time}
+      title={title}
+      features={features}
+      genre={genre}
+      music={music}
+      comments={comments}
+      likes={likes}
+      totalViews={totalViews}
+      totalComments={totalComments}
+      freeDownload={freeDownload}
+      onLikeUpdate={onLikeUpdate}
+      onCommentUpdate={onCommentUpdate}
+      currentUser={currentUser}
+      variant="default"
+      showModal={true}
+    />
   );
 }
 
-// My Posts Item Component (simplified version)
+
+// MyPostsItem wrapper using PostCard
 function MyPostsItem({ 
   id, 
   author, 
@@ -1424,26 +436,8 @@ function MyPostsItem({
   onDeletePost,
   currentUser 
 }) {
-  const { userName, profilePic, banner, role } = author ?? {};
-  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [localLikes, setLocalLikes] = useState(likes);
-  const [localComments, setLocalComments] = useState(comments);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [commentText, setCommentText] = useState('');
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
+  // Use centralized audio context
+  const { playTrack, currentTrack, isPlaying } = useAudio();
 
   const handlePlayClick = async () => {
     const cooldownKey = `view_${id}_${currentUser?.userName}`;
@@ -1468,420 +462,43 @@ function MyPostsItem({
       }
     }
     
-    setShowAudioPlayer(true);
+    // Play track using centralized audio player
+    const trackData = {
+      id,
+      title,
+      author,
+      music,
+      genre,
+      features,
+      description,
+      time
+    };
+    playTrack(trackData);
   };
-
-  const handleLike = async () => {
-    if (!currentUser || isLiking) return;
-    
-    setIsLiking(true);
-    try {
-      await addLike(id);
-      const isCurrentlyLiked = localLikes.some(like => like.userName === currentUser.userName);
-      if (isCurrentlyLiked) {
-        setLocalLikes(prev => prev.filter(like => like.userName !== currentUser.userName));
-      } else {
-        setLocalLikes(prev => [...prev, { userName: currentUser.userName }]);
-      }
-      onLikeUpdate?.(localLikes);
-    } catch (error) {
-      console.error('Error liking post:', error);
-      Alert.alert('Error', 'Failed to like post. Please try again.');
-    } finally {
-      setIsLiking(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUser || isCommenting) return;
-    
-    setIsCommenting(true);
-    try {
-      await addComment(id, commentText.trim());
-      const newComment = {
-        id: Date.now(),
-        comment: commentText.trim(),
-        userName: currentUser.userName,
-        time: new Date().toISOString()
-      };
-      setLocalComments(prev => [...prev, newComment]);
-      setCommentText('');
-      onCommentUpdate?.(localComments);
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      Alert.alert('Error', 'Failed to add comment. Please try again.');
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const handleDeletePost = async () => {
-    if (!currentUser || isDeleting) return;
-    
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              await deletePost(id);
-              onDeletePost?.(id);
-              setModalOpen(false);
-            } catch (error) {
-              console.error('Error deleting post:', error);
-              Alert.alert('Error', 'Failed to delete post. Please try again.');
-            } finally {
-              setIsDeleting(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const isLiked = currentUser && localLikes.some(like => like.userName === currentUser.userName);
-  const isOwnPost = currentUser && currentUser.userName === userName;
 
   return (
-    <>
-      <TouchableOpacity 
-        style={[
-          styles.postCard,
-          role === 'USERPLUS' && styles.premiumCard
-        ]}
-        onPress={() => setModalOpen(true)}
-        activeOpacity={0.8}
-      >
-        {/* Card Header with Banner */}
-        <View style={styles.cardHeader}>
-          <Image 
-            source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-            style={styles.cardBanner}
-            defaultSource={require('../assets/images/pb.jpg')}
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.cardOverlay}
-          />
-          
-          {/* Play Button Overlay */}
-          {!showAudioPlayer && (
-            <TouchableOpacity 
-              style={styles.playOverlay} 
-              onPress={handlePlayClick}
-            >
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Premium Badge */}
-          {role === 'USERPLUS' && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumIcon}>✨</Text>
-              <Text style={styles.premiumText}>Premium</Text>
-            </View>
-          )}
-
-          {/* Time Badge */}
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeText}>{formatTime(time)}</Text>
-          </View>
-        </View>
-
-        {/* Card Content */}
-        <View style={styles.cardContent}>
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            <Image 
-              source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-              defaultSource={require('../assets/images/dpp.jpg')}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.username}>{userName}</Text>
-              <Text style={styles.time}>{formatTime(time)}</Text>
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>{title}</Text>
-
-          {/* Description */}
-          {description && description.trim() && (
-            <Text style={styles.description} numberOfLines={3}>{description}</Text>
-          )}
-
-          {/* Features */}
-          {features && features.length > 0 && (
-            <View style={styles.featuresContainer}>
-              <Text style={styles.featuresLabel}>Feat:</Text>
-              <Text style={styles.featuresList}>
-                {features.slice(0, 2).map((feature, index) => (
-                  <Text key={index} style={styles.featureLink}>{feature}</Text>
-                ))}
-                {features.length > 2 && (
-                  <Text style={styles.featureMore}>+{features.length - 2} more</Text>
-                )}
-              </Text>
-            </View>
-          )}
-
-          {/* Genre Tags */}
-          {genre && Array.isArray(genre) && genre.length > 0 && (
-            <View style={styles.genresContainer}>
-              {genre.slice(0, 3).map((genreItem, index) => (
-                <View key={index} style={styles.genreTag}>
-                  <Text style={styles.genreIcon}>{getGenreIcon(genreItem)}</Text>
-                  <Text style={styles.genreText}>{genreItem}</Text>
-                </View>
-              ))}
-              {genre.length > 3 && (
-                <Text style={styles.genreMore}>+{genre.length - 3}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={handleLike}
-              disabled={isLiking}
-            >
-              <Text style={[styles.statIcon, isLiked && styles.likedIcon]}>
-                {isLiked ? '❤️' : '🤍'}
-              </Text>
-              <Text style={styles.statCount}>{localLikes.length}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => setModalOpen(true)}
-            >
-              <Text style={styles.statIcon}>💬</Text>
-              <Text style={styles.statCount}>{totalComments || localComments.length}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.statItem}>
-              <Text style={styles.statIcon}>👁️</Text>
-              <Text style={styles.statCount}>{totalViews || 0}</Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <Text style={styles.statIcon}>⬇️</Text>
-              <Text style={styles.statCount}>{totalDownloads || 0}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Modal */}
-      <Modal
-        visible={modalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Your Post</Text>
-              <TouchableOpacity 
-                style={styles.modalCloseBtn}
-                onPress={() => setModalOpen(false)}
-              >
-                <Text style={styles.modalCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBanner}>
-                <Image 
-                  source={{ uri: banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80" }}
-                  style={styles.modalBannerImage}
-                  defaultSource={require('../assets/images/pb.jpg')}
-                />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.8)']}
-                  style={styles.modalBannerOverlay}
-                />
-                <View style={styles.modalBannerContent}>
-                  <Text style={styles.modalPostTitle}>{title}</Text>
-                  <Text style={styles.modalPostSubtitle}>by {userName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.modalMainContent}>
-                <View style={styles.modalProfileSection}>
-                  <Image 
-                    source={{ uri: profilePic || "https://randomuser.me/api/portraits/men/32.jpg" }}
-                    style={styles.modalAvatar}
-                    defaultSource={require('../assets/images/dpp.jpg')}
-                  />
-                  <View style={styles.modalProfileInfo}>
-                    <Text style={styles.modalUsername}>{userName}</Text>
-                    <Text style={styles.modalDate}>{formatTime(time)}</Text>
-                  </View>
-                </View>
-
-                {description && description.trim() && (
-                  <Text style={styles.modalDescription}>{description}</Text>
-                )}
-
-                {/* Features */}
-                {features && Array.isArray(features) && features.length > 0 && (
-                  <View style={styles.modalFeatures}>
-                    <Text style={styles.modalFeaturesLabel}>Featuring:</Text>
-                    <View style={styles.modalFeaturesList}>
-                      {features.map((feature, index) => (
-                        <TouchableOpacity key={index} style={styles.modalFeatureTag}>
-                          <Text style={styles.modalFeatureText}>{feature}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-                
-                {/* Genre Tags */}
-                {genre && Array.isArray(genre) && genre.length > 0 && (
-                  <View style={styles.modalGenres}>
-                    {genre.map((genreItem, index) => (
-                      <View key={index} style={styles.modalGenreTag}>
-                        <Text style={styles.modalGenreText}>{genreItem}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Stats Grid */}
-                <View style={styles.modalStatsGrid}>
-                  <TouchableOpacity 
-                    style={styles.modalStatItem}
-                    onPress={handleLike}
-                    disabled={isLiking}
-                  >
-                    <Text style={[styles.modalStatIcon, isLiked && styles.likedIcon]}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.modalStatNumber}>{localLikes.length}</Text>
-                    <Text style={styles.modalStatLabel}>Likes</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>💬</Text>
-                    <Text style={styles.modalStatNumber}>{totalComments || localComments.length}</Text>
-                    <Text style={styles.modalStatLabel}>Comments</Text>
-                  </View>
-                  
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>👁️</Text>
-                    <Text style={styles.modalStatNumber}>{totalViews || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Views</Text>
-                  </View>
-
-                  <View style={styles.modalStatItem}>
-                    <Text style={styles.modalStatIcon}>⬇️</Text>
-                    <Text style={styles.modalStatNumber}>{totalDownloads || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Downloads</Text>
-                  </View>
-                </View>
-
-                {/* Comments Section */}
-                <View style={styles.commentsSection}>
-                  <Text style={styles.commentsTitle}>Comments</Text>
-                  
-                  {localComments.length > 0 ? (
-                    <View style={styles.commentsList}>
-                      {localComments.slice(-5).map((comment, index) => (
-                        <View key={comment.id || index} style={styles.commentItem}>
-                          <Text style={styles.commentAuthor}>{comment.userName}</Text>
-                          <Text style={styles.commentText}>{comment.comment}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.noComments}>No comments yet</Text>
-                  )}
-
-                  {/* Add Comment */}
-                  <View style={styles.addCommentContainer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      placeholder="Add a comment..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      multiline
-                      maxLength={200}
-                    />
-                    <TouchableOpacity 
-                      style={[
-                        styles.commentButton,
-                        (!commentText.trim() || isCommenting) && styles.commentButtonDisabled
-                      ]}
-                      onPress={handleAddComment}
-                      disabled={!commentText.trim() || isCommenting}
-                    >
-                      {isCommenting ? (
-                        <ActivityIndicator size="small" color="#667eea" />
-                      ) : (
-                        <Text style={styles.commentButtonText}>Post</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity 
-                    style={styles.actionButton}
-                    onPress={() => router.push(`/post/${id}`)}
-                  >
-                    <LinearGradient
-                      colors={['#667eea', '#764ba2']}
-                      style={styles.actionButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={styles.actionButtonText}>View Full Post</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {isOwnPost && (
-                    <TouchableOpacity 
-                      style={[styles.actionButton, styles.deleteButton]}
-                      onPress={handleDeletePost}
-                      disabled={isDeleting}
-                    >
-                      <LinearGradient
-                        colors={['#ff6b6b', '#ee5a52']}
-                        style={styles.actionButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        {isDeleting ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <Text style={styles.actionButtonText}>🗑️ Delete Post</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    </>
+    <PostCard
+      id={id}
+      author={author}
+      description={description}
+      time={time}
+      title={title}
+      features={features}
+      genre={genre}
+      music={music}
+      comments={comments}
+      likes={likes}
+      totalViews={totalViews}
+      totalComments={totalComments}
+      totalDownloads={totalDownloads}
+      freeDownload={freeDownload}
+      onLikeUpdate={onLikeUpdate}
+      onCommentUpdate={onCommentUpdate}
+      onDeletePost={onDeletePost}
+      currentUser={currentUser}
+      variant="default"
+      showModal={true}
+    />
   );
 }
 
@@ -1934,7 +551,7 @@ function TabNavigation({ activeTab, onTabChange }) {
 }
 
 // Main Feed Component
-export function FeedScreen({ skipAuth = false }) {
+export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   const [activeTab, setActiveTab] = useState('spotlight');
   const [posts, setPosts] = useState([]);
   const [spotlightPosts, setSpotlightPosts] = useState([]);
@@ -1947,9 +564,26 @@ export function FeedScreen({ skipAuth = false }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [user, setUser] = useState(null);
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loadedTabs, setLoadedTabs] = useState(new Set()); // Track which tabs have been loaded
+  
+  // Pagination state for each section
+  const [feedPage, setFeedPage] = useState(0);
+  const [spotlightPage, setSpotlightPage] = useState(0);
+  const [likedPage, setLikedPage] = useState(0);
+  const [myPostsPage, setMyPostsPage] = useState(0);
+  
+  // Loading states for pagination
+  const [isLoadingMoreFeed, setIsLoadingMoreFeed] = useState(false);
+  const [isLoadingMoreSpotlight, setIsLoadingMoreSpotlight] = useState(false);
+  const [isLoadingMoreLiked, setIsLoadingMoreLiked] = useState(false);
+  const [isLoadingMoreMyPosts, setIsLoadingMoreMyPosts] = useState(false);
+  
+  // Has more data flags
+  const [hasMoreFeed, setHasMoreFeed] = useState(true);
+  const [hasMoreSpotlight, setHasMoreSpotlight] = useState(true);
+  const [hasMoreLiked, setHasMoreLiked] = useState(true);
+  const [hasMoreMyPosts, setHasMoreMyPosts] = useState(true);
+  
 
   useEffect(() => {
     fetchCurrentUser();
@@ -1978,79 +612,177 @@ export function FeedScreen({ skipAuth = false }) {
     setUser(user);
   };
 
-  const fetchPosts = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
+  const fetchPosts = async (showLoading = true, isLoadMore = false) => {
+    if (showLoading && !isLoadMore) setIsLoading(true);
+    if (isLoadMore) setIsLoadingMoreFeed(true);
+    
     try {
-      const response = await api.get('/posts/get?page=0&size=20');
-      setPosts(response.data.content || []);
+      const currentPage = isLoadMore ? feedPage : 0;
+      const response = await api.get(`/posts/get?page=${currentPage}&size=6`);
+      const newPosts = response.data.content || [];
+      
+      if (isLoadMore) {
+        setPosts(prevPosts => {
+          // Filter out duplicates based on post ID
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+        setFeedPage(prevPage => prevPage + 1);
+      } else {
+        setPosts(newPosts);
+        setFeedPage(1);
+      }
+      
+      // Check if there are more posts
+      setHasMoreFeed(newPosts.length === 6);
     } catch (error) {
       console.error('Error fetching posts:', error);
       Alert.alert('Error', 'Failed to load posts. Please try again.');
     } finally {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreFeed(false);
     }
   };
 
-  const fetchSpotlightPosts = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
+  const fetchSpotlightPosts = async (showLoading = true, isLoadMore = false) => {
+    if (showLoading && !isLoadMore) setIsLoading(true);
+    if (isLoadMore) setIsLoadingMoreSpotlight(true);
+    
     try {
-      const response = await api.get(`/posts/get/likesdesc/role/USERPLUS?page=0&size=20`);
-      const posts = response.data.content || [];
-      setSpotlightPosts(posts);
+      const currentPage = isLoadMore ? spotlightPage : 0;
+      const response = await api.get(`/posts/get/likesdesc/role/USERPLUS?page=${currentPage}&size=6`);
+      const newPosts = response.data.content || [];
+      
+      if (isLoadMore) {
+        setSpotlightPosts(prevPosts => {
+          // Filter out duplicates based on post ID
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+        setSpotlightPage(prevPage => prevPage + 1);
+      } else {
+        setSpotlightPosts(newPosts);
+        setSpotlightPage(1);
+      }
+      
+      // Check if there are more posts
+      setHasMoreSpotlight(newPosts.length === 6);
     } catch (error) {
       console.error('Error fetching spotlight posts:', error);
       try {
-        const fallbackResponse = await api.get(`/posts/get/likesdesc?page=0&size=20`);
+        const currentPage = isLoadMore ? spotlightPage : 0;
+        const fallbackResponse = await api.get(`/posts/get/likesdesc?page=${currentPage}&size=6`);
         const fallbackPosts = fallbackResponse.data.content || [];
-        setSpotlightPosts(fallbackPosts);
+        
+        if (isLoadMore) {
+          setSpotlightPosts(prevPosts => {
+            // Filter out duplicates based on post ID
+            const existingIds = new Set(prevPosts.map(post => post.id));
+            const uniqueNewPosts = fallbackPosts.filter(post => !existingIds.has(post.id));
+            return [...prevPosts, ...uniqueNewPosts];
+          });
+          setSpotlightPage(prevPage => prevPage + 1);
+        } else {
+          setSpotlightPosts(fallbackPosts);
+          setSpotlightPage(1);
+        }
+        
+        setHasMoreSpotlight(fallbackPosts.length === 6);
       } catch (fallbackError) {
         console.error('Error fetching fallback posts:', fallbackError);
         Alert.alert('Error', 'Failed to load spotlight posts. Please try again.');
       }
     } finally {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreSpotlight(false);
     }
   };
 
-  const fetchLikedPosts = async (showLoading = true) => {
+  const fetchLikedPosts = async (showLoading = true, isLoadMore = false) => {
     if (!user || !user.likedPosts) {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreLiked(false);
       setLikedPosts([]);
+      setHasMoreLiked(false);
       return;
     }
     
-    if (showLoading) setIsLoading(true);
+    if (showLoading && !isLoadMore) setIsLoading(true);
+    if (isLoadMore) setIsLoadingMoreLiked(true);
+    
     try {
-      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=0&size=20`;
+      const currentPage = isLoadMore ? likedPage : 0;
+      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${currentPage}&size=6`;
       const response = await api.get(endpoint);
-      const postsData = response.data.content || [];
-      setLikedPosts(postsData);
+      const newPosts = response.data.content || [];
+      
+      if (isLoadMore) {
+        setLikedPosts(prevPosts => {
+          // Filter out duplicates based on post ID
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+        setLikedPage(prevPage => prevPage + 1);
+      } else {
+        setLikedPosts(newPosts);
+        setLikedPage(1);
+      }
+      
+      // Check if there are more posts
+      setHasMoreLiked(newPosts.length === 6);
     } catch (error) {
       console.error('Error fetching liked posts:', error);
       setLikedPosts([]);
+      setHasMoreLiked(false);
     } finally {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreLiked(false);
     }
   };
 
-  const fetchMyPosts = async (showLoading = true) => {
+  const fetchMyPosts = async (showLoading = true, isLoadMore = false) => {
     if (!user || !user.posts) {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreMyPosts(false);
       setMyPosts([]);
+      setHasMoreMyPosts(false);
       return;
     }
     
-    if (showLoading) setIsLoading(true);
+    if (showLoading && !isLoadMore) setIsLoading(true);
+    if (isLoadMore) setIsLoadingMoreMyPosts(true);
+    
     try {
-      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=0&size=20`;
+      const currentPage = isLoadMore ? myPostsPage : 0;
+      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${currentPage}&size=4`;
       const response = await api.get(endpoint);
-      const postsData = response.data.content || [];
-      setMyPosts(postsData);
+      const newPosts = response.data.content || [];
+      
+      if (isLoadMore) {
+        setMyPosts(prevPosts => {
+          // Filter out duplicates based on post ID
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = newPosts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+        setMyPostsPage(prevPage => prevPage + 1);
+      } else {
+        setMyPosts(newPosts);
+        setMyPostsPage(1);
+      }
+      
+      // Check if there are more posts
+      setHasMoreMyPosts(newPosts.length === 4);
     } catch (error) {
       console.error('Error fetching my posts:', error);
       setMyPosts([]);
+      setHasMoreMyPosts(false);
     } finally {
-      if (showLoading) setIsLoading(false);
+      if (showLoading && !isLoadMore) setIsLoading(false);
+      if (isLoadMore) setIsLoadingMoreMyPosts(false);
     }
   };
 
@@ -2070,11 +802,51 @@ export function FeedScreen({ skipAuth = false }) {
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
-    setPage(0);
+    // Reset pagination for all tabs
+    setFeedPage(0);
+    setSpotlightPage(0);
+    setLikedPage(0);
+    setMyPostsPage(0);
+    setHasMoreFeed(true);
+    setHasMoreSpotlight(true);
+    setHasMoreLiked(true);
+    setHasMoreMyPosts(true);
   };
 
   const handleDeletePost = (postId) => {
     setMyPosts(prev => prev.filter(post => post.id !== postId));
+  };
+
+  const loadMorePosts = () => {
+    if (activeTab === 'feed' && hasMoreFeed && !isLoadingMoreFeed) {
+      fetchPosts(false, true);
+    } else if (activeTab === 'spotlight' && hasMoreSpotlight && !isLoadingMoreSpotlight) {
+      fetchSpotlightPosts(false, true);
+    } else if (activeTab === 'liked' && hasMoreLiked && !isLoadingMoreLiked) {
+      fetchLikedPosts(false, true);
+    } else if (activeTab === 'my-posts' && hasMoreMyPosts && !isLoadingMoreMyPosts) {
+      fetchMyPosts(false, true);
+    }
+  };
+
+  const getCurrentLoadingMore = () => {
+    switch (activeTab) {
+      case 'feed': return isLoadingMoreFeed;
+      case 'spotlight': return isLoadingMoreSpotlight;
+      case 'liked': return isLoadingMoreLiked;
+      case 'my-posts': return isLoadingMoreMyPosts;
+      default: return false;
+    }
+  };
+
+  const getCurrentHasMore = () => {
+    switch (activeTab) {
+      case 'feed': return hasMoreFeed;
+      case 'spotlight': return hasMoreSpotlight;
+      case 'liked': return hasMoreLiked;
+      case 'my-posts': return hasMoreMyPosts;
+      default: return false;
+    }
   };
 
   const handleSearch = async () => {
@@ -2145,7 +917,7 @@ export function FeedScreen({ skipAuth = false }) {
   );
 
   const renderSpotlightItem = ({ item }) => (
-    <SpotlightItem
+    <SpotlightCard
       key={item.id}
       {...item}
       onLikeUpdate={(likes) => {
@@ -2158,6 +930,7 @@ export function FeedScreen({ skipAuth = false }) {
           post.id === item.id ? { ...post, comments } : post
         ));
       }}
+      onSpotlightPress={onSpotlightPress}
     />
   );
 
@@ -2349,9 +1122,11 @@ export function FeedScreen({ skipAuth = false }) {
           <FlatList
             data={getCurrentData()}
             renderItem={getCurrentRenderItem()}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
             contentContainerStyle={styles.postsList}
             showsVerticalScrollIndicator={false}
+            onEndReached={loadMorePosts}
+            onEndReachedThreshold={0.1}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -2375,6 +1150,14 @@ export function FeedScreen({ skipAuth = false }) {
                 )}
               </View>
             }
+            ListFooterComponent={
+              getCurrentHasMore() && getCurrentLoadingMore() ? (
+                <View style={styles.loadMoreContainer}>
+                  <ActivityIndicator size="small" color="#667eea" />
+                  <Text style={styles.loadMoreText}>Loading more posts...</Text>
+                </View>
+              ) : null
+            }
           />
         )}
 
@@ -2388,7 +1171,6 @@ export function FeedScreen({ skipAuth = false }) {
             onGenreToggle={handleGenreToggle}
           />
         )}
-
       </View>
   );
 
@@ -2411,6 +1193,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 16,
   },
   tabScrollContent: {
     paddingHorizontal: 20,
@@ -2454,25 +1237,6 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   
-  // Header
-  header: {
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
 
   // Search Section
   searchSection: {
@@ -2575,361 +1339,54 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
+  // Load More
+  loadMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  loadMoreText: {
+    color: '#667eea',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+
   // Posts List
   postsList: {
     paddingHorizontal: 20,
     paddingBottom: 100, // Space for bottom navigation
   },
 
-  // Feed Card
-  feedCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  
-  // Spotlight Card
-  spotlightCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 20,
-    marginBottom: 20,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    shadowColor: '#ffd700',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  
-  // Liked Card
-  likedCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(240, 147, 251, 0.3)',
-    shadowColor: '#f093fb',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  
-  // Post Card
-  postCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  premiumCard: {
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    backgroundColor: 'rgba(255, 215, 0, 0.05)',
-  },
-  cardHeader: {
-    height: 200,
-    position: 'relative',
-  },
-  cardBanner: {
-    width: '100%',
-    height: '100%',
-  },
-  cardOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  playOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  playIcon: {
-    fontSize: 24,
-    color: '#667eea',
-    marginLeft: 4,
-  },
-  premiumBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  premiumIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  premiumText: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  likedBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(240, 147, 251, 0.95)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  likedIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  likedText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  timeBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  timeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  // Card Content
-  cardContent: {
-    padding: 16,
-  },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: 'rgba(120, 119, 198, 0.3)',
     marginRight: 12,
   },
   profileInfo: {
     flex: 1,
   },
   username: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   time: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    lineHeight: 24,
-  },
-  description: {
-    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  featuresContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featuresLabel: {
     color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    marginRight: 8,
-  },
-  featuresList: {
-    flex: 1,
-  },
-  featureLink: {
-    color: '#667eea',
-    fontSize: 12,
     fontWeight: '500',
-  },
-  featureMore: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-  },
-  genresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-    gap: 8,
-  },
-  genreTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(102, 126, 234, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
-  },
-  genreIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  genreText: {
-    color: '#667eea',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  genreMore: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    alignSelf: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  likedIcon: {
-    transform: [{ scale: 1.1 }],
-  },
-  statCount: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 16,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#404040',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  modalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  modalScrollView: {
-    maxHeight: 500,
-  },
-  modalBanner: {
-    height: 160,
-    borderRadius: 16,
-    marginBottom: 20,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  modalBannerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  modalBannerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  modalBannerContent: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-  },
-  modalPostTitle: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  modalPostSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 16,
   },
   modalMainContent: {
     paddingBottom: 20,
@@ -3290,11 +1747,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // Profile Modal Styles - Copied from main-app.jsx
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 15, 35, 0.95)',
+  },
+  profileModalContent: {
+    backgroundColor: 'rgba(26, 26, 46, 0.98)',
+    borderRadius: 24,
+    marginTop: 80,
+    marginHorizontal: 12,
+    marginBottom: 20,
+    height: '75%',
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(120, 119, 198, 0.2)',
+    alignSelf: 'stretch',
+  },
+  profileModalCloseBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10001,
+  },
+  profileModalCloseIcon: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  profileModalScrollView: {
+    flex: 1,
+    paddingBottom: 20,
+    paddingTop: 20
+  },
 });
 
-// Default export redirects to main app with feed tab
-import MainApp from './main-app';
-
-export default function Feed() {
-  return <MainApp initialTab="feed" />;
-}
+// Export FeedScreen as default for direct usage
+export default FeedScreen;
