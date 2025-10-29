@@ -11,29 +11,29 @@ export default function BottomNavigation({ activeTab, onTabChange }) {
       id: 'home',
       label: 'Home',
       icon: '🏠',
-      route: '/homepage',
+      route: '/main-app',
     },
     {
       id: 'feed',
       label: 'Feed',
       icon: '🎵',
-      route: '/feed',
+      route: '/main-app',
     },
     {
       id: 'profile',
       label: 'Profile',
       icon: '👤',
-      route: '/profile',
+      route: '/main-app',
     },
   ];
 
   const handleNavigation = (item) => {
     if (onTabChange) {
-      // Use tab switching if onTabChange is provided
+      // Use tab switching if onTabChange is provided (when used in main-app)
       onTabChange(item.id);
     } else {
-      // Fallback to router navigation for backward compatibility
-      router.push(item.route);
+      // Navigate to main-app for standalone pages
+      router.push('/main-app');
     }
   };
 

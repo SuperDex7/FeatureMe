@@ -9,7 +9,7 @@ const API_BASE_URL = __DEV__
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10 seconds timeout for faster fallback to demo mode
+  timeout: 30000, // 30 seconds timeout for slower networks and heavy queries
   headers: {
     'Content-Type': 'application/json',
   },
@@ -104,11 +104,16 @@ export const isAuthenticated = async () => {
 
 export const logout = async () => {
   try {
+    // Try to call logout endpoint
     await api.post('/user/auth/logout');
   } catch (error) {
-    console.error('Error during logout:', error);
+    console.error('Error during logout API call:', error);
+    // Continue with local cleanup even if API call fails
   } finally {
+    // Always clear local storage regardless of API success/failure
     await AsyncStorage.removeItem('authToken');
+    // Clear axios auth header
+    delete api.defaults.headers.common['Authorization'];
   }
 };
 

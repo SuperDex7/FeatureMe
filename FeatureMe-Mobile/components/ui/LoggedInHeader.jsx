@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -15,9 +15,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
-import { getCurrentUser } from '../../services/api';
+import { getCurrentUser, logout } from '../../services/api';
 import { clearMyNotifications } from '../../services/userService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -29,11 +31,7 @@ export default function LoggedInHeader() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       const user = await getCurrentUser();
       setCurrentUser(user);
@@ -49,7 +47,14 @@ export default function LoggedInHeader() {
       console.error('Error fetching user data:', error);
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Refresh data when component comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserData();
+    }, [fetchUserData])
+  );
 
   const handleNotificationPress = () => {
     setShowNotifications(!showNotifications);
@@ -72,13 +77,23 @@ export default function LoggedInHeader() {
 
   const handleLogout = async () => {
     try {
-      await api.post('/auth/logout');
-      // Clear stored tokens
-      api.defaults.headers.common['Authorization'] = '';
+      // Close menus
+      setShowUserMenu(false);
+      setShowNotifications(false);
+      
+      // Call logout service which handles API call and AsyncStorage clearing
+      await logout();
+      
+      // Clear any cached data
+      setCurrentUser(null);
+      setNotifications([]);
+      
+      // Navigate to login
       router.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout even if API call fails
+      await AsyncStorage.removeItem('authToken');
       api.defaults.headers.common['Authorization'] = '';
       router.replace('/login');
     }
@@ -109,13 +124,66 @@ export default function LoggedInHeader() {
     router.push('/create-post');
   };
 
+  // Format time function
+  const formatTime = (timestamp) => {
+    if (!timestamp) return 'Unknown time';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const handleNotificationItemPress = (notification) => {
+    if (!notification.notiType || !notification.userName) return;
+    
+    setShowNotifications(false);
+    
+    switch (notification.notiType) {
+      case 'PROFILE':
+        router.push(`/profile/${notification.userName}`);
+        break;
+      case 'POST':
+        router.push(`/profile/${notification.userName}`);
+        break;
+      case 'CHAT':
+        router.push('/messages');
+        break;
+      default:
+        if (notification.userName) {
+          router.push(`/profile/${notification.userName}`);
+        }
+        break;
+    }
+  };
+
   const renderNotificationItem = ({ item, index }) => (
-    <View style={styles.notificationItem}>
+    <TouchableOpacity 
+      style={styles.notificationItem}
+      onPress={() => handleNotificationItemPress(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.notificationDot} />
-      <Text style={styles.notificationText}>
-        {item.noti || item.message || item.text || 'Notification'}
-      </Text>
-    </View>
+      <View style={styles.notificationTextContainer}>
+        <Text style={styles.notificationUsername}>
+          {String(item.userName || 'Unknown User')}
+        </Text>
+        <Text style={styles.notificationText}>
+          {String(item.noti || item.message || item.text || 'Notification')}
+        </Text>
+        {item.time && (
+          <Text style={styles.notificationTime}>
+            {formatTime(new Date(item.time))}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 
   const renderEmptyNotifications = () => (
@@ -218,7 +286,12 @@ export default function LoggedInHeader() {
                 <FlatList
                   data={notifications}
                   renderItem={renderNotificationItem}
-                  keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                  keyExtractor={(item, index) => {
+                    // Create a unique key by combining multiple fields
+                    const id = item._id?.toString() || item.id?.toString() || '';
+                    const timestamp = item.time?.toString() || '';
+                    return `${id}-${timestamp}-${index}`;
+                  }}
                   showsVerticalScrollIndicator={false}
                 />
               ) : (
@@ -434,8 +507,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 15, 35, 0.98)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '70%',
-    minHeight: 200,
+    height: '85%',
+    minHeight: 400,
   },
   userMenuModal: {
     backgroundColor: 'rgba(15, 15, 35, 0.98)',
@@ -485,7 +558,7 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
@@ -496,12 +569,27 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#667eea',
     marginRight: 12,
+    marginTop: 6,
+  },
+  notificationTextContainer: {
+    flex: 1,
+  },
+  notificationUsername: {
+    color: '#667eea',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   notificationText: {
-    flex: 1,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#ffffff',
     fontSize: 14,
     lineHeight: 20,
+    marginBottom: 4,
+  },
+  notificationTime: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontWeight: '500',
   },
   emptyNotifications: {
     alignItems: 'center',
