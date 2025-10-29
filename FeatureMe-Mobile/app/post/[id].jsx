@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
   Dimensions,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
-import { Audio } from 'expo-av';
 import { useLocalSearchParams, router } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
-import api, { getCurrentUserSafe } from '../services/api';
+import api, { getCurrentUserSafe } from '../../services/api';
 import {
   deleteComment,
   deletePost,
@@ -24,21 +24,23 @@ import {
   trackDownload,
   addComment,
   getCommentsPaginated,
-} from '../services/postsService';
-import LoggedInHeader from '../components/ui/LoggedInHeader';
+  addLike,
+} from '../../services/postsService';
+import LoggedInHeader from '../../components/ui/LoggedInHeader';
+import BottomNavigation from '../../components/BottomNavigation';
+import { useAudio } from '../../contexts/AudioContext';
+import CentralizedAudioPlayer from '../../components/CentralizedAudioPlayer';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PostScreen() {
   const { id } = useLocalSearchParams();
+  
+  const { playTrack, showPlayer, currentTrack, isPlaying, isLoading, position, duration, seekTo, setVolumeLevel } = useAudio();
+  
   const [post, setPost] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.7);
-  const [isMuted, setIsMuted] = useState(false);
+  const [activeTab, setActiveTab] = useState('community');
   const [commentInput, setCommentInput] = useState('');
   const [comments, setComments] = useState([]);
   const [localLikes, setLocalLikes] = useState([]);
@@ -51,7 +53,17 @@ export default function PostScreen() {
   const [hasMoreComments, setHasMoreComments] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
   const [totalComments, setTotalComments] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isPlayButtonLoading, setIsPlayButtonLoading] = useState(false);
+
+  // Log once when component mounts or id changes
+  useEffect(() => {
+    console.log('=== POST PAGE LOADED ===');
+    console.log('PostScreen - Received ID:', id);
+    console.log('PostScreen - ID type:', typeof id);
+  }, [id]);
 
   // Load comments with pagination
   const loadComments = async (page = 0, append = false) => {
@@ -167,6 +179,28 @@ export default function PostScreen() {
     }
   };
 
+  // Pull to refresh function
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const user = await getCurrentUserSafe();
+      setCurrentUser(user);
+      
+      const res = await api.get(`/posts/get/id/${id}`);
+      setPost(res.data);
+      setLocalLikes(Array.isArray(res.data.likes) ? res.data.likes : []);
+      setTotalComments(res.data.totalComments || 0);
+      
+      // Reset and reload comments
+      setCommentPage(0);
+      await loadComments(0, false);
+    } catch (error) {
+      console.error('Error refreshing post:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleComment = async () => {
     if (commentInput.trim() && currentUser) {
       const newComment = {
@@ -215,91 +249,87 @@ export default function PostScreen() {
     }
   };
 
+  const handleLike = async () => {
+    if (!currentUser) {
+      Alert.alert('Please Login', 'You must be logged in to like posts');
+      return;
+    }
+
+    // Save original state before optimistic update
+    const originalLikes = [...localLikes];
+    const userAlreadyLiked = localLikes.some(like => like.userName === currentUser.userName);
+    
+    try {
+      // Optimistically update UI first
+      if (userAlreadyLiked) {
+        // Remove like immediately
+        setLocalLikes(localLikes.filter(like => like.userName !== currentUser.userName));
+      } else {
+        // Add like immediately
+        setLocalLikes([...localLikes, {
+          userName: currentUser.userName,
+          profilePic: currentUser.profilePic
+        }]);
+      }
+      
+      // Then call API
+      await addLike(id);
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      
+      // Revert to original state on error
+      setLocalLikes(originalLikes);
+      
+      Alert.alert('Error', 'Failed to update like');
+    }
+  };
+
   const handlePlayPause = async () => {
-    // Add view tracking when playing
-    if (!isPlaying) {
+    if (isLoading || isPlayButtonLoading) return;
+    
+    setIsPlayButtonLoading(true);
+    
+    try {
+      // Add view tracking
       const userName = currentUser ? currentUser.userName : 'unknown';
       try {
         await addView(id, userName);
       } catch (error) {
         console.error('Error adding view:', error);
       }
-    }
-
-    try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
+      
+      // Create track object for audio context
+      const trackData = {
+        id: post.id,
+        title: post.title,
+        author: post.author,
+        music: post.music,
+        description: post.description,
+        time: post.time,
+        features: post.features,
+        genre: post.genre,
+        likes: localLikes,
+        comments,
+        totalViews: post.totalViews,
+        totalComments,
+        totalDownloads: post.totalDownloads,
+        freeDownload: post.freeDownload
+      };
+      
+      // Check if this track is currently playing
+      const isCurrentTrack = currentTrack && currentTrack.id === post.id;
+      
+      if (isCurrentTrack && isPlaying) {
+        // Track is playing, this will pause it
+        await playTrack(trackData);
       } else {
-        const { sound: newSound } = await Audio.createAsync(
-          { uri: post.music },
-          { shouldPlay: true, volume: isMuted ? 0 : volume }
-        );
-        setSound(newSound);
-        setIsPlaying(true);
-        
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded) {
-            setCurrentTime(status.positionMillis / 1000);
-            setDuration(status.durationMillis / 1000);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setCurrentTime(0);
-            }
-          }
-        });
+        // Play the track
+        await playTrack(trackData);
       }
     } catch (error) {
-      console.error('Error playing audio:', error);
-      Alert.alert('Error', 'Failed to play audio');
-    }
-  };
-
-  const handleSeek = async (seekTime) => {
-    if (sound) {
-      try {
-        await sound.setPositionAsync(seekTime * 1000);
-        setCurrentTime(seekTime);
-      } catch (error) {
-        console.error('Error seeking:', error);
-      }
-    }
-  };
-
-  const handleVolumeChange = async (newVolume) => {
-    setVolume(newVolume);
-    if (sound) {
-      try {
-        await sound.setVolumeAsync(newVolume);
-      } catch (error) {
-        console.error('Error changing volume:', error);
-      }
-    }
-    if (newVolume === 0) {
-      setIsMuted(true);
-    } else {
-      setIsMuted(false);
-    }
-  };
-
-  const toggleMute = async () => {
-    if (sound) {
-      try {
-        if (isMuted) {
-          await sound.setVolumeAsync(volume);
-          setIsMuted(false);
-        } else {
-          await sound.setVolumeAsync(0);
-          setIsMuted(true);
-        }
-      } catch (error) {
-        console.error('Error toggling mute:', error);
-      }
+      console.error('Error playing track:', error);
+    } finally {
+      setIsPlayButtonLoading(false);
     }
   };
 
@@ -319,8 +349,11 @@ export default function PostScreen() {
       return;
     }
 
+    if (isDownloading) return;
+
+    setIsDownloading(true);
     try {
-      const fileName = `${post.title} - ${post.author.userName}.mp3`;
+      const fileName = `${post.title} - ${post.author?.userName || 'Unknown'}.mp3`;
       const fileUri = FileSystem.documentDirectory + fileName;
       
       const downloadResult = await FileSystem.downloadAsync(post.music, fileUri);
@@ -340,6 +373,8 @@ export default function PostScreen() {
     } catch (error) {
       console.error('Error downloading file:', error);
       Alert.alert('Error', 'Failed to download file. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -374,34 +409,49 @@ export default function PostScreen() {
     );
   };
 
-  // Cleanup audio on unmount
+  // Show player when current track changes and matches post
   useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
+    if (currentTrack && currentTrack.id === post?.id) {
+      showPlayer();
+    }
+  }, [currentTrack, post, showPlayer]);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading track...</Text>
+      <View style={styles.pageContainer}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading track...</Text>
+        </View>
+        <BottomNavigation activeTab="" />
       </View>
     );
   }
 
   if (!post) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Post not found</Text>
+      <View style={styles.pageContainer}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Post not found</Text>
+        </View>
+        <BottomNavigation activeTab="" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.pageContainer}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#00d4ff"
+            colors={['#00d4ff']}
+          />
+        }
+      >
       <LoggedInHeader />
       {/* Post Hero Section */}
       <View style={styles.heroSection}>
@@ -423,9 +473,19 @@ export default function PostScreen() {
               <TouchableOpacity 
                 style={[styles.actionButton, styles.playButton, isPlaying && styles.playingButton]}
                 onPress={handlePlayPause}
+                disabled={isPlayButtonLoading || isLoading}
               >
-                <Text style={styles.actionIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
-                <Text style={styles.actionText}>{isPlaying ? 'Pause' : 'Play'}</Text>
+                {isPlayButtonLoading ? (
+                  <>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.actionText}>Loading...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.actionIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
+                    <Text style={styles.actionText}>{isPlaying ? 'Pause' : 'Play'}</Text>
+                  </>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -440,9 +500,16 @@ export default function PostScreen() {
                 <TouchableOpacity 
                   style={[styles.actionButton, styles.downloadButton]}
                   onPress={handleDownload}
+                  disabled={isDownloading}
                 >
-                  <Text style={styles.actionIcon}>⬇️</Text>
-                  <Text style={styles.actionText}>Download</Text>
+                  {isDownloading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <Text style={styles.actionIcon}>⬇️</Text>
+                      <Text style={styles.actionText}>Download</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
               
@@ -479,57 +546,6 @@ export default function PostScreen() {
                 </>
               )}
             </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Audio Player Section */}
-      <View style={styles.audioPlayerSection}>
-        <View style={styles.audioPlayerContainer}>
-          <View style={styles.audioPlayerInfo}>
-            <Image source={{ uri: post.author.banner }} style={styles.audioCover} />
-            <View style={styles.audioDetails}>
-              <Text style={styles.audioTrackTitle}>{post.title}</Text>
-              <Text style={styles.audioTrackArtist}>{post.author.userName}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.audioPlayerControls}>
-            <TouchableOpacity style={styles.controlButton} onPress={handlePlayPause}>
-              <Text style={styles.controlIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.progressContainer}>
-              <Text style={styles.timeDisplay}>{formatTime(currentTime)}</Text>
-              <View style={styles.progressBar}>
-                <TouchableOpacity 
-                  style={styles.progressBarTouchable}
-                  onPress={(event) => {
-                    const { locationX } = event.nativeEvent;
-                    const progressWidth = screenWidth - 120; // Approximate progress bar width
-                    const seekTime = (locationX / progressWidth) * duration;
-                    handleSeek(seekTime);
-                  }}
-                >
-                  <View 
-                    style={[
-                      styles.progressFill, 
-                      { width: `${duration ? (currentTime / duration) * 100 : 0}%` }
-                    ]} 
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.timeDisplay}>{formatTime(duration)}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.audioPlayerVolume}>
-            <TouchableOpacity style={styles.volumeButton} onPress={toggleMute}>
-              <Text style={styles.volumeIcon}>
-                {isMuted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
-              </Text>
-            </TouchableOpacity>
-            {/* Volume slider would go here - simplified for now */}
           </View>
         </View>
       </View>
@@ -582,26 +598,131 @@ export default function PostScreen() {
               </View>
             </View>
 
+            {/* Community Section */}
+            <View style={styles.communityCard}>
+              <Text style={styles.cardTitle}>Community</Text>
+              
+              {/* Likes Section */}
+              <View style={styles.likesSection}>
+                <Text style={styles.subsectionTitle}>Likes ({localLikes?.length || 0})</Text>
+                <TouchableOpacity style={styles.likeButton} onPress={handleLike}>
+                  <Text style={styles.likeIcon}>❤️</Text>
+                  <Text style={styles.likeText}>
+                    {localLikes?.some(like => like.userName === currentUser?.userName) ? 'Liked' : 'Like'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Comments Section */}
+              <View style={styles.commentsSection}>
+                <Text style={styles.subsectionTitle}>Comments ({totalComments || 0})</Text>
+                <View style={styles.commentsList}>
+                  {loadingComments && comments.length === 0 ? (
+                    <View style={styles.commentsLoading}>
+                      <ActivityIndicator size="small" color="#007AFF" />
+                      <Text style={styles.loadingText}>Loading comments...</Text>
+                    </View>
+                  ) : comments?.length > 0 ? (
+                    comments.map((comment, index) => (
+                      <View key={index} style={styles.commentItem}>
+                        <TouchableOpacity onPress={() => router.push(`/profile/${comment.userName}`)}>
+                          <Image source={{ uri: comment.profilePic }} style={styles.commentAvatar} />
+                        </TouchableOpacity>
+                        <View style={styles.commentContent}>
+                          <View style={styles.commentHeader}>
+                            <TouchableOpacity onPress={() => router.push(`/profile/${comment.userName}`)}>
+                              <Text style={styles.commentUsername}>{comment.userName}</Text>
+                            </TouchableOpacity>
+                            <View style={styles.commentHeaderRight}>
+                              <Text style={styles.commentTime}>{new Date(comment.time).toLocaleDateString()}</Text>
+                              {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
+                                <TouchableOpacity
+                                  style={styles.deleteCommentBtn}
+                                  onPress={() => handleDeleteComment(comment)}
+                                  disabled={deletingComment === comment.id}
+                                >
+                                  <Text style={styles.deleteCommentIcon}>
+                                    {deletingComment === comment.id ? '...' : '🗑️'}
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                          <Text style={styles.commentText}>{comment.comment}</Text>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.noComments}>
+                      <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Load More Comments Button */}
+                {hasMoreComments && (
+                  <View style={styles.loadMoreSection}>
+                    <TouchableOpacity 
+                      style={styles.loadMoreBtn}
+                      onPress={loadMoreComments}
+                      disabled={loadingComments}
+                    >
+                      {loadingComments ? (
+                        <>
+                          <ActivityIndicator size="small" color="#007AFF" />
+                          <Text style={styles.loadMoreText}>Loading...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.loadMoreIcon}>↓</Text>
+                          <Text style={styles.loadMoreText}>Load More Comments</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                <View style={styles.addComment}>
+                  <TextInput 
+                    style={styles.commentInput}
+                    value={commentInput}
+                    onChangeText={setCommentInput}
+                    placeholder="Add a comment..."
+                    multiline
+                  />
+                  <TouchableOpacity style={styles.commentBtn} onPress={handleComment}>
+                    <Text style={styles.commentBtnText}>Post</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
             {/* Track Information */}
             <View style={styles.trackDetailsCard}>
               <Text style={styles.cardTitle}>Track Details</Text>
               <View style={styles.detailGrid}>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailIcon}>📅</Text>
+                  <View style={styles.detailIconContainer}>
+                    <Text style={styles.detailIcon}>📅</Text>
+                  </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Released</Text>
                     <Text style={styles.detailValue}>{new Date(post.time).toLocaleDateString()}</Text>
                   </View>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailIcon}>🎭</Text>
+                  <View style={styles.detailIconContainer}>
+                    <Text style={styles.detailIcon}>🎭</Text>
+                  </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Genre</Text>
                     <Text style={styles.detailValue}>{post.genre.join(' • ')}</Text>
                   </View>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailIcon}>🤝</Text>
+                  <View style={styles.detailIconContainer}>
+                    <Text style={styles.detailIcon}>🤝</Text>
+                  </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Features</Text>
                     <Text style={styles.detailValue}>{post?.features?.join(' • ') || 'None'}</Text>
@@ -609,11 +730,21 @@ export default function PostScreen() {
                 </View>
                 {post.freeDownload && (
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailIcon}>⬇️</Text>
+                    <View style={styles.detailIconContainer}>
+                      <Text style={styles.detailIcon}>⬇️</Text>
+                    </View>
                     <View style={styles.detailContent}>
                       <Text style={styles.detailLabel}>Download</Text>
-                      <TouchableOpacity style={styles.downloadTrackBtn} onPress={handleDownload}>
-                        <Text style={styles.downloadTrackBtnText}>Download Track</Text>
+                      <TouchableOpacity 
+                        style={styles.downloadTrackBtn} 
+                        onPress={handleDownload}
+                        disabled={isDownloading}
+                      >
+                        {isDownloading ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text style={styles.downloadTrackBtnText}>Download Track</Text>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -622,7 +753,7 @@ export default function PostScreen() {
             </View>
 
             {/* Tags Cloud */}
-            <View style={styles.tagsCard}>
+            <View style={[styles.tagsCard, { marginTop: 20 }]}>
               <Text style={styles.cardTitle}>Tags</Text>
               <View style={styles.tagsCloud}>
                 {post.genre.map((tag, index) => (
@@ -638,188 +769,30 @@ export default function PostScreen() {
               </View>
             </View>
           </View>
-
-          {/* Right Column - Main Content */}
-          <View style={styles.rightColumn}>
-            {/* Content Navigation */}
-            <View style={styles.contentNav}>
-              <TouchableOpacity 
-                style={[styles.navTab, activeTab === 'overview' && styles.activeNavTab]}
-                onPress={() => setActiveTab('overview')}
-              >
-                <Text style={[styles.navTabText, activeTab === 'overview' && styles.activeNavTabText]}>
-                  Overview
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.navTab, styles.disabledNavTab]}
-                disabled
-              >
-                <Text style={[styles.navTabText, styles.disabledNavTabText]}>
-                  Licensing
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.navTab, activeTab === 'community' && styles.activeNavTab]}
-                onPress={() => setActiveTab('community')}
-              >
-                <Text style={[styles.navTabText, activeTab === 'community' && styles.activeNavTabText]}>
-                  Community
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Tab Content */}
-            {activeTab === 'overview' && (
-              <View style={styles.tabContent}>
-                <View style={styles.overviewSection}>
-                  <Text style={styles.sectionTitle}>About This Track</Text>
-                  <Text style={styles.trackDescription}>{post.description}</Text>
-                  
-                  <View style={styles.trackMetrics}>
-                    <View style={styles.metricCard}>
-                      <Text style={styles.metricIcon}>🎧</Text>
-                      <View style={styles.metricContent}>
-                        <Text style={styles.metricValue}>Ready to</Text>
-                        <Text style={styles.metricLabel}>Record</Text>
-                      </View>
-                    </View>
-                    <View style={styles.metricCard}>
-                      <Text style={styles.metricIcon}>🎯</Text>
-                      <View style={styles.metricContent}>
-                        <Text style={styles.metricValue}>Perfect for</Text>
-                        <Text style={styles.metricLabel}>{post.genre[0]}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.metricCard}>
-                      <Text style={styles.metricIcon}>⭐</Text>
-                      <View style={styles.metricContent}>
-                        <Text style={styles.metricValue}>Premium</Text>
-                        <Text style={styles.metricLabel}>Quality</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {activeTab === 'community' && (
-              <View style={styles.tabContent}>
-                <View style={styles.communitySection}>
-                  <Text style={styles.sectionTitle}>Community</Text>
-                  
-                  {/* Likes Section - simplified for now */}
-                  <View style={styles.likesSection}>
-                    <Text style={styles.subsectionTitle}>Likes ({localLikes?.length || 0})</Text>
-                    <TouchableOpacity style={styles.likeButton}>
-                      <Text style={styles.likeIcon}>❤️</Text>
-                      <Text style={styles.likeText}>Like</Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Comments Section */}
-                  <View style={styles.commentsSection}>
-                    <Text style={styles.subsectionTitle}>Comments ({totalComments || 0})</Text>
-                    <View style={styles.commentsList}>
-                      {loadingComments && comments.length === 0 ? (
-                        <View style={styles.commentsLoading}>
-                          <ActivityIndicator size="small" color="#007AFF" />
-                          <Text style={styles.loadingText}>Loading comments...</Text>
-                        </View>
-                      ) : comments?.length > 0 ? (
-                        comments.map((comment, index) => (
-                          <View key={index} style={styles.commentItem}>
-                            <TouchableOpacity onPress={() => router.push(`/profile/${comment.userName}`)}>
-                              <Image source={{ uri: comment.profilePic }} style={styles.commentAvatar} />
-                            </TouchableOpacity>
-                            <View style={styles.commentContent}>
-                              <View style={styles.commentHeader}>
-                                <TouchableOpacity onPress={() => router.push(`/profile/${comment.userName}`)}>
-                                  <Text style={styles.commentUsername}>{comment.userName}</Text>
-                                </TouchableOpacity>
-                                <View style={styles.commentHeaderRight}>
-                                  <Text style={styles.commentTime}>{new Date(comment.time).toLocaleDateString()}</Text>
-                                  {currentUser && (currentUser.userName === comment.userName || (post && currentUser.userName === post.author.userName)) && (
-                                    <TouchableOpacity
-                                      style={styles.deleteCommentBtn}
-                                      onPress={() => handleDeleteComment(comment)}
-                                      disabled={deletingComment === comment.id}
-                                    >
-                                      <Text style={styles.deleteCommentIcon}>
-                                        {deletingComment === comment.id ? '...' : '🗑️'}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  )}
-                                </View>
-                              </View>
-                              <Text style={styles.commentText}>{comment.comment}</Text>
-                            </View>
-                          </View>
-                        ))
-                      ) : (
-                        <View style={styles.noComments}>
-                          <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
-                        </View>
-                      )}
-                    </View>
-                    
-                    {/* Load More Comments Button */}
-                    {hasMoreComments && (
-                      <View style={styles.loadMoreSection}>
-                        <TouchableOpacity 
-                          style={styles.loadMoreBtn}
-                          onPress={loadMoreComments}
-                          disabled={loadingComments}
-                        >
-                          {loadingComments ? (
-                            <>
-                              <ActivityIndicator size="small" color="#007AFF" />
-                              <Text style={styles.loadMoreText}>Loading...</Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.loadMoreIcon}>↓</Text>
-                              <Text style={styles.loadMoreText}>Load More Comments</Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    
-                    <View style={styles.addComment}>
-                      <TextInput 
-                        style={styles.commentInput}
-                        value={commentInput}
-                        onChangeText={setCommentInput}
-                        placeholder="Add a comment..."
-                        multiline
-                      />
-                      <TouchableOpacity style={styles.commentBtn} onPress={handleComment}>
-                        <Text style={styles.commentBtnText}>Post</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
         </View>
       </View>
     </ScrollView>
+    <BottomNavigation activeTab="" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#0f0f23',
+    paddingBottom: 90, // Space for bottom navigation
+  },
   container: {
     flex: 1,
-    backgroundColor: '#000',
-    paddingTop: 100, // Space for LoggedInHeader
+    backgroundColor: '#0f0f23',
+
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#0f0f23',
   },
   loadingText: {
     color: '#fff',
@@ -829,7 +802,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#0f0f23',
   },
   errorText: {
     color: '#fff',
@@ -838,6 +811,7 @@ const styles = StyleSheet.create({
   heroSection: {
     height: 300,
     position: 'relative',
+    marginTop:123,
   },
   heroBackground: {
     width: '100%',
@@ -846,21 +820,23 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroContent: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
   badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(0, 212, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.5)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 25,
     marginBottom: 20,
   },
   badgeIcon: {
@@ -868,84 +844,89 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   badgeText: {
-    color: '#fff',
+    color: '#00d4ff',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   heroTitle: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
   },
   heroSubtitle: {
-    color: '#fff',
+    color: '#b8b8b8',
     fontSize: 16,
-    opacity: 0.8,
+    fontWeight: '400',
     marginBottom: 30,
   },
   heroActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
+    marginTop: 20,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 25,
-    marginHorizontal: 5,
-    marginVertical: 5,
+    marginHorizontal: 3,
+    marginVertical: 3,
   },
   playButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00d4ff',
   },
   playingButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#ff6b6b',
   },
   profileButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   downloadButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#00d4ff',
   },
   analyticsButton: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#ff6b6b',
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#ff6b6b',
   },
   actionIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: 14,
+    marginRight: 6,
   },
   actionText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   audioPlayerSection: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     paddingVertical: 20,
   },
   audioPlayerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    flexDirection: 'column',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
   },
   audioPlayerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    marginBottom: 15,
+    width: '100%',
   },
   audioCover: {
     width: 60,
     height: 60,
     borderRadius: 8,
-    marginRight: 15,
+    marginRight: 12,
   },
   audioDetails: {
     flex: 1,
@@ -957,16 +938,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   audioTrackArtist: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
     fontSize: 14,
   },
   audioPlayerControls: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    flex: 2,
-  },
-  controlButton: {
-    marginRight: 20,
+    width: '100%',
+    marginBottom: 10,
   },
   controlIcon: {
     fontSize: 24,
@@ -975,18 +954,19 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    width: '100%',
   },
   timeDisplay: {
-    color: '#8E8E93',
-    fontSize: 12,
-    minWidth: 40,
+    color: '#b8b8b8',
+    fontSize: 14,
+    minWidth: 45,
+    fontWeight: '500',
   },
   progressBar: {
     flex: 1,
-    height: 4,
-    backgroundColor: '#3A3A3C',
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
     marginHorizontal: 10,
     position: 'relative',
   },
@@ -996,13 +976,14 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 2,
+    backgroundColor: '#00d4ff',
+    borderRadius: 3,
   },
   audioPlayerVolume: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 20,
+    justifyContent: 'center',
+    width: '100%',
   },
   volumeButton: {
     padding: 5,
@@ -1013,77 +994,100 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
   },
   contentGrid: {
-    flexDirection: 'row',
+    flexDirection: 'column',
   },
   leftColumn: {
     flex: 1,
-    marginRight: 20,
+    width: '100%',
   },
   rightColumn: {
-    flex: 2,
+    flex: 1,
+    marginTop: 15,
+    width: '100%',
   },
   artistCard: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
   },
   artistHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   artistAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 15,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 212, 255, 0.5)',
   },
   artistInfo: {
     flex: 1,
   },
   artistName: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   artistBio: {
-    color: '#8E8E93',
-    fontSize: 14,
+    color: '#b8b8b8',
+    fontSize: 12,
   },
   artistStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    gap: 8,
   },
   statItem: {
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flex: 1,
+    minHeight: 50,
+    justifyContent: 'center',
   },
   statNumber: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    color: '#00d4ff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   statLabel: {
-    color: '#8E8E93',
-    fontSize: 12,
+    color: '#b8b8b8',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   trackDetailsCard: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   cardTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     marginBottom: 15,
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(0, 212, 255, 0.3)',
+    paddingBottom: 8,
   },
   detailGrid: {
     gap: 15,
@@ -1091,30 +1095,48 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 15,
+  },
+  detailIconContainer: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 212, 255, 0.1)',
+    borderRadius: 10,
+    marginRight: 15,
   },
   detailIcon: {
     fontSize: 20,
-    marginRight: 15,
-    width: 30,
+    textAlign: 'center',
   },
   detailContent: {
     flex: 1,
   },
   detailLabel: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
     fontSize: 12,
-    marginBottom: 2,
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   detailValue: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '600',
   },
   downloadTrackBtn: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: '#00d4ff',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
     marginTop: 5,
+    width:110,
   },
   downloadTrackBtnText: {
     color: '#fff',
@@ -1122,9 +1144,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tagsCard: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
     padding: 20,
+    marginBottom: 15,
   },
   tagsCloud: {
     flexDirection: 'row',
@@ -1132,40 +1157,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagPill: {
-    backgroundColor: '#3A3A3C',
     color: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     fontSize: 12,
+    fontWeight: '500',
   },
   genreTag: {
-    backgroundColor: '#007AFF',
+    backgroundColor: 'rgba(0, 212, 255, 0.2)',
+    color: '#00d4ff',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.3)',
   },
   featureTag: {
-    backgroundColor: '#34C759',
+    backgroundColor: 'rgba(255, 107, 107, 0.2)',
+    color: '#ff6b6b',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
   },
   contentNav: {
     flexDirection: 'row',
-    marginBottom: 20,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 8,
+    marginBottom: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
     padding: 4,
   },
   navTab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   activeNavTab: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00d4ff',
   },
   disabledNavTab: {
     opacity: 0.5,
   },
   navTabText: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1173,11 +1204,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   disabledNavTabText: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
   },
   tabContent: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
     padding: 20,
   },
   overviewSection: {
@@ -1185,24 +1218,26 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 10,
   },
   trackDescription: {
-    color: '#8E8E93',
-    fontSize: 16,
-    lineHeight: 24,
+    color: '#b8b8b8',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 15,
   },
   trackMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     gap: 10,
   },
   metricCard: {
-    flex: 1,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 8,
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
     padding: 15,
     alignItems: 'center',
   },
@@ -1214,34 +1249,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricValue: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 2,
+    color: '#b8b8b8',
+    fontSize: 14,
+    marginBottom: 5,
   },
   metricLabel: {
-    color: '#8E8E93',
-    fontSize: 10,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  communitySection: {
-    gap: 20,
+  communityCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
   },
   subsectionTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     marginBottom: 10,
   },
   likesSection: {
-    backgroundColor: '#2C2C2E',
-    borderRadius: 8,
-    padding: 15,
+    marginBottom: 15,
   },
   likeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    backgroundColor: '#ff6b6b',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
   },
   likeIcon: {
     fontSize: 20,
@@ -1249,11 +1293,11 @@ const styles = StyleSheet.create({
   },
   likeText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
   commentsSection: {
-    gap: 15,
+    gap: 10,
   },
   commentsList: {
     gap: 15,
@@ -1266,12 +1310,16 @@ const styles = StyleSheet.create({
   },
   commentItem: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 15,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   commentAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(0, 212, 255, 0.1)',
   },
   commentContent: {
     flex: 1,
@@ -1283,7 +1331,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   commentUsername: {
-    color: '#007AFF',
+    color: '#00d4ff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1293,7 +1341,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   commentTime: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
     fontSize: 12,
   },
   deleteCommentBtn: {
@@ -1313,8 +1361,9 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   noCommentsText: {
-    color: '#8E8E93',
+    color: '#b8b8b8',
     fontSize: 14,
+    fontStyle: 'italic',
   },
   loadMoreSection: {
     alignItems: 'center',
@@ -1323,20 +1372,20 @@ const styles = StyleSheet.create({
   loadMoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3A3A3C',
+    backgroundColor: '#00d4ff',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 25,
     gap: 8,
   },
   loadMoreIcon: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#fff',
   },
   loadMoreText: {
-    color: '#007AFF',
+    color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   addComment: {
     flexDirection: 'row',
@@ -1346,19 +1395,21 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     color: '#fff',
     fontSize: 14,
     maxHeight: 100,
   },
   commentBtn: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#00d4ff',
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
   commentBtnText: {
     color: '#fff',
@@ -1366,3 +1417,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
