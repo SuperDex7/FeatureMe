@@ -520,6 +520,24 @@ return newChat;
                 throw new SecurityException("User " + user.getUserName() + " is not authorized to update chat photo for room " + chatRoomId);
             }
             
+            // Delete the old chat photo from S3 if it exists
+            String oldPhotoUrl = chat.getChatPhoto();
+            if (oldPhotoUrl != null && !oldPhotoUrl.isEmpty() && oldPhotoUrl.contains("amazonaws.com")) {
+                try {
+                    String s3Key = s3Service.extractKeyFromUrl(oldPhotoUrl);
+                    if (s3Key != null && !s3Key.equals(oldPhotoUrl)) {
+                        boolean deleted = s3Service.deleteFile(s3Key);
+                        if (deleted) {
+                            System.out.println("Successfully deleted old chat photo from S3: " + s3Key);
+                        } else {
+                            System.err.println("Failed to delete old chat photo from S3: " + s3Key);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error deleting old chat photo from S3: " + e.getMessage());
+                }
+            }
+            
             // Update chat photo
             chat.setChatPhoto(photoUrl);
             
