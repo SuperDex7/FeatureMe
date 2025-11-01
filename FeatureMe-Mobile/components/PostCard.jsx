@@ -811,6 +811,20 @@ export default function PostCard({
                       )}
                     </TouchableOpacity>
                   )}
+                  
+                  {isOwnPost && onDeletePost && (
+                    <TouchableOpacity 
+                      style={[styles.profileModalActionBtnSecondary, styles.profileModalDeleteBtn]}
+                      onPress={handleDeletePost}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size="small" color="#ff4444" />
+                      ) : (
+                        <Text style={styles.profileModalDeleteText}>🗑️ Delete Post</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
 
@@ -1480,6 +1494,17 @@ const styles = StyleSheet.create({
   },
   profileModalActionTextSecondary: {
     color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  profileModalDeleteBtn: {
+    borderColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+  },
+  
+  profileModalDeleteText: {
+    color: '#ff4444',
     fontSize: 12,
     fontWeight: '600',
   },

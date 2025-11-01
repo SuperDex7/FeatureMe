@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { addView, addLike } from '../services/postsService';
+import { addView, addLike, deletePost } from '../services/postsService';
 import { getCurrentUser } from '../services/api';
 import { useAudio } from '../contexts/AudioContext';
 
@@ -65,7 +65,8 @@ export default function SpotlightCard({
   freeDownload = false,
   onLikeUpdate,
   onCommentUpdate,
-  onSpotlightPress // New prop for handling spotlight-specific interactions
+  onSpotlightPress, // New prop for handling spotlight-specific interactions
+  onDeletePost
 }) {
   const { userName, profilePic, banner, role } = author ?? {};
   const [localLikes, setLocalLikes] = useState(likes);
@@ -73,6 +74,7 @@ export default function SpotlightCard({
   const [currentUser, setCurrentUser] = useState(null);
   const [isLiking, setIsLiking] = useState(false);
   const [isPlayButtonLoading, setIsPlayButtonLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Audio context
   const { playTrack, currentTrack, isPlaying, isLoading } = useAudio();
@@ -206,7 +208,36 @@ export default function SpotlightCard({
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!currentUser || isDeleting) return;
+    
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deletePost(id);
+              onDeletePost?.(id);
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            } finally {
+              setIsDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const isLiked = currentUser && localLikes.some(like => like.userName === currentUser.userName);
+  const isOwnPost = currentUser && currentUser.userName === userName;
 
   return (
     <TouchableOpacity 
@@ -364,12 +395,28 @@ export default function SpotlightCard({
             <Text style={styles.spotlightStatIcon}>👁️</Text>
             <Text style={styles.spotlightStatCount}>{totalViews || 0}</Text>
           </View>
+          
+          {isOwnPost && onDeletePost && (
+            <TouchableOpacity 
+              style={styles.spotlightStatItem}
+              onPress={handleDeletePost}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#ff4444" />
+              ) : (
+                <>
+                  <Text style={styles.spotlightDeleteIcon}>🗑️</Text>
+                  <Text style={styles.spotlightDeleteText}>Delete</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
   );
 }
-
 const styles = StyleSheet.create({
   // Enhanced Spotlight Card Styles
   spotlightCard: {
@@ -690,4 +737,15 @@ const styles = StyleSheet.create({
   spotlightLikedIcon: {
     transform: [{ scale: 1.2 }],
   },
+  
+  spotlightDeleteIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  spotlightDeleteText: {
+    fontSize: 12,
+    color: '#ff4444',
+    fontWeight: '600',
+  },
 });
+

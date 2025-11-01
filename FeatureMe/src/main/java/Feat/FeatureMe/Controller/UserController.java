@@ -46,6 +46,7 @@ import com.resend.*;
 import com.resend.core.exception.ResendException;
 import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.emails.model.CreateEmailResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
 
@@ -242,7 +243,7 @@ public class UserController {
         }
     }
     @PatchMapping("/update")
-    public void updateUser(@RequestPart("user") User userUpdateData,
+    public void updateUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
@@ -254,6 +255,10 @@ public class UserController {
         String email = authentication.getName();
         User userr = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Parse user JSON
+        ObjectMapper mapper = new ObjectMapper();
+        User userUpdateData = mapper.readValue(userJson, User.class);
         
         // Handle profile picture upload if provided
         if (pp != null && !pp.isEmpty()) {

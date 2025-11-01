@@ -24,6 +24,7 @@ import Feat.FeatureMe.Service.FileUploadService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
 
@@ -44,7 +45,7 @@ public class DemoController {
     }
 
     @PostMapping("/create")
-    public Demos createDemo (@RequestPart("file") MultipartFile file, @RequestPart("demo") Demos demo ) throws IOException {
+    public Demos createDemo (@RequestPart("file") MultipartFile file, @RequestPart("demo") String demoJson ) throws IOException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -67,7 +68,10 @@ public class DemoController {
          // Upload the file and get its S3 URL
          String s3Url = s3Service.uploadFile(keyName, filePath);
          
-         // Set the S3 URL (e.g., to the "music" field) in the Posts entity
+         // Parse demo JSON and set fields
+         ObjectMapper mapper = new ObjectMapper();
+         Demos demo = mapper.readValue(demoJson, Demos.class);
+         // Set the S3 URL and creator
          demo.setSongUrl(s3Url);
          demo.setCreatorId(user.getId());
          
@@ -78,7 +82,7 @@ public class DemoController {
     
     // Create a demo with async file upload to prevent thread pool exhaustion
     @PostMapping("/create-async")
-    public CompletableFuture<Demos> createDemoAsync(@RequestPart("file") MultipartFile file, @RequestPart("demo") Demos demo) throws IOException {
+    public CompletableFuture<Demos> createDemoAsync(@RequestPart("file") MultipartFile file, @RequestPart("demo") String demoJson) throws IOException {
         // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -103,6 +107,8 @@ public class DemoController {
                 // Restore authentication in async thread
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    Demos demo = mapper.readValue(demoJson, Demos.class);
                     demo.setSongUrl(s3Url);
                     demo.setCreatorId(user.getId());
                     return demoService.createPost(user.getId(), demo);

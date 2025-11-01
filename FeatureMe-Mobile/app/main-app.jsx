@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import api from '../services/api';
 import { 
   listPosts, 
@@ -40,7 +41,6 @@ import BottomNavigation from '../components/BottomNavigation';
 import { useAudio } from '../contexts/AudioContext';
 import FollowersModal from '../components/FollowersModal';
 import CentralizedAudioPlayer from '../components/CentralizedAudioPlayer';
-import AddDemo from '../components/AddDemo';
 
 // Import the existing feed components
 import FeedScreen from './feed';
@@ -386,6 +386,11 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
   // Add Demo Modal state
   const [showAddDemoModal, setShowAddDemoModal] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [demoTitle, setDemoTitle] = useState('');
+  const [demoFeatures, setDemoFeatures] = useState('');
+  const [selectedDemoFile, setSelectedDemoFile] = useState(null);
+  const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+  const [isDeletingDemoId, setIsDeletingDemoId] = useState(null);
   
   // Pagination state
   const [postsPage, setPostsPage] = useState(0);
@@ -398,6 +403,20 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
   // Modal state for expandable cards
   const [expandedPost, setExpandedPost] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  
+  // Edit Profile Modal state
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    bio: '',
+    location: '',
+    about: '',
+    profilePic: '',
+    banner: '',
+    socialMedia: []
+  });
+  const [selectedProfilePic, setSelectedProfilePic] = useState(null);
+  const [selectedBanner, setSelectedBanner] = useState(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   
   // Comment and like state
   const [comments, setComments] = useState([]);
@@ -731,6 +750,226 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
     await fetchUserDemos();
   };
 
+  const isUserPlus = currentUser?.role === 'USERPLUS';
+
+  const isAllowedByRole = (name = '', type = '') => {
+    const lowerName = String(name).toLowerCase();
+    const lowerType = String(type).toLowerCase();
+    const isMp3 = lowerName.endsWith('.mp3') || lowerType.includes('audio/mpeg') || lowerType.includes('audio/mp3');
+    const isWav = lowerName.endsWith('.wav') || lowerType.includes('audio/wav') || lowerType.includes('audio/x-wav');
+    if (isUserPlus) {
+      return isMp3 || isWav;
+    }
+    return isMp3; // USER can only upload mp3
+  };
+
+  const pickDemoFile = async () => {
+    try {
+      const allowedMimes = isUserPlus
+        ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav']
+        : ['audio/mpeg', 'audio/mp3'];
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: allowedMimes,
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+
+      // Handle both old and new return shapes
+      if (result?.canceled) {
+        return;
+      }
+
+      const asset = Array.isArray(result?.assets) ? result.assets[0] : result;
+      if (!asset) return;
+
+      const file = {
+        uri: asset.uri,
+        name: asset.name || `demo-${Date.now()}.mp3`,
+        type: asset.mimeType || 'audio/mpeg',
+      };
+      if (!isAllowedByRole(file.name, file.type)) {
+        Alert.alert(
+          'File type not allowed',
+          isUserPlus ? 'Please select an MP3 or WAV file.' : 'Please select an MP3 file.'
+        );
+        return;
+      }
+      setSelectedDemoFile(file);
+    } catch (e) {
+      console.error('Error picking file:', e);
+      Alert.alert('Error', 'Failed to pick audio file.');
+    }
+  };
+
+  const submitDemo = async () => {
+    if (!demoTitle.trim() || !selectedDemoFile) {
+      Alert.alert('Missing info', 'Please add a title and select an audio file.');
+      return;
+    }
+    if (!isAllowedByRole(selectedDemoFile?.name, selectedDemoFile?.type)) {
+      Alert.alert(
+        'File type not allowed',
+        isUserPlus ? 'Please select an MP3 or WAV file.' : 'Please select an MP3 file.'
+      );
+      return;
+    }
+    setIsSubmittingDemo(true);
+    try {
+      await DemoService.createDemo({ title: demoTitle.trim(), features: demoFeatures }, selectedDemoFile);
+      // reset form
+      setDemoTitle('');
+      setDemoFeatures('');
+      setSelectedDemoFile(null);
+      setShowAddDemoModal(false);
+      await handleDemoAdded();
+      Alert.alert('Success', 'Demo uploaded successfully.');
+    } catch (err) {
+      console.error('Failed to create demo:', err);
+      Alert.alert('Upload failed', 'Could not upload demo. Please try again.');
+    } finally {
+      setIsSubmittingDemo(false);
+    }
+  };
+
+  const confirmAndDeleteDemo = (demo) => {
+    if (!demo?.id) return;
+    Alert.alert(
+      'Delete demo?',
+      `Are you sure you want to delete "${demo.title}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteDemo(demo.id),
+        },
+      ]
+    );
+  };
+
+  const deleteDemo = async (demoId) => {
+    if (!demoId) return;
+    try {
+      setIsDeletingDemoId(demoId);
+      await DemoService.deleteDemo(demoId);
+      await fetchUserDemos();
+    } catch (e) {
+      console.error('Failed to delete demo:', e);
+      Alert.alert('Error', 'Failed to delete demo. Please try again.');
+    } finally {
+      setIsDeletingDemoId(null);
+    }
+  };
+
+  // Edit Profile functions
+  const handlePickProfilePic = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: false,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        setSelectedProfilePic(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Error picking profile picture:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handlePickBanner = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: false,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        setSelectedBanner(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Error picking banner:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handleOpenEditModal = () => {
+    if (!user) return;
+    setEditForm({
+      bio: user.bio || '',
+      location: user.location || '',
+      about: user.about || '',
+      profilePic: user.profilePic || '',
+      banner: user.banner || '',
+      socialMedia: user.socialMedia || []
+    });
+    setSelectedProfilePic(null);
+    setSelectedBanner(null);
+    setShowEditProfileModal(true);
+  };
+
+  const handleEditProfileSubmit = async () => {
+    if (isEditingProfile) return;
+    
+    setIsEditingProfile(true);
+    try {
+      const formData = new FormData();
+      
+      const userData = {
+        bio: editForm.bio,
+        location: editForm.location,
+        about: editForm.about,
+        socialMedia: editForm.socialMedia
+      };
+      
+      // Add existing URLs if no new file was selected
+      if (!selectedProfilePic && editForm.profilePic) {
+        userData.profilePic = editForm.profilePic;
+      }
+      if (!selectedBanner && editForm.banner) {
+        userData.banner = editForm.banner;
+      }
+      
+      // Append user data as JSON string
+      formData.append('user', JSON.stringify(userData));
+      
+      // Append files if selected
+      if (selectedProfilePic) {
+        formData.append('pp', {
+          uri: selectedProfilePic.uri,
+          name: selectedProfilePic.name,
+          type: selectedProfilePic.mimeType || 'image/jpeg',
+        });
+      }
+      
+      if (selectedBanner) {
+        formData.append('banner', {
+          uri: selectedBanner.uri,
+          name: selectedBanner.name,
+          type: selectedBanner.mimeType || 'image/jpeg',
+        });
+      }
+      
+      // Import updateProfile from userService
+      const { updateProfile } = require('../services/userService');
+      
+      await updateProfile(formData, true);
+      
+      // Refresh user data
+      await onRefresh();
+      
+      setShowEditProfileModal(false);
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setIsEditingProfile(false);
+    }
+  };
+
   const renderContentGrid = () => {
     const isLoading = activeContentTab === 'posts' ? isLoadingPosts : 
                      activeContentTab === 'demos' ? isLoadingDemos : isLoadingFeatured;
@@ -772,7 +1011,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         title: 'No demos yet',
         subtitle: 'Upload your first demo!',
         buttonText: 'Add Demo',
-        onPress: () => router.push('/create-post') // You can change this to a demo creation route
+        onPress: () => setShowAddDemoModal(true)
       };
     } else if (activeContentTab === 'featured') {
       content = featuredPosts;
@@ -812,6 +1051,22 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
 
     return (
       <View style={activeContentTab === 'demos' ? styles.demoGridContainer : styles.profileContentContainer}>
+        {activeContentTab === 'demos' && isOwnProfile && (
+          <TouchableOpacity 
+            style={[styles.addDemoButton, { alignSelf: 'flex-start', marginBottom: 12 }]}
+            onPress={() => setShowAddDemoModal(true)}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={styles.addDemoGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.addDemoText}>+ Add Demo</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
         {content.map((item, index) => (
           activeContentTab === 'demos' ? (
             <TouchableOpacity 
@@ -870,6 +1125,20 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                       {currentTrack && currentTrack.id === item.id && isPlaying ? 'Playing' : 'Tap to play'}
                     </Text>
                   </View>
+                {isOwnProfile && (
+                  <TouchableOpacity
+                    onPress={() => confirmAndDeleteDemo(item)}
+                    style={{ marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255, 255, 255, 0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
+                    disabled={isDeletingDemoId === item.id}
+                    activeOpacity={0.8}
+                  >
+                    {isDeletingDemoId === item.id ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={{ color: '#ff6b6b', fontWeight: '700', fontSize: 12 }}>🗑️ Delete</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
                 </View>
               </View>
             </TouchableOpacity>
@@ -1135,7 +1404,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
               <View style={styles.profileActionsContainer}>
                 <TouchableOpacity 
                   style={styles.profileEditBtn}
-                  onPress={() => router.push('/profile/edit')}
+                  onPress={handleOpenEditModal}
                 >
                   <LinearGradient
                     colors={['#667eea', '#764ba2']}
@@ -1187,28 +1456,275 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
             </TouchableOpacity>
           </View>
           
-          {/* Add Demo Button - Only show for own profile */}
-          {activeContentTab === 'demos' && isOwnProfile && (
-            <TouchableOpacity 
-              style={styles.addDemoButton}
-              onPress={() => setShowAddDemoModal(true)}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                style={styles.addDemoGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.addDemoText}>+ Add Demo</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+          
         </View>
 
         {/* Content Grid */}
         {renderContentGrid()}
       </ScrollView>
+
+      {/* Add Demo Modal */}
+      <Modal
+        visible={showAddDemoModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddDemoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addDemoModalContent}>
+            <View style={styles.modalHandle} />
+            {/* Redesigned Add Demo Card */}
+            <View style={styles.addDemoHeaderCard}>
+              <LinearGradient
+                colors={['#667eea', '#764ba2', '#a18cd1']}
+                style={styles.addDemoHeaderGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.addDemoHeaderIcon}>🎤</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.addDemoHeaderTitle}>Add New Demo</Text>
+                  <Text style={styles.addDemoHeaderSubtitle}>Share a work-in-progress or idea</Text>
+                </View>
+                <View style={styles.addDemoRoleBadge}>
+                  <Text style={styles.addDemoRoleBadgeText}>
+                    {isUserPlus ? 'USERPLUS' : 'USER'}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </View>
+
+            <View style={styles.addDemoSection}>
+              <Text style={styles.addDemoLabel}>Title</Text>
+              <TextInput
+                placeholder="e.g. Midnight Sketch"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                value={demoTitle}
+                onChangeText={setDemoTitle}
+                style={styles.addDemoInput}
+              />
+            </View>
+
+            <View style={styles.addDemoSection}>
+              <Text style={styles.addDemoLabel}>Features (optional)</Text>
+              <TextInput
+                placeholder="Separate names with commas"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                value={demoFeatures}
+                onChangeText={setDemoFeatures}
+                style={styles.addDemoInput}
+              />
+            </View>
+
+            <View style={styles.addDemoSection}>
+              <Text style={styles.addDemoLabel}>Audio File</Text>
+              <TouchableOpacity onPress={pickDemoFile} style={styles.addDemoPickBtn} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.addDemoPickGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.addDemoPickIcon}>🎧</Text>
+                  <Text style={styles.addDemoPickText} numberOfLines={1}>
+                    {selectedDemoFile ? selectedDemoFile.name : 'Select MP3' + (isUserPlus ? ' or WAV' : '')}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <Text style={styles.addDemoHint}>
+                {isUserPlus ? 'Allowed formats: MP3, WAV' : 'Allowed format: MP3'}
+              </Text>
+            </View>
+
+            <View style={styles.addDemoActionsRow}>
+              <TouchableOpacity 
+                onPress={() => setShowAddDemoModal(false)}
+                style={styles.addDemoCancelBtn}
+                activeOpacity={0.8}
+                disabled={isSubmittingDemo}
+              >
+                <Text style={styles.addDemoCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={submitDemo}
+                disabled={isSubmittingDemo || !demoTitle.trim() || !selectedDemoFile}
+                style={styles.addDemoSubmitBtn}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={['#43e97b', '#38f9d7']}
+                  style={styles.addDemoSubmitGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {isSubmittingDemo ? (
+                    <ActivityIndicator size="small" color="#0a0a0a" />
+                  ) : (
+                    <Text style={styles.addDemoSubmitText}>Upload Demo</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditProfileModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addDemoModalContent}>
+            <View style={styles.modalHandle} />
+            
+            {/* Header */}
+            <View style={styles.addDemoHeaderCard}>
+              <LinearGradient
+                colors={['#667eea', '#764ba2', '#a18cd1']}
+                style={styles.addDemoHeaderGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.addDemoHeaderIcon}>✏️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.addDemoHeaderTitle}>Edit Profile</Text>
+                  <Text style={styles.addDemoHeaderSubtitle}>Update your profile information</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setShowEditProfileModal(false)}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 24 }}>✕</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+
+            <ScrollView style={{ flex: 1, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+              {/* Bio */}
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoLabel}>Bio</Text>
+                <TextInput
+                  placeholder="Tell us about yourself"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  value={editForm.bio}
+                  onChangeText={(text) => setEditForm({...editForm, bio: text})}
+                  style={[styles.addDemoInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              {/* Location */}
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoLabel}>Location</Text>
+                <TextInput
+                  placeholder="City, Country"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  value={editForm.location}
+                  onChangeText={(text) => setEditForm({...editForm, location: text})}
+                  style={styles.addDemoInput}
+                />
+              </View>
+
+              {/* About */}
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoLabel}>About</Text>
+                <TextInput
+                  placeholder="More about you..."
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  value={editForm.about}
+                  onChangeText={(text) => setEditForm({...editForm, about: text})}
+                  style={[styles.addDemoInput, { minHeight: 100, textAlignVertical: 'top' }]}
+                  multiline
+                  numberOfLines={6}
+                />
+              </View>
+
+              {/* Profile Picture */}
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoLabel}>Profile Picture</Text>
+                <TouchableOpacity onPress={handlePickProfilePic} style={styles.addDemoPickBtn} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={styles.addDemoPickGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.addDemoPickIcon}>📷</Text>
+                    <Text style={styles.addDemoPickText} numberOfLines={1}>
+                      {selectedProfilePic ? selectedProfilePic.name : 'Select Image'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                {!selectedProfilePic && editForm.profilePic && (
+                  <Image 
+                    source={{ uri: editForm.profilePic }} 
+                    style={{ width: 60, height: 60, borderRadius: 30, marginTop: 8, alignSelf: 'flex-start' }}
+                  />
+                )}
+              </View>
+
+              {/* Banner */}
+              <View style={styles.addDemoSection}>
+                <Text style={styles.addDemoLabel}>Banner Image</Text>
+                <TouchableOpacity onPress={handlePickBanner} style={styles.addDemoPickBtn} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={styles.addDemoPickGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.addDemoPickIcon}>🖼️</Text>
+                    <Text style={styles.addDemoPickText} numberOfLines={1}>
+                      {selectedBanner ? selectedBanner.name : 'Select Image'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                {!selectedBanner && editForm.banner && (
+                  <Image 
+                    source={{ uri: editForm.banner }} 
+                    style={{ width: '100%', height: 120, borderRadius: 8, marginTop: 8 }}
+                  />
+                )}
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.addDemoActionsRow}>
+                <TouchableOpacity 
+                  onPress={() => setShowEditProfileModal(false)}
+                  style={styles.addDemoCancelBtn}
+                  activeOpacity={0.8}
+                  disabled={isEditingProfile}
+                >
+                  <Text style={styles.addDemoCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={handleEditProfileSubmit}
+                  disabled={isEditingProfile}
+                  style={styles.addDemoSubmitBtn}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={['#43e97b', '#38f9d7']}
+                    style={styles.addDemoSubmitGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {isEditingProfile ? (
+                      <ActivityIndicator size="small" color="#0a0a0a" />
+                    ) : (
+                      <Text style={styles.addDemoSubmitText}>Save Changes</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Full-Screen Post Modal */}
       <Modal
@@ -1443,14 +1959,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         </View>
       </Modal>
 
-      {/* Add Demo Modal */}
-      <AddDemo
-        visible={showAddDemoModal}
-        onClose={() => setShowAddDemoModal(false)}
-        onDemoAdded={handleDemoAdded}
-        userRole={user?.role}
-        currentUserId={user?.id}
-      />
+      
     </>
   );
 }
@@ -3405,7 +3914,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     flexDirection: 'row',
-    height: 80,
+    height: 110,
   },
   demoCardLeft: {
     width: 80,
@@ -3919,6 +4428,139 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
     maxHeight: '90%',
+  },
+  addDemoModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 20,
+    paddingHorizontal: 22,
+    paddingBottom: 42,
+    height: '92%',
+    marginTop: 30,
+    borderWidth: 2,
+    borderColor: 'rgba(102, 126, 234, 0.25)',
+  },
+  addDemoHeaderCard: {
+    marginBottom: 16,
+  },
+  addDemoHeaderGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  addDemoHeaderIcon: {
+    fontSize: 26,
+    marginRight: 2,
+  },
+  addDemoHeaderTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  addDemoHeaderSubtitle: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  addDemoRoleBadge: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  addDemoRoleBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  addDemoSection: {
+    marginBottom: 14,
+  },
+  addDemoLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  addDemoInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    color: '#ffffff',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  addDemoPickBtn: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  addDemoPickGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  addDemoPickIcon: {
+    fontSize: 16,
+  },
+  addDemoPickText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  addDemoHint: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    marginTop: 6,
+  },
+  addDemoActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 12,
+  },
+  addDemoCancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    flex: 1,
+    alignItems: 'center',
+  },
+  addDemoCancelText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  addDemoSubmitBtn: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    flex: 1.2,
+  },
+  addDemoSubmitGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  addDemoSubmitText: {
+    color: '#0a0a0a',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   modalHandle: {
     width: 40,

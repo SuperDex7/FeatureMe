@@ -121,7 +121,8 @@ function FeedItem({
   totalComments = 0, 
   freeDownload = false,
   onLikeUpdate,
-  onCommentUpdate 
+  onCommentUpdate,
+  onDeletePost
 }) {
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -191,6 +192,7 @@ function FeedItem({
       freeDownload={freeDownload}
       onLikeUpdate={onLikeUpdate}
       onCommentUpdate={onCommentUpdate}
+      onDeletePost={onDeletePost}
       currentUser={currentUser}
       variant="default"
       showModal={true}
@@ -913,6 +915,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
           post.id === item.id ? { ...post, comments } : post
         ));
       }}
+      onDeletePost={(postId) => setPosts(prev => prev.filter(post => post.id !== postId))}
     />
   );
 
@@ -931,6 +934,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
         ));
       }}
       onSpotlightPress={onSpotlightPress}
+      onDeletePost={(postId) => setSpotlightPosts(prev => prev.filter(post => post.id !== postId))}
     />
   );
 

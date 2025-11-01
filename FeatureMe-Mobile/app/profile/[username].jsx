@@ -17,7 +17,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import api from '../../services/api';
-import { getPostById, trackDownload } from '../../services/postsService';
+import { getPostById, trackDownload, deletePost } from '../../services/postsService';
 import DemoService from '../../services/DemoService';
 import { UserRelationsService, getCurrentUser } from '../../services/userService';
 import LoggedInHeader from '../../components/ui/LoggedInHeader';
@@ -91,6 +91,7 @@ export default function UserProfileScreen() {
   const [isLiked, setIsLiked] = useState(false);
   const [isSubmittingLike, setIsSubmittingLike] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
   // Followers/Following modal state
   const [showFollowModal, setShowFollowModal] = useState(false);
@@ -301,6 +302,37 @@ export default function UserProfileScreen() {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const handleDeletePost = async () => {
+    if (!expandedPost || !currentUser || isDeletingPost) return;
+    
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeletingPost(true);
+            try {
+              await deletePost(expandedPost.id);
+              closeModal();
+              // Remove post from userPosts list
+              setUserPosts(prev => prev.filter(post => post.id !== expandedPost.id));
+              Alert.alert('Success', 'Post deleted successfully');
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            } finally {
+              setIsDeletingPost(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const closeModal = () => {
@@ -1069,6 +1101,20 @@ export default function UserProfileScreen() {
                             <ActivityIndicator size="small" color="#ffffff" />
                           ) : (
                             <Text style={styles.profileModalActionTextSecondary}>⬇️ Download</Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                      
+                      {currentUser && expandedPost.author?.userName === currentUser.userName && (
+                        <TouchableOpacity 
+                          style={[styles.profileModalActionBtnSecondary, styles.profileModalDeleteBtn]}
+                          onPress={handleDeletePost}
+                          disabled={isDeletingPost}
+                        >
+                          {isDeletingPost ? (
+                            <ActivityIndicator size="small" color="#ff4444" />
+                          ) : (
+                            <Text style={styles.profileModalDeleteText}>🗑️ Delete Post</Text>
                           )}
                         </TouchableOpacity>
                       )}
@@ -2042,6 +2088,15 @@ const styles = StyleSheet.create({
   },
   profileModalActionTextSecondary: {
     color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  profileModalDeleteBtn: {
+    borderColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+  },
+  profileModalDeleteText: {
+    color: '#ff4444',
     fontSize: 12,
     fontWeight: '600',
   },

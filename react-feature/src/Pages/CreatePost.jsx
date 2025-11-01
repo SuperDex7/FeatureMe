@@ -228,7 +228,7 @@ function CreatePost(){
       ...post,
       features: allFeatures
     };
-    formData.append("post", new Blob([JSON.stringify(postData)], {type: "application/json"}) )
+    formData.append("post", JSON.stringify(postData))
     if (file) {
       /*
       if (file.type !== "audio/mpeg") {
