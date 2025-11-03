@@ -78,8 +78,8 @@ public class PostsService {
     }
     
         
-    public Posts createPost(String authoruserName, Posts posts) {
-        User author = userRepository.findByUserName(authoruserName)
+    public Posts createPost(String authorId, Posts posts) {
+        User author = userRepository.findById(authorId)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
                      

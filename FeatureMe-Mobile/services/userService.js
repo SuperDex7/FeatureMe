@@ -58,13 +58,8 @@ export function getUserInfo(username) {
 
 // Profile update method
 export const updateProfile = (profileData, isFormData = false) => {
-  const config = isFormData ? {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  } : {};
-  
-  return api.patch('/user/update', profileData, config);
+  // When isFormData is true, the interceptor will handle removing Content-Type
+  return api.patch('/user/update', profileData);
 };
 
 // Clear current user's notifications - matching React web service

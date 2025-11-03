@@ -51,9 +51,6 @@ export const ChatService = {
         formData.append('file', file);
         
         return api.post(`/chats/${chatRoomId}/files`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
             onUploadProgress: onUploadProgress,
         });
     },

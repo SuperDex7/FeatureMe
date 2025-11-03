@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -61,26 +62,26 @@ public class PostsController {
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
     // while the "file" part is the uploaded song file.
-    @PostMapping(path ="/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(path ="/create")
     public PostsDTO createPost(@RequestPart("post") String postJson,
                             @RequestPart("file") MultipartFile file) throws IOException {
+                    
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
         }
-        
+
         String email = authentication.getName();
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        
         // Validate file type and size based on user role
-        validateFileTypeForUser(file, user);
+        //validateFileTypeForUser(file, user);
         fileUploadService.validateFileForUserByCategory(file, user, "audio"); // Role-based size limits and file types
         
         // Upload file to S3 bucket with unique filename and folder organization
         String keyName = fileUploadService.generateUniqueFilenameWithFolder(file, "audio/posts");
-        java.io.File tempFile = java.io.File.createTempFile("temp", null);
+        File tempFile = File.createTempFile("temp", null);
         file.transferTo(tempFile);
         String filePath = tempFile.getAbsolutePath();
         
@@ -96,7 +97,7 @@ public class PostsController {
         posts.setMusic(s3Url);
         
         // Create the post and return the DTO
-        Posts createdPost = postsService.createPost(user.getUserName(), posts);
+        Posts createdPost = postsService.createPost(user.getId(), posts);
         return postsService.getPostById(createdPost.getId());
     }
     

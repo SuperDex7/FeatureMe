@@ -506,14 +506,20 @@ export default function PostCard({
           {features && features.length > 0 && (
             <View style={styles.featuresContainer}>
               <Text style={styles.featuresLabel}>Feat:</Text>
-              <Text style={styles.featuresList}>
+              <View style={styles.featuresList}>
                 {features.slice(0, 2).map((feature, index) => (
-                  <Text key={index} style={getFeatureLinkStyles()}>{feature}</Text>
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => router.push(`/profile/${feature}`)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={getFeatureLinkStyles()}>{feature}</Text>
+                  </TouchableOpacity>
                 ))}
                 {features.length > 2 && (
                   <Text style={styles.featureMore}>+{features.length - 2} more</Text>
                 )}
-              </Text>
+              </View>
             </View>
           )}
 
@@ -692,9 +698,19 @@ export default function PostCard({
                     <Text style={styles.profileModalFeaturesLabel}>Featuring:</Text>
                     <View style={styles.profileModalFeaturesList}>
                       {features.map((feature, index) => (
-                        <Text key={index} style={styles.profileModalFeatureTag}>
-                          {feature}
-                        </Text>
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.profileModalFeatureTag}
+                          onPress={() => {
+                            setProfileModalVisible(false);
+                            router.push(`/profile/${feature}`);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.profileModalFeatureTagText}>
+                            {feature}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                     </View>
                   </View>
@@ -1075,6 +1091,9 @@ const styles = StyleSheet.create({
   },
   featuresList: {
     flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   featureLink: {
     color: '#667eea',
@@ -1377,14 +1396,16 @@ const styles = StyleSheet.create({
   },
   profileModalFeatureTag: {
     backgroundColor: 'rgba(120, 119, 198, 0.2)',
-    color: 'rgba(120, 119, 198, 1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    fontSize: 14,
-    fontWeight: '600',
     borderWidth: 1,
     borderColor: 'rgba(120, 119, 198, 0.3)',
+  },
+  profileModalFeatureTagText: {
+    color: 'rgba(120, 119, 198, 1)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Genres

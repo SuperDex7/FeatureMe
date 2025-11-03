@@ -59,11 +59,7 @@ const DemoService = {
 
     formData.append('file', filePart);
 
-    const response = await api.post('/demos/create', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/demos/create', formData);
 
     return response.data;
   },

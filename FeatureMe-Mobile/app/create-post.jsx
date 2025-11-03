@@ -179,33 +179,40 @@ export default function CreatePostScreen() {
       
       const postData = {
         title: title.trim(),
-        description: description.trim(),
-        genre: genres,
-        features: selectedUsers.map(user => user.userName),
+        description: description.trim() || '',
+        genre: genres || [],
+        features: selectedUsers.map(user => user.userName) || [],
         music: '',
+        price: 0.0,
         freeDownload: freeDownload
       };
 
-      formData.append('post', JSON.stringify(postData));
+      const postJsonString = JSON.stringify(postData);
+      formData.append('post', postJsonString);
       
       if (selectedFile) {
+        // Use the original MIME type from the picker first, but fix if needed
+        const resolvedName = selectedFile.name || `post-${Date.now()}.mp3`;
+        
+        // Backend doesn't accept audio/vnd.wave, so fix it if needed
+        let fileType = selectedFile.mimeType || 'audio/mpeg';
+        if (fileType.includes('vnd.wave') || fileType.includes('wave')) {
+          fileType = 'audio/wav';
+        }
+        
         formData.append('file', {
           uri: selectedFile.uri,
-          name: selectedFile.name,
-          type: selectedFile.mimeType || 'audio/mpeg',
+          name: resolvedName,
+          type: fileType,
         });
       }
 
-      await api.post('/posts/create', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await api.post('/posts/create', formData);
 
       Alert.alert('Success', 'Post created successfully!');
       router.back();
     } catch (error) {
-      console.error('Error creating post:', error);
+      console.error('Error creating post:', error.message);
       Alert.alert('Error', 'Failed to create post. Please try again.');
     } finally {
       setIsSubmitting(false);
