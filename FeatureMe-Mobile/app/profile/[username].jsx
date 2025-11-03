@@ -24,6 +24,10 @@ import LoggedInHeader from '../../components/ui/LoggedInHeader';
 import AuthGuard from '../../components/AuthGuard';
 import BottomNavigation from '../../components/BottomNavigation';
 import FollowersModal from '../../components/FollowersModal';
+import DemoCard from '../../components/DemoCard';
+import PostCardModal from '../../components/PostCardModal';
+import { useAudio } from '../../contexts/AudioContext';
+import CentralizedAudioPlayer from '../../components/CentralizedAudioPlayer';
 
 // Genre to icon mapping (same as main-app.jsx)
 const GENRE_ICONS = {
@@ -58,11 +62,26 @@ function getGenreIcon(genre) {
 
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams();
+  const { 
+    playTrack, 
+    currentTrack, 
+    isPlaying, 
+    position, 
+    duration, 
+    volume, 
+    isPlayerVisible,
+    pauseTrack,
+    resumeTrack,
+    seekTo,
+    setVolumeLevel,
+    hidePlayer,
+    togglePlayPause
+  } = useAudio();
   const [user, setUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [relationshipSummary, setRelationshipSummary] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeContentTab, setActiveContentTab] = useState('posts');
+  const [activeContentTab, setActiveContentTab] = useState('demos');
   const [userPosts, setUserPosts] = useState([]);
   const [userDemos, setUserDemos] = useState([]);
   const [featuredPosts, setFeaturedPosts] = useState([]);
@@ -82,16 +101,6 @@ export default function UserProfileScreen() {
   // Modal state for expandable cards
   const [expandedPost, setExpandedPost] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  
-  // Comment and like state
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [likes, setLikes] = useState([]);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSubmittingLike, setIsSubmittingLike] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
   // Followers/Following modal state
   const [showFollowModal, setShowFollowModal] = useState(false);
@@ -106,18 +115,33 @@ export default function UserProfileScreen() {
     }
   }, [username]);
 
+  // Track the username to detect user changes
+  const [currentUsername, setCurrentUsername] = useState(null);
+
   useEffect(() => {
     if (user) {
-      setPostsPage(0);
-      setFeaturedPage(0);
-      setUserPosts([]);
-      setUserDemos([]);
-      setFeaturedPosts([]);
-      setHasMorePosts(true);
-      setHasMoreFeatured(true);
-      fetchContent();
+      // If user changed, reset all data
+      if (currentUsername !== user.userName) {
+        setCurrentUsername(user.userName);
+        setPostsPage(0);
+        setFeaturedPage(0);
+        setUserPosts([]);
+        setUserDemos([]);
+        setFeaturedPosts([]);
+        setHasMorePosts(true);
+        setHasMoreFeatured(true);
+      }
+      
+      // Only fetch if data for the active tab hasn't been loaded yet
+      if (activeContentTab === 'posts' && userPosts.length === 0) {
+        fetchUserPosts(true);
+      } else if (activeContentTab === 'demos' && userDemos.length === 0) {
+        fetchUserDemos();
+      } else if (activeContentTab === 'featured' && featuredPosts.length === 0) {
+        fetchFeaturedPosts(true);
+      }
     }
-  }, [user, activeContentTab]);
+  }, [user, activeContentTab, currentUsername]);
 
   const fetchUserProfile = async () => {
     setIsLoading(true);
@@ -271,130 +295,76 @@ export default function UserProfileScreen() {
   };
 
   const handleCardPress = (item) => {
-    openModal(item);
-  };
-
-  const handleDownload = async () => {
-    if (!expandedPost || !expandedPost.freeDownload || isDownloading) return;
-    
-    setIsDownloading(true);
-    try {
-      const fileName = `${expandedPost.title} - ${expandedPost.author?.userName || 'Unknown'}.mp3`;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      
-      const downloadResult = await FileSystem.downloadAsync(expandedPost.music, fileUri);
-      
-      if (downloadResult.status === 200) {
-        await Sharing.shareAsync(downloadResult.uri);
-        
-        // Track the download
-        try {
-          const userName = currentUser?.userName || 'unknown';
-          await trackDownload(expandedPost.id, userName);
-          console.log('Download tracked for:', expandedPost.title);
-        } catch (error) {
-          console.error('Error tracking download:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      Alert.alert('Error', 'Failed to download file. Please try again.');
-    } finally {
-      setIsDownloading(false);
+    if (activeContentTab === 'demos') {
+      handleDemoPlay(item);
+    } else {
+      openModal(item);
     }
   };
 
-  const handleDeletePost = async () => {
-    if (!expandedPost || !currentUser || isDeletingPost) return;
-    
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeletingPost(true);
-            try {
-              await deletePost(expandedPost.id);
-              closeModal();
-              // Remove post from userPosts list
-              setUserPosts(prev => prev.filter(post => post.id !== expandedPost.id));
-              Alert.alert('Success', 'Post deleted successfully');
-            } catch (error) {
-              console.error('Error deleting post:', error);
-              Alert.alert('Error', 'Failed to delete post. Please try again.');
-            } finally {
-              setIsDeletingPost(false);
-            }
-          }
+  const handleDemoPlay = async (demo) => {
+    try {
+      // Check if this demo is currently playing
+      const isCurrentTrack = currentTrack && currentTrack.id === demo.id;
+      
+      if (isCurrentTrack && isPlaying) {
+        // Demo is playing, this will pause it
+        await playTrack(demo);
+      } else {
+        // Create a track object with the correct music property for demos
+        const audioUrl = demo.songUrl;
+        
+        if (!audioUrl) {
+          Alert.alert('Error', 'No audio file found for this demo');
+          return;
         }
-      ]
-    );
+        
+        const trackData = {
+          id: demo.id,
+          title: demo.title,
+          music: audioUrl,
+          author: {
+            userName: user?.userName,
+            profilePic: user?.profilePic,
+            banner: user?.banner
+          }
+        };
+        
+        // Play the demo
+        await playTrack(trackData);
+      }
+    } catch (error) {
+      console.error('Error playing demo:', error);
+      Alert.alert('Playback Error', 'Failed to play demo. Please try again.');
+    }
   };
+
 
   const closeModal = () => {
     setIsModalVisible(false);
     setExpandedPost(null);
-    setComments([]);
-    setNewComment('');
-    setLikes([]);
-    setIsDownloading(false);
-    setIsLiked(false);
   };
 
   const openModal = (post) => {
     setExpandedPost(post);
     setIsModalVisible(true);
-    setComments(post.comments || []);
-    setLikes(post.likes || []);
-    setIsLiked(post.likes?.some(like => like.userName === user?.userName) || false);
   };
 
-  const handleSubmitComment = async () => {
-    if (!newComment.trim() || !expandedPost || !user) return;
-    
-    setIsSubmittingComment(true);
-    try {
-      const comment = {
-        id: Date.now(),
-        userName: user.userName,
-        userPic: user.profilePic,
-        text: newComment.trim(),
-        time: new Date().toISOString(),
-      };
-      
-      setComments(prev => [...prev, comment]);
-      setNewComment('');
-    } catch (error) {
-      console.error('Error submitting comment:', error);
-    } finally {
-      setIsSubmittingComment(false);
+  const handlePostUpdate = (updatedPost) => {
+    if (!updatedPost) {
+      // Post was deleted
+      setUserPosts(prev => prev.filter(p => p.id !== expandedPost?.id));
+      closeModal();
+      return;
     }
-  };
-
-  const handleToggleLike = async () => {
-    if (!expandedPost || !user || isSubmittingLike) return;
     
-    setIsSubmittingLike(true);
-    try {
-      if (isLiked) {
-        setLikes(prev => prev.filter(like => like.userName !== user.userName));
-      } else {
-        const like = {
-          userName: user.userName,
-          userPic: user.profilePic,
-          time: new Date().toISOString(),
-        };
-        setLikes(prev => [...prev, like]);
-      }
-      setIsLiked(!isLiked);
-    } catch (error) {
-      console.error('Error toggling like:', error);
-    } finally {
-      setIsSubmittingLike(false);
+    // Update the post in the list
+    setUserPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    setFeaturedPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    
+    // Update expanded post if it's the same
+    if (expandedPost && expandedPost.id === updatedPost.id) {
+      setExpandedPost(updatedPost);
     }
   };
 
@@ -540,36 +510,13 @@ export default function UserProfileScreen() {
       <View style={activeContentTab === 'demos' ? styles.demoGridContainer : styles.profileContentContainer}>
         {content.map((item, index) => (
           activeContentTab === 'demos' ? (
-            <TouchableOpacity 
-              key={item.id || index} 
-              style={styles.demoCard}
+            <DemoCard
+              key={item.id || index}
+              demo={item}
+              isPlaying={currentTrack && currentTrack.id === item.id && isPlaying}
               onPress={() => handleCardPress(item)}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                style={styles.demoCardHeader}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.demoPlayOverlay}>
-                  <View style={styles.demoPlayButton}>
-                    <Text style={styles.demoPlayIcon}>▶️</Text>
-                  </View>
-                </View>
-                <View style={styles.demoPatternOverlay} />
-              </LinearGradient>
-              
-              <View style={styles.demoCardContent}>
-                <Text style={styles.demoTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <View style={styles.demoCardFooter}>
-                  <Text style={styles.demoLabel}>Demo</Text>
-                  <View style={styles.demoDot} />
-                </View>
-              </View>
-            </TouchableOpacity>
+              showDelete={false}
+            />
           ) : (
             <TouchableOpacity 
               key={item.id || index} 
@@ -594,7 +541,7 @@ export default function UserProfileScreen() {
                 {item.author?.role === 'USERPLUS' && (
                   <View style={styles.profilePostPremiumBadge}>
                     <Text style={styles.profilePostPremiumIcon}>✨</Text>
-                    <Text style={styles.profilePostPremiumText}>Premium</Text>
+                    <Text style={styles.profilePostPremiumText}>UserPlus</Text>
                   </View>
                 )}
 
@@ -644,9 +591,15 @@ export default function UserProfileScreen() {
                     <Text style={styles.profilePostFeaturesLabel}>Feat:</Text>
                     <View style={styles.profilePostFeaturesList}>
                       {item.features.slice(0, 2).map((feature, idx) => (
-                        <Text key={idx} style={styles.profilePostFeatureLink}>
-                          {feature}
-                        </Text>
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => router.push(`/profile/${feature}`)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.profilePostFeatureLink}>
+                            {feature}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                       {item.features.length > 2 && (
                         <Text style={styles.profilePostFeatureMore}>
@@ -719,7 +672,16 @@ export default function UserProfileScreen() {
     return (
       <AuthGuard>
         <View style={styles.loadingContainer}>
-          <LoggedInHeader />
+          {/* Back Header */}
+          <View style={{position:'absolute',top:75,left:0,right:0,zIndex:10,flexDirection:'row',alignItems:'center',paddingVertical:1,paddingHorizontal:16}}>
+            <TouchableOpacity onPress={() => router.back()} style={{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,0.1)',alignItems:'center',justifyContent:'center'}}>
+              <Text style={{fontSize:24,color:'white'}}>{'‹'}</Text>
+            </TouchableOpacity>
+            <View style={{flex:1,alignItems:'center'}}>
+              <Text style={{fontSize:18,fontWeight:'600',color:'white'}}>{user?.userName || 'Profile'}</Text>
+            </View>
+            <View style={{width:36}} />
+          </View>
           <View style={styles.loadingContent}>
             <ActivityIndicator size="large" color="#667eea" />
             <Text style={styles.loadingText}>Loading profile...</Text>
@@ -733,7 +695,16 @@ export default function UserProfileScreen() {
     return (
       <AuthGuard>
         <View style={styles.errorContainer}>
-          <LoggedInHeader />
+          {/* Back Header */}
+          <View style={{position:'absolute',top:75,left:0,right:0,zIndex:10,flexDirection:'row',alignItems:'center',paddingVertical:1,paddingHorizontal:16}}>
+            <TouchableOpacity onPress={() => router.back()} style={{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,0.1)',alignItems:'center',justifyContent:'center'}}>
+              <Text style={{fontSize:24,color:'white'}}>{'‹'}</Text>
+            </TouchableOpacity>
+            <View style={{flex:1,alignItems:'center'}}>
+              <Text style={{fontSize:18,fontWeight:'600',color:'white'}}>{user?.userName || 'Profile'}</Text>
+            </View>
+            <View style={{width:36}} />
+          </View>
           <View style={styles.errorContent}>
             <Text style={styles.errorText}>User not found</Text>
             <TouchableOpacity 
@@ -751,7 +722,16 @@ export default function UserProfileScreen() {
   return (
     <AuthGuard>
       <View style={styles.container}>
-        <LoggedInHeader />
+        {/* Back Header */}
+        <View style={{position:'absolute',top:75,left:0,right:0,zIndex:10,flexDirection:'row',alignItems:'center',paddingVertical:1,paddingHorizontal:16}}>
+          <TouchableOpacity onPress={() => router.back()} style={{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,0.1)',alignItems:'center',justifyContent:'center'}}>
+            <Text style={{fontSize:24,color:'white'}}>{'‹'}</Text>
+          </TouchableOpacity>
+          <View style={{flex:1,alignItems:'center'}}>
+            <Text style={{fontSize:18,fontWeight:'600',color:'white'}}>{user?.userName || 'Profile'}</Text>
+          </View>
+          <View style={{width:36}} />
+        </View>
         <ScrollView 
           style={styles.profileScrollView} 
           showsVerticalScrollIndicator={false}
@@ -840,7 +820,10 @@ export default function UserProfileScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.messageButton}
-                      onPress={() => router.push(`/messages?createChat=true&user=${username}`)}
+                      onPress={() => router.push({
+                        pathname: '/messages',
+                        params: { createChat: 'true', user: username }
+                      })}
                     >
                       <Text style={styles.messageButtonText}>💬 Message</Text>
                     </TouchableOpacity>
@@ -910,239 +893,15 @@ export default function UserProfileScreen() {
           {renderContentGrid()}
         </ScrollView>
 
-        {/* Full-Screen Post Modal */}
-        <Modal
+        {/* Post Card Modal */}
+        <PostCardModal
           visible={isModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={closeModal}
-        >
-          <View style={styles.profileModalOverlay}>
-            <View style={styles.profileModalContent}>
-              {expandedPost && (
-                <>
-                  <TouchableOpacity 
-                    style={styles.profileModalCloseBtn}
-                    onPress={closeModal}
-                  >
-                    <Text style={styles.profileModalCloseIcon}>✕</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.profileModalHero}>
-                    <Image 
-                      source={{ 
-                        uri: expandedPost.banner || expandedPost.thumbnail || expandedPost.coverImage || user.banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"
-                      }} 
-                      style={styles.profileModalBanner}
-                      defaultSource={require('../../assets/images/pb.jpg')}
-                    />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.8)']}
-                      style={styles.profileModalGradientOverlay}
-                    />
-                    <View style={styles.profileModalHeroContent}>
-                      <Text style={styles.profileModalHeroTitle}>{expandedPost.title}</Text>
-                      
-                      <View style={styles.profileModalHeroProfile}>
-                        <Image 
-                          source={{ uri: expandedPost.author?.profilePic || user.profilePic }} 
-                          style={styles.profileModalHeroAvatar}
-                          defaultSource={require('../../assets/images/dpp.jpg')}
-                        />
-                        <View style={styles.profileModalHeroProfileInfo}>
-                          <Text style={styles.profileModalHeroUsername}>
-                            {expandedPost.author?.userName || user.userName}
-                          </Text>
-                          <Text style={styles.profileModalHeroDate}>
-                            {new Date(expandedPost.time).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    
-                    <TouchableOpacity style={styles.profileModalHeroPlayBtn}>
-                      <Text style={styles.profileModalHeroPlayIcon}>▶</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView style={styles.profileModalScrollView} showsVerticalScrollIndicator={false}>
-                    {expandedPost.description && (
-                      <View style={styles.profileModalDescriptionContainer}>
-                        <Text style={styles.profileModalDescription}>{expandedPost.description}</Text>
-                      </View>
-                    )}
-
-                    {expandedPost.features && Array.isArray(expandedPost.features) && expandedPost.features.length > 0 && (
-                      <View style={styles.profileModalFeaturesContainer}>
-                        <Text style={styles.profileModalFeaturesLabel}>Featuring:</Text>
-                        <View style={styles.profileModalFeaturesList}>
-                          {expandedPost.features.map((feature, index) => (
-                            <Text key={index} style={styles.profileModalFeatureTag}>
-                              {feature}
-                            </Text>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-                    
-                    {expandedPost.genre && Array.isArray(expandedPost.genre) && expandedPost.genre.length > 0 && (
-                      <View style={styles.profileModalGenresContainer}>
-                        {expandedPost.genre.map((genreItem, index) => (
-                          <View key={index} style={styles.profileModalGenreTag}>
-                            <Text style={styles.profileModalGenreTagText}>{genreItem}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    <View style={styles.profileModalCommentsContainer}>
-                      <Text style={styles.profileModalCommentsTitle}>Comments ({comments.length})</Text>
-                      
-                      <ScrollView 
-                        style={styles.profileModalCommentsList}
-                        showsVerticalScrollIndicator={false}
-                        nestedScrollEnabled={true}
-                      >
-                        {comments.map((comment) => (
-                          <View key={comment.id} style={styles.profileModalCommentItem}>
-                            <Image 
-                              source={{ uri: comment.userPic || user.profilePic }} 
-                              style={styles.profileModalCommentAvatar}
-                              defaultSource={require('../../assets/images/dpp.jpg')}
-                            />
-                            <View style={styles.profileModalCommentContent}>
-                              <View style={styles.profileModalCommentHeader}>
-                                <Text style={styles.profileModalCommentUsername}>{comment.userName}</Text>
-                                <Text style={styles.profileModalCommentTime}>
-                                  {new Date(comment.time).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </Text>
-                              </View>
-                              <Text style={styles.profileModalCommentText}>{comment.text}</Text>
-                            </View>
-                          </View>
-                        ))}
-                        
-                        {comments.length === 0 && (
-                          <View style={styles.profileModalNoComments}>
-                            <Text style={styles.profileModalNoCommentsText}>No comments yet</Text>
-                            <Text style={styles.profileModalNoCommentsSubtext}>Be the first to comment!</Text>
-                          </View>
-                        )}
-                      </ScrollView>
-
-                      <View style={styles.profileModalCommentInputContainer}>
-                        <Image 
-                          source={{ uri: user?.profilePic }} 
-                          style={styles.profileModalCommentInputAvatar}
-                          defaultSource={require('../../assets/images/dpp.jpg')}
-                        />
-                        <TextInput
-                          style={styles.profileModalCommentInput}
-                          placeholder="Add a comment..."
-                          placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                          value={newComment}
-                          onChangeText={setNewComment}
-                          multiline
-                          maxLength={500}
-                        />
-                        <TouchableOpacity 
-                          style={[styles.profileModalCommentSubmitBtn, !newComment.trim() && styles.profileModalCommentSubmitBtnDisabled]}
-                          onPress={handleSubmitComment}
-                          disabled={!newComment.trim() || isSubmittingComment}
-                        >
-                          <Text style={styles.profileModalCommentSubmitText}>
-                            {isSubmittingComment ? '...' : 'Post'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.profileModalActionsContainer}>
-                      <TouchableOpacity 
-                        style={styles.profileModalActionBtnPrimary}
-                        onPress={() => {
-                          closeModal();
-                          router.push(`/post/${expandedPost.id}`);
-                        }}
-                      >
-                        <Text style={styles.profileModalActionTextPrimary}>View Full Post</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={styles.profileModalActionBtnSecondary}
-                        onPress={() => {
-                          closeModal();
-                          const targetUser = expandedPost.author?.userName || user.userName;
-                          if (targetUser !== username) {
-                            router.push(`/profile/${targetUser}`);
-                          }
-                        }}
-                      >
-                        <Text style={styles.profileModalActionTextSecondary}>View Profile</Text>
-                      </TouchableOpacity>
-                      
-                      {expandedPost.freeDownload && (
-                        <TouchableOpacity 
-                          style={styles.profileModalActionBtnSecondary}
-                          onPress={handleDownload}
-                          disabled={isDownloading}
-                        >
-                          {isDownloading ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
-                          ) : (
-                            <Text style={styles.profileModalActionTextSecondary}>⬇️ Download</Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
-                      
-                      {currentUser && expandedPost.author?.userName === currentUser.userName && (
-                        <TouchableOpacity 
-                          style={[styles.profileModalActionBtnSecondary, styles.profileModalDeleteBtn]}
-                          onPress={handleDeletePost}
-                          disabled={isDeletingPost}
-                        >
-                          {isDeletingPost ? (
-                            <ActivityIndicator size="small" color="#ff4444" />
-                          ) : (
-                            <Text style={styles.profileModalDeleteText}>🗑️ Delete Post</Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </ScrollView>
-
-                  <View style={styles.profileModalFloatingStats}>
-                    <TouchableOpacity 
-                      style={styles.profileModalFloatingLikeBtn}
-                      onPress={handleToggleLike}
-                      disabled={isSubmittingLike}
-                    >
-                      <Text style={styles.profileModalFloatingLikeIcon}>
-                        {isLiked ? '❤️' : '🤍'}
-                      </Text>
-                      <Text style={styles.profileModalFloatingCount}>{likes.length}</Text>
-                    </TouchableOpacity>
-                    
-                    <View style={styles.profileModalFloatingViewBtn}>
-                      <Text style={styles.profileModalFloatingViewIcon}>👁️</Text>
-                      <Text style={styles.profileModalFloatingCount}>{expandedPost.totalViews || 0}</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          </View>
-        </Modal>
+          onClose={closeModal}
+          post={expandedPost}
+          currentUser={currentUser}
+          onPostUpdate={handlePostUpdate}
+          showDelete={currentUser?.userName === username}
+        />
 
         {/* Followers/Following Modal */}
         <FollowersModal
@@ -1150,6 +909,21 @@ export default function UserProfileScreen() {
           onClose={() => setShowFollowModal(false)}
           userName={username}
           type={followModalType}
+        />
+
+        {/* Audio Player */}
+        <CentralizedAudioPlayer
+          isVisible={isPlayerVisible}
+          currentTrack={currentTrack}
+          onClose={hidePlayer}
+          onPlayPause={togglePlayPause}
+          isPlaying={isPlaying}
+          position={position}
+          duration={duration}
+          volume={volume}
+          onVolumeChange={setVolumeLevel}
+          onSeek={seekTo}
+          currentUser={currentUser}
         />
 
         <BottomNavigation />
@@ -1434,12 +1208,9 @@ const styles = StyleSheet.create({
     paddingTop: 20
   },
   demoGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 20,
-    paddingTop: 20
+    paddingTop: 20,
   },
   profilePostCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -1721,99 +1492,6 @@ const styles = StyleSheet.create({
   },
   loadMoreIcon: {
     fontSize: 16,
-  },
-  demoCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    width: '48%',
-  },
-  demoCardHeader: {
-    position: 'relative',
-    height: 90,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  demoPlayIcon: {
-    fontSize: 18,
-    marginLeft: 2,
-  },
-  demoPatternOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    opacity: 0.3,
-  },
-  demoCardContent: {
-    padding: 12,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    minHeight: 50,
-    justifyContent: 'space-between',
-  },
-  demoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 6,
-    letterSpacing: 0.2,
-  },
-  demoCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  demoLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  demoDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#667eea',
   },
   profileModalOverlay: {
     flex: 1,

@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { 
   listPosts, 
@@ -32,7 +33,7 @@ import {
   getPostById,
   trackDownload 
 } from '../services/postsService';
-import { UserRelationsService, clearMyNotifications } from '../services/userService';
+import { UserRelationsService, clearMyNotifications, changePassword } from '../services/userService';
 import DemoService from '../services/DemoService';
 import LoggedInHeader from '../components/ui/LoggedInHeader';
 import { getCurrentUser } from '../services/api';
@@ -41,6 +42,9 @@ import BottomNavigation from '../components/BottomNavigation';
 import { useAudio } from '../contexts/AudioContext';
 import FollowersModal from '../components/FollowersModal';
 import CentralizedAudioPlayer from '../components/CentralizedAudioPlayer';
+import ViewsAnalytics from '../components/ViewsAnalytics';
+import DemoCard from '../components/DemoCard';
+import PostCardModal from '../components/PostCardModal';
 
 // Import the existing feed components
 import FeedScreen from './feed';
@@ -418,31 +422,52 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
   const [selectedBanner, setSelectedBanner] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   
-  // Comment and like state
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [likes, setLikes] = useState([]);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSubmittingLike, setIsSubmittingLike] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  
+  // Edit Profile Tab state
+  const [editProfileTab, setEditProfileTab] = useState('basic');
+  
+  // Analytics modal state
+  const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
+  const [analyticsPost, setAnalyticsPost] = useState(null);
   
   // Pull to refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Track the user ID to detect user changes
+  const [currentUserId, setCurrentUserId] = useState(null);
+
   useEffect(() => {
     if (user) {
-      // Reset pagination when switching tabs
-      setPostsPage(0);
-      setFeaturedPage(0);
-      setUserPosts([]);
-      setUserDemos([]);
-      setFeaturedPosts([]);
-      setHasMorePosts(true);
-      setHasMoreFeatured(true);
-      fetchContent();
+      // If user changed, reset all data
+      if (currentUserId !== user.id) {
+        setCurrentUserId(user.id);
+        setPostsPage(0);
+        setFeaturedPage(0);
+        setUserPosts([]);
+        setUserDemos([]);
+        setFeaturedPosts([]);
+        setHasMorePosts(true);
+        setHasMoreFeatured(true);
+      }
+      
+      // Only fetch if data for the active tab hasn't been loaded yet
+      if (activeContentTab === 'posts' && userPosts.length === 0) {
+        fetchUserPosts(true);
+      } else if (activeContentTab === 'demos' && userDemos.length === 0) {
+        fetchUserDemos();
+      } else if (activeContentTab === 'featured' && featuredPosts.length === 0) {
+        fetchFeaturedPosts(true);
+      }
     }
-  }, [user, activeContentTab]);
+  }, [user, activeContentTab, currentUserId]);
 
   // Check if viewing own profile
   useEffect(() => {
@@ -618,99 +643,32 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
     }
   };
 
-  const handleDownload = async () => {
-    if (!expandedPost || !expandedPost.freeDownload || isDownloading) return;
-    
-    setIsDownloading(true);
-    try {
-      const fileName = `${expandedPost.title} - ${expandedPost.author?.userName || 'Unknown'}.mp3`;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      
-      const downloadResult = await FileSystem.downloadAsync(expandedPost.music, fileUri);
-      
-      if (downloadResult.status === 200) {
-        await Sharing.shareAsync(downloadResult.uri);
-        
-        // Track the download
-        try {
-          const userName = user.userName || 'unknown';
-          await trackDownload(expandedPost.id, userName);
-          console.log('Download tracked for:', expandedPost.title);
-        } catch (error) {
-          console.error('Error tracking download:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      Alert.alert('Error', 'Failed to download file. Please try again.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   const closeModal = () => {
     setIsModalVisible(false);
     setExpandedPost(null);
-    setComments([]);
-    setNewComment('');
-    setLikes([]);
-    setIsLiked(false);
-    setIsDownloading(false);
   };
 
   const openModal = (post) => {
     setExpandedPost(post);
     setIsModalVisible(true);
-    // Initialize comments and likes from post data
-    setComments(post.comments || []);
-    setLikes(post.likes || []);
-    setIsLiked(post.likes?.some(like => like.userName === user?.userName) || false);
   };
 
-  const handleSubmitComment = async () => {
-    if (!newComment.trim() || !expandedPost || !user) return;
-    
-    setIsSubmittingComment(true);
-    try {
-      // Simulate API call - replace with actual API call
-      const comment = {
-        id: Date.now(),
-        userName: user.userName,
-        userPic: user.profilePic,
-        text: newComment.trim(),
-        time: new Date().toISOString(),
-      };
-      
-      setComments(prev => [...prev, comment]);
-      setNewComment('');
-    } catch (error) {
-      console.error('Error submitting comment:', error);
-    } finally {
-      setIsSubmittingComment(false);
+  const handlePostUpdate = (updatedPost) => {
+    if (!updatedPost) {
+      // Post was deleted
+      setUserPosts(prev => prev.filter(p => p.id !== expandedPost?.id));
+      setFeaturedPosts(prev => prev.filter(p => p.id !== expandedPost?.id));
+      closeModal();
+      return;
     }
-  };
-
-  const handleToggleLike = async () => {
-    if (!expandedPost || !user || isSubmittingLike) return;
     
-    setIsSubmittingLike(true);
-    try {
-      // Simulate API call - replace with actual API call
-      if (isLiked) {
-        setLikes(prev => prev.filter(like => like.userName !== user.userName));
-      } else {
-        const like = {
-          userName: user.userName,
-          userPic: user.profilePic,
-          time: new Date().toISOString(),
-        };
-        setLikes(prev => [...prev, like]);
-      }
-      setIsLiked(!isLiked);
-    } catch (error) {
-      console.error('Error toggling like:', error);
-    } finally {
-      setIsSubmittingLike(false);
+    // Update the post in the list
+    setUserPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    setFeaturedPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    
+    // Update expanded post if it's the same
+    if (expandedPost && expandedPost.id === updatedPost.id) {
+      setExpandedPost(updatedPost);
     }
   };
 
@@ -865,13 +823,29 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
   // Edit Profile functions
   const handlePickProfilePic = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: false,
+      // Request permission to access media library
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant permission to access your photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
       });
       
-      if (!result.canceled && result.assets[0]) {
-        setSelectedProfilePic(result.assets[0]);
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        // Convert ImagePicker result to format expected by the code
+        setSelectedProfilePic({
+          uri: asset.uri,
+          name: asset.fileName || `profile_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          type: 'image/jpeg',
+        });
       }
     } catch (error) {
       console.error('Error picking profile picture:', error);
@@ -881,13 +855,29 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
 
   const handlePickBanner = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: false,
+      // Request permission to access media library
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant permission to access your photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
       });
       
-      if (!result.canceled && result.assets[0]) {
-        setSelectedBanner(result.assets[0]);
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        // Convert ImagePicker result to format expected by the code
+        setSelectedBanner({
+          uri: asset.uri,
+          name: asset.fileName || `banner_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          type: 'image/jpeg',
+        });
       }
     } catch (error) {
       console.error('Error picking banner:', error);
@@ -907,6 +897,13 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
     });
     setSelectedProfilePic(null);
     setSelectedBanner(null);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowPasswordFields(false);
+    setEditProfileTab('basic');
     setShowEditProfileModal(true);
   };
 
@@ -967,6 +964,50 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setIsEditingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (isChangingPassword) return;
+    
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      Alert.alert('Error', 'All password fields are required');
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      Alert.alert('Error', 'New password must be at least 6 characters long');
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    try {
+      await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      
+      // Reset password form
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowPasswordFields(false);
+      
+      Alert.alert('Success', 'Password changed successfully!');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to change password. Please check your current password.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -1067,81 +1108,22 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
             </LinearGradient>
           </TouchableOpacity>
         )}
+        {activeContentTab === 'demos' && isOwnProfile && (
+          <Text style={styles.addDemoDescription}>
+            Share finished music here so listeners can hear your sound.
+          </Text>
+        )}
         {content.map((item, index) => (
           activeContentTab === 'demos' ? (
-            <TouchableOpacity 
-              key={item.id || index} 
-              style={[
-                styles.demoCardHorizontal,
-                currentTrack && currentTrack.id === item.id && isPlaying && styles.demoCardPlaying
-              ]}
+            <DemoCard
+              key={item.id || index}
+              demo={item}
+              isPlaying={currentTrack && currentTrack.id === item.id && isPlaying}
               onPress={() => handleCardPress(item)}
-              activeOpacity={0.8}
-            >
-              {/* Horizontal Demo Card */}
-              <View style={styles.demoCardLeft}>
-                <LinearGradient
-                  colors={
-                    currentTrack && currentTrack.id === item.id && isPlaying 
-                      ? ['#43e97b', '#38f9d7'] 
-                      : ['#667eea', '#764ba2']
-                  }
-                  style={styles.demoCardThumbnail}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.demoPlayOverlayHorizontal}>
-                    <View style={[
-                      styles.demoPlayButtonHorizontal,
-                      currentTrack && currentTrack.id === item.id && isPlaying && styles.demoPlayButtonPlaying
-                    ]}>
-                      <Text style={styles.demoPlayIconHorizontal}>
-                        {currentTrack && currentTrack.id === item.id && isPlaying ? '⏸️' : '▶️'}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-              
-              <View style={styles.demoCardRight}>
-                <View style={styles.demoCardInfo}>
-                  <Text style={styles.demoTitleHorizontal} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.demoSubtitleHorizontal} numberOfLines={1}>
-                    Demo • {item.features && item.features.length > 0 ? item.features.join(', ') : 'No features'}
-                  </Text>
-                </View>
-                
-                <View style={styles.demoCardActions}>
-                  <View style={[
-                    styles.demoStatusIndicator,
-                    currentTrack && currentTrack.id === item.id && isPlaying && styles.demoStatusIndicatorPlaying
-                  ]}>
-                    <Text style={[
-                      styles.demoStatusText,
-                      currentTrack && currentTrack.id === item.id && isPlaying && styles.demoStatusTextPlaying
-                    ]}>
-                      {currentTrack && currentTrack.id === item.id && isPlaying ? 'Playing' : 'Tap to play'}
-                    </Text>
-                  </View>
-                {isOwnProfile && (
-                  <TouchableOpacity
-                    onPress={() => confirmAndDeleteDemo(item)}
-                    style={{ marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255, 255, 255, 0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
-                    disabled={isDeletingDemoId === item.id}
-                    activeOpacity={0.8}
-                  >
-                    {isDeletingDemoId === item.id ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={{ color: '#ff6b6b', fontWeight: '700', fontSize: 12 }}>🗑️ Delete</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-                </View>
-              </View>
-            </TouchableOpacity>
+              onDelete={confirmAndDeleteDemo}
+              isDeleting={isDeletingDemoId === item.id}
+              showDelete={isOwnProfile}
+            />
           ) : (
             <TouchableOpacity 
               key={item.id || index} 
@@ -1168,7 +1150,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                 {item.author?.role === 'USERPLUS' && (
                   <View style={styles.profilePostPremiumBadge}>
                     <Text style={styles.profilePostPremiumIcon}>✨</Text>
-                    <Text style={styles.profilePostPremiumText}>Premium</Text>
+                    <Text style={styles.profilePostPremiumText}>UserPlus</Text>
                   </View>
                 )}
 
@@ -1224,9 +1206,15 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                     <Text style={styles.profilePostFeaturesLabel}>Feat:</Text>
                     <View style={styles.profilePostFeaturesList}>
                       {item.features.slice(0, 2).map((feature, idx) => (
-                        <Text key={idx} style={styles.profilePostFeatureLink}>
-                          {feature}
-                        </Text>
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => router.push(`/profile/${feature}`)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.profilePostFeatureLink}>
+                            {feature}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                       {item.features.length > 2 && (
                         <Text style={styles.profilePostFeatureMore}>
@@ -1269,6 +1257,21 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                     <Text style={styles.profilePostStatText}>{item.totalViews || 0}</Text>
                   </View>
                 </View>
+
+                {/* Analytics Button - Only show for own posts if USERPLUS */}
+                {isOwnProfile && currentUser?.role === 'USERPLUS' && (
+                  <TouchableOpacity
+                    style={styles.profilePostAnalyticsButton}
+                    onPress={() => {
+                      setAnalyticsPost(item);
+                      setShowViewsAnalytics(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.profilePostAnalyticsIcon}>📊</Text>
+                    <Text style={styles.profilePostAnalyticsText}>Analytics</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </TouchableOpacity>
           )
@@ -1574,7 +1577,15 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         visible={showEditProfileModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowEditProfileModal(false)}
+        onRequestClose={() => {
+          setShowEditProfileModal(false);
+          setPasswordForm({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          });
+          setShowPasswordFields(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.addDemoModalContent}>
@@ -1594,7 +1605,15 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                   <Text style={styles.addDemoHeaderSubtitle}>Update your profile information</Text>
                 </View>
                 <TouchableOpacity 
-                  onPress={() => setShowEditProfileModal(false)}
+                  onPress={() => {
+                    setShowEditProfileModal(false);
+                    setPasswordForm({
+                      currentPassword: '',
+                      newPassword: '',
+                      confirmPassword: ''
+                    });
+                    setShowPasswordFields(false);
+                  }}
                   style={{ padding: 8 }}
                 >
                   <Text style={{ color: '#fff', fontSize: 24 }}>✕</Text>
@@ -1602,99 +1621,219 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
               </LinearGradient>
             </View>
 
+            {/* Tabs */}
+            <View style={styles.editProfileTabs}>
+              <TouchableOpacity
+                style={[styles.editProfileTab, editProfileTab === 'basic' && styles.editProfileTabActive]}
+                onPress={() => setEditProfileTab('basic')}
+              >
+                <Text style={[styles.editProfileTabText, editProfileTab === 'basic' && styles.editProfileTabTextActive]}>
+                  Basic Info
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editProfileTab, editProfileTab === 'images' && styles.editProfileTabActive]}
+                onPress={() => setEditProfileTab('images')}
+              >
+                <Text style={[styles.editProfileTabText, editProfileTab === 'images' && styles.editProfileTabTextActive]}>
+                  Images
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editProfileTab, editProfileTab === 'security' && styles.editProfileTabActive]}
+                onPress={() => setEditProfileTab('security')}
+              >
+                <Text style={[styles.editProfileTabText, editProfileTab === 'security' && styles.editProfileTabTextActive]}>
+                  Security
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView style={{ flex: 1, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-              {/* Bio */}
-              <View style={styles.addDemoSection}>
-                <Text style={styles.addDemoLabel}>Bio</Text>
-                <TextInput
-                  placeholder="Tell us about yourself"
-                  placeholderTextColor="rgba(255,255,255,0.45)"
-                  value={editForm.bio}
-                  onChangeText={(text) => setEditForm({...editForm, bio: text})}
-                  style={[styles.addDemoInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
+              {/* Basic Info Tab */}
+              {editProfileTab === 'basic' && (
+                <>
+                  {/* Bio */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={styles.addDemoLabel}>Bio</Text>
+                    <TextInput
+                      placeholder="Tell us about yourself"
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      value={editForm.bio}
+                      onChangeText={(text) => setEditForm({...editForm, bio: text})}
+                      style={[styles.addDemoInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
 
-              {/* Location */}
-              <View style={styles.addDemoSection}>
-                <Text style={styles.addDemoLabel}>Location</Text>
-                <TextInput
-                  placeholder="City, Country"
-                  placeholderTextColor="rgba(255,255,255,0.45)"
-                  value={editForm.location}
-                  onChangeText={(text) => setEditForm({...editForm, location: text})}
-                  style={styles.addDemoInput}
-                />
-              </View>
+                  {/* Location */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={styles.addDemoLabel}>Location</Text>
+                    <TextInput
+                      placeholder="City, Country"
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      value={editForm.location}
+                      onChangeText={(text) => setEditForm({...editForm, location: text})}
+                      style={styles.addDemoInput}
+                    />
+                  </View>
 
-              {/* About */}
-              <View style={styles.addDemoSection}>
-                <Text style={styles.addDemoLabel}>About</Text>
-                <TextInput
-                  placeholder="More about you..."
-                  placeholderTextColor="rgba(255,255,255,0.45)"
-                  value={editForm.about}
-                  onChangeText={(text) => setEditForm({...editForm, about: text})}
-                  style={[styles.addDemoInput, { minHeight: 100, textAlignVertical: 'top' }]}
-                  multiline
-                  numberOfLines={6}
-                />
-              </View>
+                  {/* About */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={styles.addDemoLabel}>About</Text>
+                    <TextInput
+                      placeholder="More about you..."
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      value={editForm.about}
+                      onChangeText={(text) => setEditForm({...editForm, about: text})}
+                      style={[styles.addDemoInput, { minHeight: 100, textAlignVertical: 'top' }]}
+                      multiline
+                      numberOfLines={6}
+                    />
+                  </View>
+                </>
+              )}
 
-              {/* Profile Picture */}
-              <View style={styles.addDemoSection}>
-                <Text style={styles.addDemoLabel}>Profile Picture</Text>
-                <TouchableOpacity onPress={handlePickProfilePic} style={styles.addDemoPickBtn} activeOpacity={0.85}>
-                  <LinearGradient
-                    colors={['#667eea', '#764ba2']}
-                    style={styles.addDemoPickGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Text style={styles.addDemoPickIcon}>📷</Text>
-                    <Text style={styles.addDemoPickText} numberOfLines={1}>
-                      {selectedProfilePic ? selectedProfilePic.name : 'Select Image'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                {!selectedProfilePic && editForm.profilePic && (
-                  <Image 
-                    source={{ uri: editForm.profilePic }} 
-                    style={{ width: 60, height: 60, borderRadius: 30, marginTop: 8, alignSelf: 'flex-start' }}
-                  />
-                )}
-              </View>
+              {/* Images Tab */}
+              {editProfileTab === 'images' && (
+                <>
+                  {/* Profile Picture */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={styles.addDemoLabel}>Profile Picture</Text>
+                    <TouchableOpacity onPress={handlePickProfilePic} style={styles.addDemoPickBtn} activeOpacity={0.85}>
+                      <LinearGradient
+                        colors={['#667eea', '#764ba2']}
+                        style={styles.addDemoPickGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Text style={styles.addDemoPickIcon}>📷</Text>
+                        <Text style={styles.addDemoPickText} numberOfLines={1}>
+                          {selectedProfilePic ? selectedProfilePic.name : 'Select Image'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    {!selectedProfilePic && editForm.profilePic && (
+                      <Image 
+                        source={{ uri: editForm.profilePic }} 
+                        style={{ width: 60, height: 60, borderRadius: 30, marginTop: 8, alignSelf: 'flex-start' }}
+                      />
+                    )}
+                  </View>
 
-              {/* Banner */}
-              <View style={styles.addDemoSection}>
-                <Text style={styles.addDemoLabel}>Banner Image</Text>
-                <TouchableOpacity onPress={handlePickBanner} style={styles.addDemoPickBtn} activeOpacity={0.85}>
-                  <LinearGradient
-                    colors={['#667eea', '#764ba2']}
-                    style={styles.addDemoPickGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Text style={styles.addDemoPickIcon}>🖼️</Text>
-                    <Text style={styles.addDemoPickText} numberOfLines={1}>
-                      {selectedBanner ? selectedBanner.name : 'Select Image'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                {!selectedBanner && editForm.banner && (
-                  <Image 
-                    source={{ uri: editForm.banner }} 
-                    style={{ width: '100%', height: 120, borderRadius: 8, marginTop: 8 }}
-                  />
-                )}
-              </View>
+                  {/* Banner */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={styles.addDemoLabel}>Banner Image</Text>
+                    <TouchableOpacity onPress={handlePickBanner} style={styles.addDemoPickBtn} activeOpacity={0.85}>
+                      <LinearGradient
+                        colors={['#667eea', '#764ba2']}
+                        style={styles.addDemoPickGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Text style={styles.addDemoPickIcon}>🖼️</Text>
+                        <Text style={styles.addDemoPickText} numberOfLines={1}>
+                          {selectedBanner ? selectedBanner.name : 'Select Image'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    {!selectedBanner && editForm.banner && (
+                      <Image 
+                        source={{ uri: editForm.banner }} 
+                        style={{ width: '100%', height: 120, borderRadius: 8, marginTop: 8 }}
+                      />
+                    )}
+                  </View>
+                </>
+              )}
+
+              {/* Security Tab */}
+              {editProfileTab === 'security' && (
+                <>
+                  {/* Change Password Section */}
+                  <View style={styles.addDemoSection}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <Text style={styles.addDemoLabel}>Change Password</Text>
+                      <TouchableOpacity 
+                        onPress={() => setShowPasswordFields(!showPasswordFields)}
+                        style={{ padding: 4 }}
+                      >
+                        <Text style={{ color: '#667eea', fontSize: 14, fontWeight: '600' }}>
+                          {showPasswordFields ? 'Hide' : 'Show'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {showPasswordFields && (
+                      <>
+                        <TextInput
+                          placeholder="Current Password"
+                          placeholderTextColor="rgba(255,255,255,0.45)"
+                          value={passwordForm.currentPassword}
+                          onChangeText={(text) => setPasswordForm({...passwordForm, currentPassword: text})}
+                          style={styles.addDemoInput}
+                          secureTextEntry
+                          autoCapitalize="none"
+                        />
+                        
+                        <TextInput
+                          placeholder="New Password"
+                          placeholderTextColor="rgba(255,255,255,0.45)"
+                          value={passwordForm.newPassword}
+                          onChangeText={(text) => setPasswordForm({...passwordForm, newPassword: text})}
+                          style={[styles.addDemoInput, { marginTop: 12 }]}
+                          secureTextEntry
+                          autoCapitalize="none"
+                        />
+                        
+                        <TextInput
+                          placeholder="Confirm New Password"
+                          placeholderTextColor="rgba(255,255,255,0.45)"
+                          value={passwordForm.confirmPassword}
+                          onChangeText={(text) => setPasswordForm({...passwordForm, confirmPassword: text})}
+                          style={[styles.addDemoInput, { marginTop: 12 }]}
+                          secureTextEntry
+                          autoCapitalize="none"
+                        />
+                        
+                        <TouchableOpacity 
+                          onPress={handleChangePassword}
+                          disabled={isChangingPassword}
+                          style={[styles.addDemoSubmitBtn, { marginTop: 16 }]}
+                          activeOpacity={0.9}
+                        >
+                          <LinearGradient
+                            colors={['#667eea', '#764ba2']}
+                            style={styles.addDemoSubmitGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                          >
+                            {isChangingPassword ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <Text style={styles.addDemoSubmitText}>Change Password</Text>
+                            )}
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
 
               {/* Action Buttons */}
               <View style={styles.addDemoActionsRow}>
                 <TouchableOpacity 
-                  onPress={() => setShowEditProfileModal(false)}
+                  onPress={() => {
+                    setShowEditProfileModal(false);
+                    setPasswordForm({
+                      currentPassword: '',
+                      newPassword: '',
+                      confirmPassword: ''
+                    });
+                    setShowPasswordFields(false);
+                  }}
                   style={styles.addDemoCancelBtn}
                   activeOpacity={0.8}
                   disabled={isEditingProfile}
@@ -1726,239 +1865,33 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         </View>
       </Modal>
 
-      {/* Full-Screen Post Modal */}
-      <Modal
+      {/* Post Card Modal */}
+      <PostCardModal
         visible={isModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={closeModal}
-      >
-        <View style={styles.profileModalOverlay}>
-          <View style={styles.profileModalContent}>
-            {expandedPost && (
-              <>
-                {/* Modal Close Button */}
-                <TouchableOpacity 
-                  style={styles.profileModalCloseBtn}
-                  onPress={closeModal}
-                >
-                  <Text style={styles.profileModalCloseIcon}>✕</Text>
-                </TouchableOpacity>
+        onClose={closeModal}
+        post={expandedPost}
+        currentUser={currentUser}
+        onPostUpdate={handlePostUpdate}
+        showDelete={isOwnProfile}
+      />
 
-                {/* Hero Section with Banner */}
-                <View style={styles.profileModalHero}>
-                  <Image 
-                    source={{ 
-                      uri: expandedPost.banner || expandedPost.thumbnail || expandedPost.coverImage || user.banner || "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=facearea&w=400&q=80"
-                    }} 
-                    style={styles.profileModalBanner}
-                    defaultSource={require('../assets/images/pb.jpg')}
-                  />
-                  <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.8)']}
-                    style={styles.profileModalGradientOverlay}
-                  />
-                  <View style={styles.profileModalHeroContent}>
-                    <Text style={styles.profileModalHeroTitle}>{expandedPost.title}</Text>
-                    
-                    {/* Profile Info in Hero */}
-                    <View style={styles.profileModalHeroProfile}>
-                      <Image 
-                        source={{ uri: expandedPost.author?.profilePic || user.profilePic }} 
-                        style={styles.profileModalHeroAvatar}
-                        defaultSource={require('../assets/images/dpp.jpg')}
-                      />
-                      <View style={styles.profileModalHeroProfileInfo}>
-                        <Text style={styles.profileModalHeroUsername}>
-                          {expandedPost.author?.userName || user.userName}
-                        </Text>
-                        <Text style={styles.profileModalHeroDate}>
-                          {new Date(expandedPost.time).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  
-                  {/* Play Button in Hero */}
-                  <TouchableOpacity style={styles.profileModalHeroPlayBtn}>
-                    <Text style={styles.profileModalHeroPlayIcon}>▶</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Modal Content */}
-                <ScrollView style={styles.profileModalScrollView} showsVerticalScrollIndicator={false}>
-
-                  {/* Description */}
-                  {expandedPost.description && (
-                    <View style={styles.profileModalDescriptionContainer}>
-                      <Text style={styles.profileModalDescription}>{expandedPost.description}</Text>
-                    </View>
-                  )}
-
-                  {/* Features */}
-                  {expandedPost.features && Array.isArray(expandedPost.features) && expandedPost.features.length > 0 && (
-                    <View style={styles.profileModalFeaturesContainer}>
-                      <Text style={styles.profileModalFeaturesLabel}>Featuring:</Text>
-                      <View style={styles.profileModalFeaturesList}>
-                        {expandedPost.features.map((feature, index) => (
-                          <Text key={index} style={styles.profileModalFeatureTag}>
-                            {feature}
-                          </Text>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                  
-                  {/* Genre Tags */}
-                  {expandedPost.genre && Array.isArray(expandedPost.genre) && expandedPost.genre.length > 0 && (
-                    <View style={styles.profileModalGenresContainer}>
-                      {expandedPost.genre.map((genreItem, index) => (
-                        <View key={index} style={styles.profileModalGenreTag}>
-                          <Text style={styles.profileModalGenreTagText}>{genreItem}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-
-                  {/* Comments Section */}
-                  <View style={styles.profileModalCommentsContainer}>
-                    <Text style={styles.profileModalCommentsTitle}>Comments ({comments.length})</Text>
-                    
-                    {/* Comments List */}
-                    <ScrollView 
-                      style={styles.profileModalCommentsList}
-                      showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled={true}
-                    >
-                      {comments.map((comment) => (
-                        <View key={comment.id} style={styles.profileModalCommentItem}>
-                          <Image 
-                            source={{ uri: comment.userPic || user.profilePic }} 
-                            style={styles.profileModalCommentAvatar}
-                            defaultSource={require('../assets/images/dpp.jpg')}
-                          />
-                          <View style={styles.profileModalCommentContent}>
-                            <View style={styles.profileModalCommentHeader}>
-                              <Text style={styles.profileModalCommentUsername}>{comment.userName}</Text>
-                              <Text style={styles.profileModalCommentTime}>
-                                {new Date(comment.time).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </Text>
-                            </View>
-                            <Text style={styles.profileModalCommentText}>{comment.text}</Text>
-                          </View>
-                        </View>
-                      ))}
-                      
-                      {comments.length === 0 && (
-                        <View style={styles.profileModalNoComments}>
-                          <Text style={styles.profileModalNoCommentsText}>No comments yet</Text>
-                          <Text style={styles.profileModalNoCommentsSubtext}>Be the first to comment!</Text>
-                        </View>
-                      )}
-                    </ScrollView>
-
-                    {/* Comment Input */}
-                    <View style={styles.profileModalCommentInputContainer}>
-                      <Image 
-                        source={{ uri: user?.profilePic }} 
-                        style={styles.profileModalCommentInputAvatar}
-                        defaultSource={require('../assets/images/dpp.jpg')}
-                      />
-                      <TextInput
-                        style={styles.profileModalCommentInput}
-                        placeholder="Add a comment..."
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={newComment}
-                        onChangeText={setNewComment}
-                        multiline
-                        maxLength={500}
-                      />
-                      <TouchableOpacity 
-                        style={[styles.profileModalCommentSubmitBtn, !newComment.trim() && styles.profileModalCommentSubmitBtnDisabled]}
-                        onPress={handleSubmitComment}
-                        disabled={!newComment.trim() || isSubmittingComment}
-                      >
-                        <Text style={styles.profileModalCommentSubmitText}>
-                          {isSubmittingComment ? '...' : 'Post'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Actions */}
-                  <View style={styles.profileModalActionsContainer}>
-                    <TouchableOpacity 
-                      style={styles.profileModalActionBtnPrimary}
-                      onPress={() => {
-                        closeModal();
-                        router.push(`/post/${expandedPost.id}`);
-                      }}
-                    >
-                      <Text style={styles.profileModalActionTextPrimary}>View Full Post</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={styles.profileModalActionBtnSecondary}
-                      onPress={() => {
-                        closeModal();
-                        const targetUser = expandedPost.author?.userName || user.userName;
-                        router.push(`/profile/${targetUser}`);
-                      }}
-                    >
-                      <Text style={styles.profileModalActionTextSecondary}>View Profile</Text>
-                    </TouchableOpacity>
-                    
-                    {expandedPost.freeDownload && (
-                      <TouchableOpacity 
-                        style={styles.profileModalActionBtnSecondary}
-                        onPress={handleDownload}
-                        disabled={isDownloading}
-                      >
-                        {isDownloading ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <Text style={styles.profileModalActionTextSecondary}>⬇️ Download</Text>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </ScrollView>
-
-                {/* Floating Stats */}
-                <View style={styles.profileModalFloatingStats}>
-                  <TouchableOpacity 
-                    style={styles.profileModalFloatingLikeBtn}
-                    onPress={handleToggleLike}
-                    disabled={isSubmittingLike}
-                  >
-                    <Text style={styles.profileModalFloatingLikeIcon}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.profileModalFloatingCount}>{likes.length}</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.profileModalFloatingViewBtn}>
-                    <Text style={styles.profileModalFloatingViewIcon}>👁️</Text>
-                    <Text style={styles.profileModalFloatingCount}>{expandedPost.totalViews || 0}</Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
+      {/* Views Analytics Modal */}
+      {analyticsPost && (
+        <ViewsAnalytics
+          postId={analyticsPost.id}
+          postTitle={analyticsPost.title}
+          isOpen={showViewsAnalytics}
+          onClose={() => {
+            setShowViewsAnalytics(false);
+            setAnalyticsPost(null);
+          }}
+          currentUser={currentUser}
+          postAuthor={analyticsPost.author || user}
+          totalDownloads={analyticsPost.totalDownloads || 0}
+          totalViews={analyticsPost.totalViews || 0}
+          totalComments={analyticsPost.totalComments || 0}
+        />
+      )}
       
     </>
   );
@@ -2152,9 +2085,17 @@ function SpotlightModalContent({
             <Text style={styles.spotlightModalFeaturesLabel}>🎤 Featuring:</Text>
             <View style={styles.spotlightModalFeaturesList}>
               {selectedSpotlightPost.features.map((feature, index) => (
-                <View key={index} style={styles.spotlightModalFeatureTag}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.spotlightModalFeatureTag}
+                  onPress={() => {
+                    setModalOpen(false);
+                    router.push(`/profile/${feature}`);
+                  }}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.spotlightModalFeatureText}>{feature}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -3270,7 +3211,27 @@ const styles = StyleSheet.create({
   profilePostStatText: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '700',
+  },
+  profilePostAnalyticsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+  },
+  profilePostAnalyticsIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  profilePostAnalyticsText: {
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '600',
   },
 
   // Post Actions - Instagram/TikTok Style
@@ -3791,215 +3752,6 @@ const styles = StyleSheet.create({
   },
   loadMoreIcon: {
     fontSize: 16,
-  },
-
-  // Compact Demo Card Styles - Optimized for 3-6 cards
-  demoCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    width: '48%', // Two columns for demos
-  },
-  demoCardHeader: {
-    position: 'relative',
-    height: 90,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  demoPlayIcon: {
-    fontSize: 18,
-    marginLeft: 2,
-  },
-  demoPatternOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    opacity: 0.3,
-  },
-  demoCardContent: {
-    padding: 12,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    minHeight: 50,
-    justifyContent: 'space-between',
-  },
-  demoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 6,
-    letterSpacing: 0.2,
-  },
-  demoCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  demoLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  demoDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#667eea',
-  },
-  demoDotPlaying: {
-    backgroundColor: '#43e97b',
-  },
-  demoCardPlaying: {
-    borderColor: 'rgba(67, 233, 123, 0.5)',
-    shadowColor: '#43e97b',
-    shadowOpacity: 0.4,
-  },
-  demoPlayButtonPlaying: {
-    backgroundColor: 'rgba(67, 233, 123, 0.95)',
-    borderColor: 'rgba(67, 233, 123, 0.3)',
-  },
-
-  // Horizontal Demo Card Styles
-  demoCardHorizontal: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-    flexDirection: 'row',
-    height: 110,
-  },
-  demoCardLeft: {
-    width: 80,
-    height: 80,
-  },
-  demoCardThumbnail: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayOverlayHorizontal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoPlayButtonHorizontal: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  demoPlayIconHorizontal: {
-    fontSize: 14,
-    marginLeft: 1,
-  },
-  demoCardRight: {
-    flex: 1,
-    padding: 12,
-    justifyContent: 'space-between',
-  },
-  demoCardInfo: {
-    flex: 1,
-  },
-  demoTitleHorizontal: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#ffffff',
-    lineHeight: 20,
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  demoSubtitleHorizontal: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '500',
-  },
-  demoCardActions: {
-    alignItems: 'flex-end',
-  },
-  demoStatusIndicator: {
-    backgroundColor: 'rgba(102, 126, 234, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
-  },
-  demoStatusIndicatorPlaying: {
-    backgroundColor: 'rgba(67, 233, 123, 0.2)',
-    borderColor: 'rgba(67, 233, 123, 0.3)',
-  },
-  demoStatusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#667eea',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  demoStatusTextPlaying: {
-    color: '#43e97b',
   },
 
   // Completely New Modern Homepage Styles
@@ -4561,6 +4313,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.3,
+  },
+  editProfileTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  editProfileTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  editProfileTabActive: {
+    borderBottomColor: '#667eea',
+  },
+  editProfileTabText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editProfileTabTextActive: {
+    color: '#667eea',
+    fontWeight: '700',
   },
   modalHandle: {
     width: 40,
@@ -5226,5 +5006,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  addDemoDescription: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    marginLeft: 18,
+    marginBottom: 8,
   },
 });
