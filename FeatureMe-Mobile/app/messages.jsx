@@ -15,10 +15,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  Linking
+  Linking,
+  Keyboard
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCurrentUser } from '../services/api';
 import { ChatService, chatWebSocketService } from '../services/ChatService';
@@ -31,6 +32,7 @@ import { Audio } from 'expo-av';
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
+  const searchParams = useLocalSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -80,11 +82,28 @@ export default function MessagesScreen() {
   
   const messagesScrollRef = useRef(null);
   const searchTimeoutRef = useRef(null);
+  const hasAutoSelectedUser = useRef(false);
+  const hasProcessedParams = useRef(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     initializeChat();
+    
+    // Keyboard event listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    
     return () => {
       chatWebSocketService.disconnect();
+      hasProcessedParams.current = false; // Reset on unmount
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
     };
   }, []);
 
@@ -102,6 +121,21 @@ export default function MessagesScreen() {
       clearTimeout(searchTimeoutRef.current);
     };
   }, [userSearchTerm, currentUser, selectedUsers]);
+
+  // Auto-select user when coming from profile page with createChat param
+  useEffect(() => {
+    const createChatUser = searchParams.user;
+    const shouldCreateChat = searchParams.createChat === 'true';
+    
+    if (shouldCreateChat && createChatUser && searchedUsers.length > 0 && !hasAutoSelectedUser.current) {
+      const userToSelect = searchedUsers.find(user => user.userName === createChatUser);
+      if (userToSelect && !selectedUsers.some(selectedUser => selectedUser.userName === userToSelect.userName)) {
+        setSelectedUsers([userToSelect]);
+        setUserSearchTerm(''); // Clear search term after selection
+        hasAutoSelectedUser.current = true; // Mark as auto-selected to prevent re-triggering
+      }
+    }
+  }, [searchedUsers, searchParams, selectedUsers]);
 
   useEffect(() => {
     if (addUserSearchTerm) {
@@ -149,6 +183,28 @@ export default function MessagesScreen() {
       }
       
       await loadConversations();
+      
+      // Handle URL parameters for creating chat with specific user (only once per mount)
+      if (!hasProcessedParams.current) {
+        const createChatUser = searchParams.user;
+        const shouldCreateChat = searchParams.createChat === 'true';
+        
+        if (shouldCreateChat && createChatUser && createChatUser !== user.userName) {
+          hasProcessedParams.current = true; // Mark as processed
+          // Open create chat modal
+          setShowNewMessageModal(true);
+          // Set the username in search and trigger search
+          setUserSearchTerm(createChatUser);
+          // Small delay to ensure modal is open, then search
+          setTimeout(async () => {
+            try {
+              await searchUsers(createChatUser);
+            } catch (error) {
+              console.error('Error searching for user:', error);
+            }
+          }, 300);
+        }
+      }
     } catch (error) {
       console.error('Error initializing chat:', error);
       Alert.alert('Error', 'Failed to load messages');
@@ -417,11 +473,7 @@ export default function MessagesScreen() {
                     type: asset.mimeType || 'image/jpeg',
                   });
 
-                  await api.post(`/chats/${chatRoomId}/files`, formData, {
-                    headers: {
-                      'Content-Type': 'multipart/form-data',
-                    },
-                  });
+                  await api.post(`/chats/${chatRoomId}/files`, formData);
                   
                   Alert.alert('Success', 'File uploaded successfully');
                 }
@@ -470,11 +522,7 @@ export default function MessagesScreen() {
                   });
 
                   console.log('Sending file upload request...');
-                  const response = await api.post(`/chats/${chatRoomId}/files`, formData, {
-                    headers: {
-                      'Content-Type': 'multipart/form-data',
-                    },
-                  });
+                  const response = await api.post(`/chats/${chatRoomId}/files`, formData);
                   
                   console.log('Upload successful:', response.data);
                   Alert.alert('Success', 'File uploaded successfully');
@@ -530,11 +578,7 @@ export default function MessagesScreen() {
           type: asset.mimeType || 'image/jpeg',
         });
 
-        const uploadResponse = await api.post('/s3/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        const uploadResponse = await api.post('/s3/upload', formData);
 
         const fileUrl = uploadResponse.data;
         
@@ -581,7 +625,14 @@ export default function MessagesScreen() {
       const response = await ChatService.createChat(usernames, newChatName);
       const newChat = response.data;
       
-      clearModalState();
+      hasAutoSelectedUser.current = false; // Reset flag after chat creation
+      hasProcessedParams.current = false; // Reset so params can be processed again if needed
+      // Clear modal state
+      setNewChatName('');
+      setSelectedUsers([]);
+      setUserSearchTerm('');
+      setSearchedUsers([]);
+      setShowNewMessageModal(false);
       
       setConversations(prev => [newChat, ...prev]);
       await handleConversationSelect(newChat);
@@ -679,6 +730,9 @@ export default function MessagesScreen() {
     setUserSearchTerm('');
     setSearchedUsers([]);
     setShowNewMessageModal(false);
+    hasAutoSelectedUser.current = false; // Reset flag when modal closes
+    // Note: We don't clear URL params here to avoid causing re-renders
+    // The hasProcessedParams ref prevents re-triggering even if params remain
   };
 
   const formatTimestamp = (timestamp) => {
@@ -1495,7 +1549,10 @@ export default function MessagesScreen() {
         />
 
         {/* Message Input */}
-        <View style={styles.inputArea}>
+        <View style={[
+          styles.inputArea,
+          { marginBottom: isKeyboardVisible ? -45 : insets.bottom || 8 }
+        ]}>
           <TouchableOpacity 
             style={styles.attachButton}
             onPress={handleFileUpload}
@@ -1859,7 +1916,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: '#0f0f23',
-    marginBottom:35,
   },
   attachButton: {
     width: 44,

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { UserRelationsService } from '../services/userService';
+import { router } from 'expo-router';
 
 export default function FollowersModal({ 
   isVisible, 
@@ -109,40 +110,53 @@ export default function FollowersModal({
     }
   };
 
-  const renderUser = ({ item }) => (
-    <View style={styles.userItem}>
-      <Image 
-        source={{ uri: item.profilePic || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
-        style={styles.userAvatar}
-        defaultSource={require('../assets/images/dpp.jpg')}
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.userName}</Text>
-        {item.displayName && item.displayName !== item.userName && (
-          <Text style={styles.userDisplayName}>{item.displayName}</Text>
-        )}
-        {item.bio && (
-          <Text style={styles.userBio} numberOfLines={2}>
-            {item.bio}
+  const renderUser = ({ item }) => {
+    const handleUserPress = () => {
+      onClose(); // Close the modal first
+      router.push(`/profile/${item.userName}`);
+    };
+
+    return (
+      <View style={styles.userItem}>
+        <TouchableOpacity onPress={handleUserPress} activeOpacity={0.7}>
+          <Image 
+            source={{ uri: item.profilePic || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+            style={styles.userAvatar}
+            defaultSource={require('../assets/images/dpp.jpg')}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.userInfo} 
+          onPress={handleUserPress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.userName}>{item.userName}</Text>
+          {item.displayName && item.displayName !== item.userName && (
+            <Text style={styles.userDisplayName}>{item.displayName}</Text>
+          )}
+          {item.bio && (
+            <Text style={styles.userBio} numberOfLines={2}>
+              {item.bio}
+            </Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[
+            styles.followButton,
+            isFollowing[item.userName] && styles.followButtonFollowing
+          ]}
+          onPress={() => handleFollowToggle(item.userName)}
+        >
+          <Text style={[
+            styles.followButtonText,
+            isFollowing[item.userName] && styles.followButtonTextFollowing
+          ]}>
+            {isFollowing[item.userName] ? 'Following' : 'Follow'}
           </Text>
-        )}
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity 
-        style={[
-          styles.followButton,
-          isFollowing[item.userName] && styles.followButtonFollowing
-        ]}
-        onPress={() => handleFollowToggle(item.userName)}
-      >
-        <Text style={[
-          styles.followButtonText,
-          isFollowing[item.userName] && styles.followButtonTextFollowing
-        ]}>
-          {isFollowing[item.userName] ? 'Following' : 'Follow'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderFooter = () => {
     if (!loadingMore) return null;

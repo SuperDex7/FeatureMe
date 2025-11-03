@@ -109,11 +109,6 @@ export default function LoggedInHeader() {
     router.push('/messages');
   };
 
-  const navigateToFeatureRequest = () => {
-    setShowUserMenu(false);
-    router.push('/feature-request');
-  };
-
   const navigateToProfile = () => {
     setShowUserMenu(false);
     router.push(`/profile/${currentUser?.userName}`);
@@ -122,6 +117,16 @@ export default function LoggedInHeader() {
   const navigateToCreatePost = () => {
     setShowUserMenu(false);
     router.push('/create-post');
+  };
+
+  const navigateToSubscription = () => {
+    setShowUserMenu(false);
+    router.push('/subscription');
+  };
+
+  const navigateToPendingFeatures = () => {
+    setShowUserMenu(false);
+    router.push('/pending-features');
   };
 
   // Format time function
@@ -359,10 +364,10 @@ export default function LoggedInHeader() {
 
               <TouchableOpacity 
                 style={styles.menuItem}
-                onPress={navigateToFeatureRequest}
+                onPress={navigateToPendingFeatures}
               >
-                <Text style={styles.menuIcon}>⏳</Text>
-                <Text style={styles.menuText}>Feature Requests</Text>
+                <Text style={styles.menuIcon}>📋</Text>
+                <Text style={styles.menuText}>Pending Features</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -371,6 +376,14 @@ export default function LoggedInHeader() {
               >
                 <Text style={styles.menuIcon}>✍️</Text>
                 <Text style={styles.menuText}>Create Post</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={navigateToSubscription}
+              >
+                <Text style={styles.menuIcon}>⭐</Text>
+                <Text style={styles.menuText}>Subscription</Text>
               </TouchableOpacity>
             </View>
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
 const AudioContext = createContext();
 
@@ -25,6 +25,25 @@ export const AudioProvider = ({ children }) => {
   const audioPlayerInstance = useRef(null);
 
   const audioPlayer = useAudioPlayer();
+
+  // Configure audio mode for speaker playback (not earpiece)
+  useEffect(() => {
+    const configureAudioMode = async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+          shouldPlayInBackground: true,
+          shouldRouteThroughEarpiece: false, // Play through speaker, not earpiece
+          interruptionMode: 'mixWithOthers',
+          interruptionModeAndroid: 'doNotMix',
+        });
+      } catch (error) {
+        console.error('Error configuring audio mode:', error);
+      }
+    };
+    configureAudioMode();
+  }, []);
 
   useEffect(() => {
     if (audioPlayer) {

@@ -26,7 +26,6 @@ import {
   getCommentsPaginated,
   addLike,
 } from '../../services/postsService';
-import LoggedInHeader from '../../components/ui/LoggedInHeader';
 import BottomNavigation from '../../components/BottomNavigation';
 import { useAudio } from '../../contexts/AudioContext';
 import CentralizedAudioPlayer from '../../components/CentralizedAudioPlayer';
@@ -396,7 +395,7 @@ export default function PostScreen() {
             setIsDeletingPost(true);
             try {
               await deletePost(id);
-              router.replace('/feed');
+              router.replace('/main-app');
             } catch (err) {
               console.error('Error deleting post:', err);
               Alert.alert('Error', 'Failed to delete post. Please try again.');
@@ -441,6 +440,18 @@ export default function PostScreen() {
 
   return (
     <View style={styles.pageContainer}>
+      {/* Back Header */}
+      <View style={{position:'absolute',top:25,left:0,right:0,zIndex:10,flexDirection:'row',alignItems:'center',paddingTop:40,paddingBottom:10,paddingHorizontal:16,backgroundColor:'rgba(15, 15, 35, 0.95)'}}>
+        <TouchableOpacity onPress={() => router.back()} style={{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,0.1)',alignItems:'center',justifyContent:'center'}}>
+          <Text style={{fontSize:24,color:'white'}}>{'‹'}</Text>
+        </TouchableOpacity>
+        <View style={{flex:1,alignItems:'center', justifyContent:'center'}}>
+          <Text style={{fontSize:18,fontWeight:'600',color:'white'}} numberOfLines={1}>
+            {post ? `${post.title} - ${post.author?.userName || 'Unknown'}` : 'Post'}
+          </Text>
+        </View>
+        <View style={{width:36}} />
+      </View>
       <ScrollView 
         style={styles.container}
         refreshControl={
@@ -452,7 +463,6 @@ export default function PostScreen() {
           />
         }
       >
-      <LoggedInHeader />
       {/* Post Hero Section */}
       <View style={styles.heroSection}>
         <Image source={{ uri: post.author.banner }} style={styles.heroBackground} />
@@ -784,6 +794,7 @@ const styles = StyleSheet.create({
     paddingBottom: 90, // Space for bottom navigation
   },
   container: {
+    marginTop:30,
     flex: 1,
     backgroundColor: '#0f0f23',
 
@@ -811,7 +822,7 @@ const styles = StyleSheet.create({
   heroSection: {
     height: 300,
     position: 'relative',
-    marginTop:123,
+    marginTop: 75,
   },
   heroBackground: {
     width: '100%',
