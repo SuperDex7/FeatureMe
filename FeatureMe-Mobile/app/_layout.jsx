@@ -82,7 +82,8 @@ export default function RootLayout() {
             <Stack.Screen name="create-post" options={{ headerShown: false }} />
             <Stack.Screen name="user-search" options={{ headerShown: false }} />
             <Stack.Screen name="messages" options={{ headerShown: false }} />
-            <Stack.Screen name="feature-request" options={{ headerShown: false }} />
+            <Stack.Screen name="subscription" options={{ headerShown: false }} />
+            <Stack.Screen name="pending-features" options={{ headerShown: false }} />
           </Stack>
           <GlobalAudioPlayer />
           <StatusBar style="auto" />
