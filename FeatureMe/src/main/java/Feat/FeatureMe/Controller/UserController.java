@@ -23,6 +23,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.web.PagedModel;
@@ -169,9 +170,13 @@ public class UserController {
     
 
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> createUser(@RequestPart User user,
+    public ResponseEntity<?> createUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
+        
+        // Parse user JSON and create User object
+        ObjectMapper mapper = new ObjectMapper();
+        User user = mapper.readValue(userJson, User.class);
         
         // Handle profile picture - use default if not provided
         if (pp != null && !pp.isEmpty()) {
@@ -262,6 +267,20 @@ public class UserController {
         
         // Handle profile picture upload if provided
         if (pp != null && !pp.isEmpty()) {
+            // Delete old profile picture from S3 if it exists and is an S3 URL
+            String oldProfilePic = userr.getProfilePic();
+            if (oldProfilePic != null && !oldProfilePic.isEmpty() && 
+                !oldProfilePic.startsWith("/") && oldProfilePic.contains("amazonaws.com")) {
+                try {
+                    String oldS3Key = s3Service.extractKeyFromUrl(oldProfilePic);
+                    if (oldS3Key != null && oldS3Key.contains("images/profiles")) {
+                        s3Service.deleteFile(oldS3Key);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to delete old profile picture from S3: " + oldProfilePic + " - " + e.getMessage());
+                }
+            }
+            
             // Validate file type
             // Validate file with role-based size limits and file types
             fileUploadService.validateFileForUserByCategory(pp, userr, "image");
@@ -282,6 +301,20 @@ public class UserController {
         
         // Handle banner upload if provided
         if (banner != null && !banner.isEmpty()) {
+            // Delete old banner from S3 if it exists and is an S3 URL
+            String oldBanner = userr.getBanner();
+            if (oldBanner != null && !oldBanner.isEmpty() && 
+                !oldBanner.startsWith("/") && oldBanner.contains("amazonaws.com")) {
+                try {
+                    String oldS3Key = s3Service.extractKeyFromUrl(oldBanner);
+                    if (oldS3Key != null && oldS3Key.contains("images/banners")) {
+                        s3Service.deleteFile(oldS3Key);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to delete old banner from S3: " + oldBanner + " - " + e.getMessage());
+                }
+            }
+            
             // Validate file type
             // Validate file with role-based size limits and file types
             fileUploadService.validateFileForUserByCategory(banner, userr, "image");
@@ -302,6 +335,7 @@ public class UserController {
         userService.saveUser(userr);
         userService.updateUser(userr.getId(), userUpdateData);
     }
+    
     @GetMapping("/get")
     public List<UserDTO> getAllUsers() {
         return userService.getAllUsers();
@@ -328,11 +362,25 @@ public class UserController {
     
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        
+        String email = authentication.getName();
+        User currentUser = userService.findByUsernameOrEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Verify that the user is trying to delete their own account
+        if (!currentUser.getId().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only delete your own account");
+        }
+        
         try {
             userService.deleteUser(id);
             return ResponseEntity.ok().body("User and all associated data deleted successfully");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error deleting user: " + e.getMessage());

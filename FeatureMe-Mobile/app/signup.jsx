@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import Header from "../components/ui/Header";
+import api from "../services/api";
 
 export default function SignupPage() {
   const [step, setStep] = useState(1); // 1 = email/password, 2 = verification, 3 = username, 4 = about, 5 = profile pics, 6 = preview
@@ -35,6 +37,8 @@ export default function SignupPage() {
     featuredOn: [],
     posts: []
   });
+  const [profilePicFile, setProfilePicFile] = useState(null);
+  const [bannerFile, setBannerFile] = useState(null);
   
   // Email verification state
   const [verificationCode, setVerificationCode] = useState("");
@@ -57,6 +61,8 @@ export default function SignupPage() {
   });
 
   const PASSWORD_MIN = 6;
+  const emailTimeoutRef = useRef(null);
+  const usernameTimeoutRef = useRef(null);
 
   // Check if step 1 form is valid
   const isStep1Valid = () => {
@@ -71,6 +77,109 @@ export default function SignupPage() {
     );
   };
 
+  // Debounced email availability check
+  useEffect(() => {
+    if (emailTimeoutRef.current) {
+      clearTimeout(emailTimeoutRef.current);
+    }
+
+    // Don't validate empty emails
+    if (!formData.email || formData.email.trim() === '') {
+      setEmailValidation({ isValidating: false, available: null, error: null });
+      return;
+    }
+
+    // Basic email format validation first
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setEmailValidation({ 
+        isValidating: false, 
+        available: false, 
+        error: 'Invalid email format' 
+      });
+      return;
+    }
+
+    // Set validating state
+    setEmailValidation({ isValidating: true, available: null, error: null });
+
+    // Debounce API call
+    emailTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await api.get(`/user/auth/check-email/${encodeURIComponent(formData.email)}`);
+        setEmailValidation({ 
+          isValidating: false, 
+          available: response.data.available, 
+          error: response.data.error || (!response.data.available ? 'Email is already taken' : null)
+        });
+      } catch (error) {
+        console.error('Error checking email availability:', error);
+        setEmailValidation({ 
+          isValidating: false, 
+          available: false, 
+          error: 'Error checking email availability' 
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      if (emailTimeoutRef.current) {
+        clearTimeout(emailTimeoutRef.current);
+      }
+    };
+  }, [formData.email]);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current);
+    }
+
+    // Don't validate empty usernames
+    if (!formData.userName || formData.userName.trim() === '') {
+      setUsernameValidation({ isValidating: false, available: null, error: null });
+      return;
+    }
+
+    // Basic username validation first
+    if (formData.userName.length < 3) {
+      setUsernameValidation({ 
+        isValidating: false, 
+        available: false, 
+        error: 'Username must be at least 3 characters' 
+      });
+      return;
+    }
+
+    // Set validating state
+    setUsernameValidation({ isValidating: true, available: null, error: null });
+
+    // Debounce API call
+    usernameTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await api.get(`/user/auth/check-username/${encodeURIComponent(formData.userName)}`);
+        setUsernameValidation({ 
+          isValidating: false, 
+          available: response.data.available, 
+          error: response.data.error || (!response.data.available ? 'Username is already taken' : null)
+        });
+      } catch (error) {
+        console.error('Error checking username availability:', error);
+        setUsernameValidation({ 
+          isValidating: false, 
+          available: false, 
+          error: 'Error checking username availability' 
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      if (usernameTimeoutRef.current) {
+        clearTimeout(usernameTimeoutRef.current);
+      }
+    };
+  }, [formData.userName]);
+
   const handleInput = (field, value) => {
     setFormData({ ...formData, [field]: value });
     
@@ -78,38 +187,23 @@ export default function SignupPage() {
     if (field === 'password' || field === 'confirmPassword') {
       setPasswordError("");
     }
-    
-    // Real-time validation for username
-    if (field === 'userName') {
-      setUsernameValidation({ isValidating: true, available: null, error: null });
-      // Simulate validation - replace with actual API call
-      setTimeout(() => {
-        setUsernameValidation({ 
-          isValidating: false, 
-          available: value.length >= 3, 
-          error: value.length < 3 ? 'Username must be at least 3 characters' : null
-        });
-      }, 1000);
-    }
-    
-    // Real-time validation for email
-    if (field === 'email') {
-      setEmailValidation({ isValidating: true, available: null, error: null });
-      // Simulate validation - replace with actual API call
-      setTimeout(() => {
-        const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-        setEmailValidation({ 
-          isValidating: false, 
-          available: isValidEmail, 
-          error: !isValidEmail ? 'Invalid email format' : null
-        });
-      }, 1000);
-    }
   };
 
   const handleNext = async () => {
     if (step === 1) {
       if (!isStep1Valid()) {
+        return;
+      }
+      
+      // Wait for email validation to complete
+      if (emailValidation.isValidating) {
+        Alert.alert("Please Wait", "Checking email availability...");
+        return;
+      }
+      
+      // Validate email availability
+      if (emailValidation.available === false) {
+        Alert.alert("Email Not Available", emailValidation.error || "Please choose a different email address");
         return;
       }
       
@@ -123,12 +217,22 @@ export default function SignupPage() {
         return;
       }
       
-      // Simulate email verification - replace with actual API call
-      Alert.alert(
-        "Verification Email Sent",
-        `We've sent a verification code to ${formData.email}`,
-        [{ text: "OK", onPress: () => setStep(2) }]
-      );
+      // Send verification email
+      try {
+        const response = await api.get(`/user/auth/email/${encodeURIComponent(formData.email)}`);
+        setEncryptedCode(response.data);
+        Alert.alert(
+          "Verification Email Sent",
+          `We've sent a verification code to ${formData.email}`,
+          [{ text: "OK", onPress: () => setStep(2) }]
+        );
+      } catch (error) {
+        console.error("Error sending verification email:", error);
+        Alert.alert(
+          "Error",
+          error.response?.data?.error || "Failed to send verification email. Please try again."
+        );
+      }
       return;
     }
     
@@ -138,8 +242,15 @@ export default function SignupPage() {
         return;
       }
       
+      // Wait for username validation to complete
+      if (usernameValidation.isValidating) {
+        Alert.alert("Please Wait", "Checking username availability...");
+        return;
+      }
+      
+      // Validate username availability
       if (usernameValidation.available === false) {
-        Alert.alert("Error", "Please choose a different username");
+        Alert.alert("Username Not Available", usernameValidation.error || "Please choose a different username");
         return;
       }
     }
@@ -155,6 +266,16 @@ export default function SignupPage() {
     }
   };
 
+  const decryptCode = (encryptedCode) => {
+    try {
+      // Decode base64 string
+      return atob(encryptedCode);
+    } catch (error) {
+      console.error("Error decrypting code:", error);
+      return null;
+    }
+  };
+
   const handleVerifyCode = () => {
     if (!verificationCode.trim()) {
       setVerificationError("Please enter the verification code");
@@ -162,50 +283,174 @@ export default function SignupPage() {
     }
 
     setIsVerifying(true);
-    // Simulate verification - replace with actual API call
-    setTimeout(() => {
+    setVerificationError("");
+
+    // Decrypt the stored encrypted code
+    const decryptedCode = decryptCode(encryptedCode);
+    
+    if (decryptedCode && verificationCode.trim() === decryptedCode) {
+      // Code matches, proceed to next step
       setStep(3);
       setIsVerifying(false);
       setVerificationError("");
-    }, 1000);
+    } else {
+      // Code doesn't match
+      setVerificationError("Invalid verification code. Please try again.");
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      const response = await api.get(`/user/auth/email/${encodeURIComponent(formData.email)}`);
+      setEncryptedCode(response.data);
+      Alert.alert("Code Resent", "A new verification code has been sent to your email.");
+    } catch (error) {
+      console.error("Error resending verification email:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to resend verification email. Please try again."
+      );
+    }
   };
 
   const pickImage = async (type) => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: type === 'profile' ? [1, 1] : [16, 9],
       quality: 0.8,
     });
 
     if (!result.canceled) {
+      const asset = result.assets[0];
+      
+      // Infer MIME type from filename if not provided
+      const inferMimeFromName = (name) => {
+        if (!name) return 'image/jpeg';
+        const lower = name.toLowerCase();
+        if (lower.endsWith('.png')) return 'image/png';
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+        if (lower.endsWith('.gif')) return 'image/gif';
+        return 'image/jpeg'; // Default
+      };
+      
+      const fileName = asset.fileName || `${type}-${Date.now()}.jpg`;
+      const fileType = asset.mimeType || inferMimeFromName(fileName);
+      
+      const fileInfo = {
+        uri: asset.uri,
+        name: fileName,
+        type: fileType,
+      };
+      
       if (type === 'profile') {
-        setFormData({ ...formData, profilePic: result.assets[0].uri });
+        setFormData({ ...formData, profilePic: asset.uri });
+        setProfilePicFile(fileInfo);
       } else {
-        setFormData({ ...formData, banner: result.assets[0].uri });
+        setFormData({ ...formData, banner: asset.uri });
+        setBannerFile(fileInfo);
       }
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    // Simulate API call - replace with actual implementation
-    setTimeout(() => {
+    try {
+      // Helper function to infer MIME type from filename
+      const inferImageMimeFromName = (name) => {
+        if (!name) return 'image/jpeg';
+        const lower = name.toLowerCase();
+        if (lower.endsWith('.png')) return 'image/png';
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+        if (lower.endsWith('.gif')) return 'image/gif';
+        return 'image/jpeg'; // Default
+      };
+      
+      // Create user data without confirmPassword
+      const { confirmPassword, profilePic, banner, ...userData } = formData;
+      
+      // Create FormData
+      const submitData = new FormData();
+      
+      // Append user data as JSON string
+      submitData.append('user', JSON.stringify(userData));
+      
+      // Append profile picture if selected
+      if (profilePicFile) {
+        const resolvedName = profilePicFile.name || `profile-${Date.now()}.jpg`;
+        const resolvedType = profilePicFile.type || inferImageMimeFromName(resolvedName);
+        
+        submitData.append('pp', {
+          uri: profilePicFile.uri,
+          name: resolvedName,
+          type: resolvedType,
+        });
+      }
+      
+      // Append banner if selected
+      if (bannerFile) {
+        const resolvedName = bannerFile.name || `banner-${Date.now()}.jpg`;
+        const resolvedType = bannerFile.type || inferImageMimeFromName(resolvedName);
+        
+        submitData.append('banner', {
+          uri: bannerFile.uri,
+          name: resolvedName,
+          type: resolvedType,
+        });
+      }
+      
+      // Make API call - Content-Type will be handled by the interceptor
+      const response = await api.post('/user/auth/create', submitData, {
+        timeout: 30000, // 30 second timeout for file uploads
+      });
+      
       Alert.alert(
         "Account Created!",
-        "Your account has been created successfully.",
-        [{ text: "OK", onPress: () => {
-          // Navigate to login or main app
-          setIsSubmitting(false);
-        }}]
+        "Your account has been created successfully. Redirecting to login...",
+        [{ 
+          text: "OK", 
+          onPress: () => {
+            // Navigate to login page
+            router.replace('/login');
+          }
+        }]
       );
-    }, 2000);
+    } catch (error) {
+      console.error("Signup error:", error);
+      
+      let errorMessage = "Failed to create account. Please try again.";
+      
+      if (error.response?.status === 409) {
+        errorMessage = "Email or username already exists. Please try different credentials.";
+      } else if (error.response?.data) {
+        errorMessage = error.response.data.error || error.response.data;
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = "Request timed out. Please check your connection and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert("Signup Failed", errorMessage);
+      setIsSubmitting(false);
+    }
   };
 
   const renderStepIndicator = () => (
     <View style={styles.stepIndicator}>
-      <Text style={styles.stepNumber}>{step}</Text>
+      <LinearGradient
+        colors={['#7f53ac', '#647dee']}
+        style={styles.stepNumberContainer}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <Text style={styles.stepNumber}>{step}</Text>
+      </LinearGradient>
       <Text style={styles.stepTitle}>
         {step === 1 && "Account Details"}
         {step === 2 && "Verify Email"}
@@ -218,16 +463,18 @@ export default function SignupPage() {
   );
 
   const renderStep1 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.content}
         >
+        <View style={styles.formCard}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Create Your Account</Text>
@@ -299,29 +546,42 @@ export default function SignupPage() {
           onPress={handleNext}
           disabled={!isStep1Valid()}
         >
-          <Text style={styles.btnText}>Next: Choose Username</Text>
+          <LinearGradient
+            colors={!isStep1Valid() ? ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)'] : ['#7f53ac', '#647dee']}
+            style={styles.nextBtnGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.btnText}>Next: Choose Username</Text>
+          </LinearGradient>
         </TouchableOpacity>
+        </View>
         </KeyboardAvoidingView>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   const renderStep2 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <View style={styles.content}>
+        <View style={styles.formCard}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Check Your Email</Text>
-        <Text style={styles.subtitle}>We've sent a verification code to {formData.email}</Text>
+        <Text style={styles.subtitle}>We've sent a verification code to <Text style={styles.strongText}>{formData.email}</Text></Text>
         
-        <View style={styles.infoBox}>
+        <View style={styles.verificationInfoBox}>
           <Text style={styles.infoIcon}>📧</Text>
-          <Text style={styles.infoText}>Didn't receive the email? Check your spam folder.</Text>
+          <View style={styles.infoTextContainer}>
+            <Text style={styles.infoTextBold}>Didn't receive the email?</Text>
+            <Text style={styles.infoText}>Check your spam folder or click "Resend Code" below.</Text>
+          </View>
         </View>
         
         <View style={styles.formGroup}>
@@ -333,18 +593,21 @@ export default function SignupPage() {
               setVerificationCode(value);
               setVerificationError("");
             }}
-            placeholder="Enter the 8-digit code"
-            keyboardType="numeric"
-            maxLength={8}
+            placeholder="Enter the verification code"
+            autoCapitalize="none"
+            maxLength={20}
           />
           {verificationError && <Text style={styles.errorText}>{verificationError}</Text>}
         </View>
 
         <TouchableOpacity 
           style={styles.resendBtn}
-          onPress={() => Alert.alert("Code Resent", "A new verification code has been sent to your email.")}
+          onPress={handleResendCode}
+          disabled={isVerifying}
         >
-          <Text style={styles.resendBtnText}>Resend Code</Text>
+          <View style={styles.resendBtnContainer}>
+            <Text style={styles.resendBtnText}>{isVerifying ? "Sending..." : "Resend Code"}</Text>
+          </View>
         </TouchableOpacity>
 
         <View style={styles.formActions}>
@@ -359,26 +622,36 @@ export default function SignupPage() {
             onPress={handleVerifyCode}
             disabled={isVerifying || !verificationCode.trim()}
           >
-            {isVerifying ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.btnText}>Verify & Continue</Text>
-            )}
+            <LinearGradient
+              colors={isVerifying || !verificationCode.trim() ? ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.1)'] : ['#7f53ac', '#647dee']}
+              style={styles.nextBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {isVerifying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.btnText}>Verify & Continue</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
         </View>
+        </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   const renderStep3 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <View style={styles.content}>
+        <View style={styles.formCard}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Pick Your Username</Text>
@@ -386,7 +659,10 @@ export default function SignupPage() {
         
         <View style={styles.warningBox}>
           <Text style={styles.warningIcon}>⚠️</Text>
-          <Text style={styles.warningText}>Important: Your username cannot be changed after account creation. Choose carefully!</Text>
+          <View style={styles.warningTextContainer}>
+            <Text style={styles.warningTextBold}>Important:</Text>
+            <Text style={styles.warningText}>Your username cannot be changed after account creation. Choose carefully!</Text>
+          </View>
         </View>
         
         <View style={styles.formGroup}>
@@ -420,25 +696,35 @@ export default function SignupPage() {
             <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-            <Text style={styles.btnText}>Next: Tell Us About You</Text>
+            <LinearGradient
+              colors={['#7f53ac', '#647dee']}
+              style={styles.nextBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.btnText}>Next: Tell Us About You</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
         </View>
+        </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   const renderStep4 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.content}
       >
+        <View style={styles.formCard}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Tell Us About Yourself</Text>
@@ -487,22 +773,32 @@ export default function SignupPage() {
             <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-            <Text style={styles.btnText}>Next: Profile Pictures</Text>
+            <LinearGradient
+              colors={['#7f53ac', '#647dee']}
+              style={styles.nextBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.btnText}>Next: Profile Pictures</Text>
+            </LinearGradient>
           </TouchableOpacity>
+        </View>
         </View>
         </KeyboardAvoidingView>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   const renderStep5 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <View style={styles.content}>
+        <View style={styles.formCard}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Add Your Photos</Text>
@@ -549,22 +845,32 @@ export default function SignupPage() {
             <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-            <Text style={styles.btnText}>Preview Profile</Text>
+            <LinearGradient
+              colors={['#7f53ac', '#647dee']}
+              style={styles.nextBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.btnText}>Preview Profile</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
         </View>
+        </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   const renderStep6 = () => (
-    <LinearGradient
-      colors={['#0a0b0f', '#1a1d29', '#232946']}
-      style={styles.container}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0b0f', '#1a1d29', '#232946']}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Header />
         <View style={styles.content}>
+        <View style={[styles.formCard, styles.previewCard]}>
         {renderStepIndicator()}
         
         <Text style={styles.title}>Your Profile Preview</Text>
@@ -623,16 +929,24 @@ export default function SignupPage() {
             onPress={handleSubmit}
             disabled={isSubmitting}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.btnText}>Create Account</Text>
-            )}
+            <LinearGradient
+              colors={isSubmitting ? ['rgba(156, 163, 175, 0.8)', 'rgba(107, 114, 128, 0.8)'] : ['#4fd1c5', '#38b2ac']}
+              style={styles.createAccountBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.btnText}>Create Account</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
         </View>
+        </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 
   // Render current step
@@ -658,62 +972,103 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   content: {
     flex: 1,
-    padding: 20,
-    marginTop: 150,
+    padding: 12,
+    marginTop: 60,
+    alignItems: 'center',
+       marginTop:175
+  },
+  formCard: {
+    backgroundColor: 'rgba(30, 34, 45, 0.95)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(127, 83, 172, 0.2)',
+    padding: 16,
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  previewCard: {
+    maxWidth: 600,
   },
   stepIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: 'rgba(127, 83, 172, 0.1)',
+    justifyContent: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(127, 83, 172, 0.3)',
-    borderRadius: 8,
+    borderColor: 'rgba(127, 83, 172, 0.2)',
+    borderRadius: 16,
+    gap: 8,
+  },
+  stepNumberContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#7f53ac',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   stepNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#7f53ac',
-    marginRight: 10,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#fff',
   },
   stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#a084e8',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '900',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#bfc9d1',
-    marginBottom: 30,
+    fontSize: 14,
+    color: '#9ca3af',
+    marginBottom: 16,
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  strongText: {
+    fontWeight: '700',
+    color: '#fff',
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
+    borderColor: 'rgba(127, 83, 172, 0.2)',
+    borderRadius: 12,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: 'rgba(30, 34, 45, 0.8)',
+    fontSize: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     color: '#fff',
   },
   textArea: {
@@ -721,103 +1076,141 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   errorInput: {
-    borderColor: '#ff6b6b',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   successInput: {
-    borderColor: '#51cf66',
+    borderColor: '#10b981',
+    borderWidth: 1,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   errorText: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    marginTop: 5,
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   successText: {
-    color: '#51cf66',
-    fontSize: 14,
-    marginTop: 5,
+    color: '#10b981',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   validationText: {
-    color: '#ffd43b',
-    fontSize: 14,
-    marginTop: 5,
+    color: '#bdbdbd',
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '500',
   },
   charCounter: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
-    marginTop: 5,
+    marginTop: 4,
     textAlign: 'right',
+    fontWeight: '500',
   },
   nextBtn: {
-    backgroundColor: '#7f53ac',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 12,
     shadowColor: '#7f53ac',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
+  nextBtnGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   disabledBtn: {
-    backgroundColor: 'rgba(127, 83, 172, 0.3)',
+    opacity: 0.6,
   },
   btnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   backBtn: {
-    backgroundColor: 'transparent',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(127, 83, 172, 0.5)',
+    borderColor: 'rgba(127, 83, 172, 0.2)',
   },
   backBtnText: {
-    color: '#a084e8',
-    fontSize: 16,
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   formActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    gap: 12,
+    marginTop: 16,
   },
   signupActions: {
-    marginTop: 30,
+    marginTop: 20,
+    gap: 12,
   },
   createAccountBtn: {
-    backgroundColor: '#51cf66',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#51cf66',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+    shadowColor: '#4fd1c5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  infoBox: {
+  createAccountBtnGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verificationInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(127, 83, 172, 0.1)',
+    backgroundColor: 'rgba(79, 209, 197, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(127, 83, 172, 0.3)',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    borderColor: 'rgba(79, 209, 197, 0.3)',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
   },
   infoIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 18,
+    flexShrink: 0,
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoTextBold: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '700',
+    marginBottom: 2,
   },
   infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#a084e8',
+    fontSize: 12,
+    color: '#4fd1c5',
+    fontWeight: '500',
+    lineHeight: 16,
   },
   warningBox: {
     flexDirection: 'row',
@@ -825,39 +1218,56 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 193, 7, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255, 193, 7, 0.3)',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
   },
   warningIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 18,
+    flexShrink: 0,
+  },
+  warningTextContainer: {
+    flex: 1,
+  },
+  warningTextBold: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '700',
+    marginBottom: 2,
   },
   warningText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#ffd43b',
+    fontSize: 12,
+    color: '#ffc107',
+    fontWeight: '500',
+    lineHeight: 16,
   },
   resendBtn: {
-    backgroundColor: 'transparent',
-    padding: 10,
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  resendBtnContainer: {
+    backgroundColor: 'rgba(79, 209, 197, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(79, 209, 197, 0.3)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 20,
   },
   resendBtnText: {
-    color: '#a084e8',
-    fontSize: 14,
+    color: '#4fd1c5',
+    fontSize: 12,
     fontWeight: '600',
   },
   imagePicker: {
     borderWidth: 2,
-    borderColor: 'rgba(127, 83, 172, 0.3)',
+    borderColor: 'rgba(127, 83, 172, 0.4)',
     borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    backgroundColor: 'rgba(30, 34, 45, 0.8)',
+    backgroundColor: 'rgba(127, 83, 172, 0.15)',
   },
   imagePlaceholder: {
     alignItems: 'center',
@@ -933,10 +1343,10 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   previewUsername: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '900',
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   previewBio: {
     fontSize: 16,

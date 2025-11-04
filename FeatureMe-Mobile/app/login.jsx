@@ -69,6 +69,7 @@ export default function LoginPage() {
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingTop: 100,
+      marginTop:'-200'
     },
     loginFormCard: {
       backgroundColor: 'rgba(30, 34, 45, 0.95)',
