@@ -11,10 +11,12 @@ import {
   Dimensions,
   StyleSheet,
   RefreshControl,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import api, { getCurrentUserSafe } from '../../services/api';
 import {
@@ -283,18 +285,51 @@ export default function PostScreen() {
     }
   };
 
+  const handleSharePost = async () => {
+    try {
+      const shareMessage = post?.title 
+        ? `Check out "${post.title}" by ${post.author?.userName || 'Unknown'} on FeatureMe! 🎵`
+        : `Check out this post on FeatureMe! 🎵`;
+      
+      // Use web URL format for better compatibility and clickable links
+      const postUrl = `https://featureme.co/post/${id}`;
+      
+      // Use url property for clickable links (works better than putting it in message)
+      await Share.share({
+        message: shareMessage,
+        url: postUrl, // This makes the link tappable on iOS and Android
+        title: post?.title || 'FeatureMe Post',
+      });
+    } catch (error) {
+      // User cancelled the share dialog (this is expected behavior, not an error)
+      if (error.message && !error.message.includes('User did not share')) {
+        console.error('Error sharing post:', error);
+        Alert.alert('Error', 'Failed to share post. Please try again.');
+      }
+    }
+  };
+
   const handlePlayPause = async () => {
     if (isLoading || isPlayButtonLoading) return;
     
     setIsPlayButtonLoading(true);
     
     try {
-      // Add view tracking
-      const userName = currentUser ? currentUser.userName : 'unknown';
-      try {
-        await addView(id, userName);
-      } catch (error) {
-        console.error('Error adding view:', error);
+      // Add view tracking with cooldown (only track when play button is pressed)
+      if (currentUser) {
+        const cooldownKey = `view_${id}_${currentUser.userName}`;
+        const lastViewTime = await AsyncStorage.getItem(cooldownKey);
+        const now = Date.now();
+        const cooldown = 15 * 1000; // 15 seconds cooldown
+        
+        if (!lastViewTime || (now - parseInt(lastViewTime)) > cooldown) {
+          try {
+            await addView(id, currentUser.userName);
+            await AsyncStorage.setItem(cooldownKey, now.toString());
+          } catch (error) {
+            console.error('Error adding view:', error);
+          }
+        }
       }
       
       // Create track object for audio context
@@ -522,6 +557,14 @@ export default function PostScreen() {
                   )}
                 </TouchableOpacity>
               )}
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={handleSharePost}
+              >
+                <Text style={styles.actionIcon}>🔗</Text>
+                <Text style={styles.actionText}>Share</Text>
+              </TouchableOpacity>
               
               {currentUser && currentUser.userName === post.author.userName && (
                 <>
@@ -899,6 +942,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  shareButton: {
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    borderColor: 'rgba(102, 126, 234, 0.4)',
   },
   downloadButton: {
     backgroundColor: '#00d4ff',

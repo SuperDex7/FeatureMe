@@ -48,6 +48,11 @@ export function listUsers() {
   return api.get("/user/get");
 }
 
+// Search users with pagination - matching web version
+export function searchUsers(searchTerm, page = 0, size = 10) {
+  return api.get(`/user/get/search/${searchTerm}?page=${page}&size=${size}`);
+}
+
 export function getUserById(id) {
   return api.get(`/user/get/id/${id}`);
 }

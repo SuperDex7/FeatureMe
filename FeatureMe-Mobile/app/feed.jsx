@@ -24,7 +24,12 @@ import BottomNavigation from '../components/BottomNavigation';
 import AuthGuard from '../components/AuthGuard';
 import SpotlightCard from '../components/SpotlightCard';
 import PostCard from '../components/PostCard';
+import ViewsAnalytics from '../components/ViewsAnalytics';
+import PostCardModal from '../components/PostCardModal';
 import { useAudio } from '../contexts/AudioContext';
+
+// Pagination constant
+const POSTS_PER_PAGE = 6;
 
 // Profile Section Component with Navigation
 function ProfileSection({ userName, profilePic, time, styles, formatTime }) {
@@ -417,90 +422,161 @@ function LikedPostsItem({
 }
 
 
-// MyPostsItem wrapper using PostCard
-function MyPostsItem({ 
-  id, 
-  author, 
-  description, 
-  time, 
-  title, 
-  features, 
-  genre, 
-  music, 
-  comments = [], 
-  likes = [], 
-  totalViews = 0, 
-  totalComments = 0, 
-  totalDownloads = 0,
-  freeDownload = false,
-  onLikeUpdate,
-  onCommentUpdate,
-  onDeletePost,
-  currentUser 
+// Profile-style post card for My Posts tab
+function ProfilePostCard({ 
+  item,
+  onAnalyticsPress,
+  onPostPress,
+  currentUser
 }) {
-  // Use centralized audio context
-  const { playTrack, currentTrack, isPlaying } = useAudio();
-
-  const handlePlayClick = async () => {
-    const cooldownKey = `view_${id}_${currentUser?.userName}`;
-    const lastViewTime = await AsyncStorage.getItem(cooldownKey);
-    const now = Date.now();
-    const oneMinute = 15 * 1000;
-    
-    let shouldAddView = true;
-    if (lastViewTime) {
-      const timeSinceLastView = now - parseInt(lastViewTime);
-      if (timeSinceLastView < oneMinute) {
-        shouldAddView = false;
-      }
-    }
-    
-    if (shouldAddView && currentUser) {
-      try {
-        await addView(id);
-        await AsyncStorage.setItem(cooldownKey, now.toString());
-      } catch (error) {
-        console.error("Error adding view:", error);
-      }
-    }
-    
-    // Play track using centralized audio player
-    const trackData = {
-      id,
-      title,
-      author,
-      music,
-      genre,
-      features,
-      description,
-      time
-    };
-    playTrack(trackData);
-  };
-
   return (
-    <PostCard
-      id={id}
-      author={author}
-      description={description}
-      time={time}
-      title={title}
-      features={features}
-      genre={genre}
-      music={music}
-      comments={comments}
-      likes={likes}
-      totalViews={totalViews}
-      totalComments={totalComments}
-      totalDownloads={totalDownloads}
-      freeDownload={freeDownload}
-      onLikeUpdate={onLikeUpdate}
-      onCommentUpdate={onCommentUpdate}
-      onDeletePost={onDeletePost}
-      currentUser={currentUser}
-      variant="default"
-      showModal={true}
-    />
+    <TouchableOpacity 
+      key={item.id} 
+      style={styles.profilePostCard}
+      onPress={() => onPostPress(item)}
+      activeOpacity={0.85}
+    >
+      {/* Post Header with Banner */}
+      <View style={styles.profilePostHeader}>
+        <Image 
+          source={{ 
+            uri: item.author?.banner || item.thumbnail || item.coverImage || item.author?.profilePic
+          }} 
+          style={styles.profilePostBanner}
+          defaultSource={require('../assets/images/dpp.jpg')}
+        />
+        <View style={styles.profilePostBannerOverlay} />
+        
+        {/* Play Button Overlay - Visual only */}
+        <View style={styles.profilePostPlayOverlay}>
+          <Text style={styles.profilePostPlayIcon}>▶</Text>
+        </View>
+
+        {/* Premium Badge */}
+        {item.author?.role === 'USERPLUS' && (
+          <View style={styles.profilePostPremiumBadge}>
+            <Text style={styles.profilePostPremiumIcon}>✨</Text>
+            <Text style={styles.profilePostPremiumText}>UserPlus</Text>
+          </View>
+        )}
+
+        {/* Time Badge */}
+        <View style={styles.profilePostTimeBadge}>
+          <Text style={styles.profilePostTimeText}>
+            {new Date(item.time).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric'
+            })}
+          </Text>
+        </View>
+      </View>
+
+      {/* Post Content */}
+      <View style={styles.profilePostContent}>
+        {/* Profile Section */}
+        <View style={styles.profilePostProfile}>
+          <Image 
+            source={{ uri: item.author?.profilePic || item.author?.profilePic }} 
+            style={styles.profilePostAvatar}
+            defaultSource={require('../assets/images/dpp.jpg')}
+          />
+          <View style={styles.profilePostAuthorInfo}>
+            <Text style={styles.profilePostAuthorName}>
+              {item.author?.userName || 'Unknown'}
+            </Text>
+            <Text style={styles.profilePostDate}>
+              {new Date(item.time).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </Text>
+          </View>
+        </View>
+
+        {/* Title */}
+        <Text style={styles.profilePostTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+
+        {/* Description */}
+        {item.description && (
+          <Text style={styles.profilePostDescription} numberOfLines={3}>
+            {item.description}
+          </Text>
+        )}
+
+        {/* Features */}
+        {item.features && Array.isArray(item.features) && item.features.length > 0 && (
+          <View style={styles.profilePostFeatures}>
+            <Text style={styles.profilePostFeaturesLabel}>Feat:</Text>
+            <View style={styles.profilePostFeaturesList}>
+              {item.features.slice(0, 2).map((feature, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => router.push(`/profile/${feature}`)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.profilePostFeatureLink}>
+                    {feature}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {item.features.length > 2 && (
+                <Text style={styles.profilePostFeatureMore}>
+                  +{item.features.length - 2} more
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Genre Tags */}
+        {item.genre && Array.isArray(item.genre) && item.genre.length > 0 && (
+          <View style={styles.profilePostTags}>
+            {item.genre.slice(0, 3).map((genre, idx) => (
+              <View key={idx} style={styles.profilePostTag}>
+                <Text style={styles.profilePostTagIcon}>{getGenreIcon(genre)}</Text>
+                <Text style={styles.profilePostTagText}>{genre}</Text>
+              </View>
+            ))}
+            {item.genre.length > 3 && (
+              <Text style={styles.profilePostFeatureMore}>
+                +{item.genre.length - 3}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Post Stats */}
+        <View style={styles.profilePostStats}>
+          <View style={styles.profilePostStatItem}>
+            <Text style={styles.profilePostStatIcon}>❤️</Text>
+            <Text style={styles.profilePostStatText}>{item.likes?.length || 0}</Text>
+          </View>
+          <View style={styles.profilePostStatItem}>
+            <Text style={styles.profilePostStatIcon}>💬</Text>
+            <Text style={styles.profilePostStatText}>{item.totalComments || 0}</Text>
+          </View>
+          <View style={styles.profilePostStatItem}>
+            <Text style={styles.profilePostStatIcon}>👁️</Text>
+            <Text style={styles.profilePostStatText}>{item.totalViews || 0}</Text>
+          </View>
+        </View>
+
+        {/* Analytics Button - Only show for USERPLUS */}
+        {currentUser?.role === 'USERPLUS' && onAnalyticsPress && (
+          <TouchableOpacity
+            style={styles.profilePostAnalyticsButton}
+            onPress={() => onAnalyticsPress(item)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.profilePostAnalyticsIcon}>📊</Text>
+            <Text style={styles.profilePostAnalyticsText}>Analytics</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -567,6 +643,11 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [user, setUser] = useState(null);
   const [loadedTabs, setLoadedTabs] = useState(new Set()); // Track which tabs have been loaded
+  const [isSearchActive, setIsSearchActive] = useState(false); // Track if search is active
+  const [searchPage, setSearchPage] = useState(0);
+  const [hasMoreSearch, setHasMoreSearch] = useState(false);
+  const [searchSort, setSearchSort] = useState('likes'); // Sort by likes or time
+  const [searchTotalPages, setSearchTotalPages] = useState(0);
   
   // Pagination state for each section
   const [feedPage, setFeedPage] = useState(0);
@@ -585,6 +666,14 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   const [hasMoreSpotlight, setHasMoreSpotlight] = useState(true);
   const [hasMoreLiked, setHasMoreLiked] = useState(true);
   const [hasMoreMyPosts, setHasMoreMyPosts] = useState(true);
+  
+  // Analytics modal state
+  const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
+  const [analyticsPost, setAnalyticsPost] = useState(null);
+  
+  // Post modal state
+  const [expandedPost, setExpandedPost] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   
 
   useEffect(() => {
@@ -608,6 +697,13 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     }
   }, [activeTab, user, loadedTabs]);
 
+  // Re-run search when sort changes
+  useEffect(() => {
+    if (isSearchActive && (searchQuery.trim() || selectedGenres.length > 0)) {
+      handleSearch(); // Reset to page 0 when sort changes
+    }
+  }, [searchSort]);
+
   const fetchCurrentUser = async () => {
     const user = await getCurrentUser();
     setCurrentUser(user);
@@ -620,7 +716,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? feedPage : 0;
-      const response = await api.get(`/posts/get?page=${currentPage}&size=6`);
+      const response = await api.get(`/posts/get?page=${currentPage}&size=${POSTS_PER_PAGE}`);
       const newPosts = response.data.content || [];
       
       if (isLoadMore) {
@@ -637,7 +733,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
       }
       
       // Check if there are more posts
-      setHasMoreFeed(newPosts.length === 6);
+      setHasMoreFeed(newPosts.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error fetching posts:', error);
       Alert.alert('Error', 'Failed to load posts. Please try again.');
@@ -653,7 +749,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? spotlightPage : 0;
-      const response = await api.get(`/posts/get/likesdesc/role/USERPLUS?page=${currentPage}&size=6`);
+      const response = await api.get(`/posts/get/likesdesc/role/USERPLUS?page=${currentPage}&size=${POSTS_PER_PAGE}`);
       const newPosts = response.data.content || [];
       
       if (isLoadMore) {
@@ -670,12 +766,12 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
       }
       
       // Check if there are more posts
-      setHasMoreSpotlight(newPosts.length === 6);
+      setHasMoreSpotlight(newPosts.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error fetching spotlight posts:', error);
       try {
         const currentPage = isLoadMore ? spotlightPage : 0;
-        const fallbackResponse = await api.get(`/posts/get/likesdesc?page=${currentPage}&size=6`);
+        const fallbackResponse = await api.get(`/posts/get/likesdesc?page=${currentPage}&size=${POSTS_PER_PAGE}`);
         const fallbackPosts = fallbackResponse.data.content || [];
         
         if (isLoadMore) {
@@ -691,7 +787,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
           setSpotlightPage(1);
         }
         
-        setHasMoreSpotlight(fallbackPosts.length === 6);
+        setHasMoreSpotlight(fallbackPosts.length === POSTS_PER_PAGE);
       } catch (fallbackError) {
         console.error('Error fetching fallback posts:', fallbackError);
         Alert.alert('Error', 'Failed to load spotlight posts. Please try again.');
@@ -703,7 +799,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const fetchLikedPosts = async (showLoading = true, isLoadMore = false) => {
-    if (!user || !user.likedPosts) {
+    if (!user || !user.likedPosts || (Array.isArray(user.likedPosts) && user.likedPosts.length === 0)) {
       if (showLoading && !isLoadMore) setIsLoading(false);
       if (isLoadMore) setIsLoadingMoreLiked(false);
       setLikedPosts([]);
@@ -716,7 +812,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? likedPage : 0;
-      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${currentPage}&size=6`;
+      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${currentPage}&size=${POSTS_PER_PAGE}`;
       const response = await api.get(endpoint);
       const newPosts = response.data.content || [];
       
@@ -734,7 +830,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
       }
       
       // Check if there are more posts
-      setHasMoreLiked(newPosts.length === 6);
+      setHasMoreLiked(newPosts.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error fetching liked posts:', error);
       setLikedPosts([]);
@@ -746,7 +842,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const fetchMyPosts = async (showLoading = true, isLoadMore = false) => {
-    if (!user || !user.posts) {
+    if (!user || !user.posts || (Array.isArray(user.posts) && user.posts.length === 0)) {
       if (showLoading && !isLoadMore) setIsLoading(false);
       if (isLoadMore) setIsLoadingMoreMyPosts(false);
       setMyPosts([]);
@@ -759,7 +855,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? myPostsPage : 0;
-      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${currentPage}&size=4`;
+      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${currentPage}&size=${POSTS_PER_PAGE}`;
       const response = await api.get(endpoint);
       const newPosts = response.data.content || [];
       
@@ -777,7 +873,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
       }
       
       // Check if there are more posts
-      setHasMoreMyPosts(newPosts.length === 4);
+      setHasMoreMyPosts(newPosts.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error fetching my posts:', error);
       setMyPosts([]);
@@ -790,20 +886,45 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    if (activeTab === 'feed') {
-      await fetchPosts(false);
-    } else if (activeTab === 'spotlight') {
-      await fetchSpotlightPosts(false);
-    } else if (activeTab === 'liked') {
-      await fetchLikedPosts(false);
-    } else if (activeTab === 'my-posts') {
-      await fetchMyPosts(false);
+    try {
+      // Refresh current user so likedPosts/order is up to date
+      await fetchCurrentUser();
+
+      // Reset pagination and lists to force a clean first-page reload
+      setFeedPage(0);
+      setSpotlightPage(0);
+      setLikedPage(0);
+      setMyPostsPage(0);
+      setHasMoreFeed(true);
+      setHasMoreSpotlight(true);
+      setHasMoreLiked(true);
+      setHasMoreMyPosts(true);
+      setPosts([]);
+      setSpotlightPosts([]);
+      setLikedPosts([]);
+      setMyPosts([]);
+
+      if (activeTab === 'feed') {
+        await fetchPosts(false);
+      } else if (activeTab === 'spotlight') {
+        await fetchSpotlightPosts(false);
+      } else if (activeTab === 'liked') {
+        await fetchLikedPosts(false);
+      } else if (activeTab === 'my-posts') {
+        await fetchMyPosts(false);
+      }
+    } finally {
+      setIsRefreshing(false);
     }
-    setIsRefreshing(false);
   };
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
+    // Clear search when switching tabs
+    setIsSearchActive(false);
+    setSearchPage(0);
+    setHasMoreSearch(false);
+    setSearchTotalPages(0);
     // Reset pagination for all tabs
     setFeedPage(0);
     setSpotlightPage(0);
@@ -820,6 +941,11 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const loadMorePosts = () => {
+    // Don't load more automatically for search - use page buttons instead
+    if (isSearchActive) {
+      return;
+    }
+    
     if (activeTab === 'feed' && hasMoreFeed && !isLoadingMoreFeed) {
       fetchPosts(false, true);
     } else if (activeTab === 'spotlight' && hasMoreSpotlight && !isLoadingMoreSpotlight) {
@@ -832,6 +958,9 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const getCurrentLoadingMore = () => {
+    // Search now uses buttons, not infinite scroll, so no loading state needed
+    if (isSearchActive) return false;
+    
     switch (activeTab) {
       case 'feed': return isLoadingMoreFeed;
       case 'spotlight': return isLoadingMoreSpotlight;
@@ -842,6 +971,11 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const getCurrentHasMore = () => {
+    // Return search pagination when search is active
+    if (isSearchActive) {
+      return hasMoreSearch;
+    }
+    
     switch (activeTab) {
       case 'feed': return hasMoreFeed;
       case 'spotlight': return hasMoreSpotlight;
@@ -853,21 +987,66 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
 
   const handleSearch = async () => {
     if (!searchQuery.trim() && selectedGenres.length === 0) {
+      setIsSearchActive(false);
+      setSearchPage(0);
+      setHasMoreSearch(false);
+      setSearchTotalPages(0);
       fetchPosts();
       return;
     }
     
     setIsLoading(true);
+    setIsSearchActive(true);
+    
     try {
       const genreParam = selectedGenres.length > 0 ? selectedGenres.join(',') : "";
       const searchParam = searchQuery.trim() || "";
+      
       const response = await api.get(
-        `/posts/get/advanced-search?page=0&size=20&search=${searchParam}&genres=${genreParam}&sortBy=likes`
+        `/posts/get/advanced-search?page=0&size=${POSTS_PER_PAGE}&search=${searchParam}&genres=${genreParam}&sortBy=${searchSort}`
       );
-      setPosts(response.data.content || []);
+      const newPosts = response.data.content || [];
+      console.log('Search response:', {
+        requestedPage: 0,
+        requestedSize: POSTS_PER_PAGE,
+        receivedCount: newPosts.length,
+        totalPages: response.data.page?.totalPages,
+        totalElements: response.data.page?.totalElements
+      });
+      
+      setPosts(newPosts);
+      setSearchPage(0);
+      setSearchTotalPages(response.data.page?.totalPages || 0);
+      
+      // Check if there are more posts
+      setHasMoreSearch((response.data.page?.totalPages || 0) > 1);
     } catch (error) {
       console.error('Error searching posts:', error);
       Alert.alert('Error', 'Failed to search posts. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadSearchPage = async (page) => {
+    if (!isSearchActive || isLoading) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const genreParam = selectedGenres.length > 0 ? selectedGenres.join(',') : "";
+      const searchParam = searchQuery.trim() || "";
+      
+      const response = await api.get(
+        `/posts/get/advanced-search?page=${page}&size=${POSTS_PER_PAGE}&search=${searchParam}&genres=${genreParam}&sortBy=${searchSort}`
+      );
+      const newPosts = response.data.content || [];
+      
+      setPosts(newPosts);
+      setSearchPage(page);
+    } catch (error) {
+      console.error('Error loading search page:', error);
+      Alert.alert('Error', 'Failed to load page. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -886,6 +1065,11 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   const clearSearch = () => {
     setSearchQuery("");
     setSelectedGenres([]);
+    setIsSearchActive(false);
+    setSearchPage(0);
+    setHasMoreSearch(false);
+    setSearchTotalPages(0);
+    setSearchSort('likes'); // Reset sort to default
     fetchPosts();
   };
 
@@ -955,22 +1139,42 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     />
   );
 
+  const openPostModal = (post) => {
+    setExpandedPost(post);
+    setIsModalVisible(true);
+  };
+
+  const closePostModal = () => {
+    setIsModalVisible(false);
+    setExpandedPost(null);
+  };
+
+  const handlePostUpdate = (updatedPost) => {
+    if (!updatedPost) {
+      // Post was deleted
+      setMyPosts(prev => prev.filter(p => p.id !== expandedPost?.id));
+      closePostModal();
+      return;
+    }
+    
+    // Update the post in the list
+    setMyPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    
+    // Update expanded post if it's the same
+    if (expandedPost && expandedPost.id === updatedPost.id) {
+      setExpandedPost(updatedPost);
+    }
+  };
+
   const renderMyPostItem = ({ item }) => (
-    <MyPostsItem
-      key={item.id}
-      {...item}
+    <ProfilePostCard
+      item={item}
       currentUser={user}
-      onLikeUpdate={(likes) => {
-        setMyPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
+      onPostPress={openPostModal}
+      onAnalyticsPress={(post) => {
+        setAnalyticsPost(post);
+        setShowViewsAnalytics(true);
       }}
-      onCommentUpdate={(comments) => {
-        setMyPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-      onDeletePost={handleDeletePost}
     />
   );
 
@@ -1103,6 +1307,15 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
                   <Text style={styles.dropdownArrow}>▼</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity 
+                  style={styles.sortFilter}
+                  onPress={() => setSearchSort(searchSort === 'likes' ? 'time' : 'likes')}
+                >
+                  <Text style={styles.sortFilterText}>
+                    {searchSort === 'likes' ? '🔥 Popular' : '🕐 Newest'}
+                  </Text>
+                </TouchableOpacity>
+
                 {(searchQuery.trim() || selectedGenres.length > 0) && (
                   <TouchableOpacity 
                     style={styles.clearButton}
@@ -1155,12 +1368,43 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
               </View>
             }
             ListFooterComponent={
-              getCurrentHasMore() && getCurrentLoadingMore() ? (
-                <View style={styles.loadMoreContainer}>
-                  <ActivityIndicator size="small" color="#667eea" />
-                  <Text style={styles.loadMoreText}>Loading more posts...</Text>
-                </View>
-              ) : null
+              <>
+                {!isSearchActive && getCurrentHasMore() && (
+                  <View style={styles.loadMoreContainer}>
+                    {getCurrentLoadingMore() && (
+                      <>
+                        <ActivityIndicator size="small" color="#667eea" />
+                        <Text style={styles.loadMoreText}>Loading more posts...</Text>
+                      </>
+                    )}
+                  </View>
+                )}
+                {isSearchActive && searchTotalPages > 0 && (
+                  <View style={styles.searchPaginationContainer}>
+                    <TouchableOpacity 
+                      style={[styles.searchPageButton, searchPage === 0 && styles.searchPageButtonDisabled]}
+                      onPress={() => searchPage > 0 && loadSearchPage(searchPage - 1)}
+                      disabled={searchPage === 0 || isLoading}
+                    >
+                      <Text style={[styles.searchPageButtonText, searchPage === 0 && styles.searchPageButtonTextDisabled]}>
+                        ← Previous
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.searchPageInfo}>
+                      Page {searchPage + 1} of {searchTotalPages}
+                    </Text>
+                    <TouchableOpacity 
+                      style={[styles.searchPageButton, searchPage >= searchTotalPages - 1 && styles.searchPageButtonDisabled]}
+                      onPress={() => searchPage < searchTotalPages - 1 && loadSearchPage(searchPage + 1)}
+                      disabled={searchPage >= searchTotalPages - 1 || isLoading}
+                    >
+                      <Text style={[styles.searchPageButtonText, searchPage >= searchTotalPages - 1 && styles.searchPageButtonTextDisabled]}>
+                        Next →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             }
           />
         )}
@@ -1173,6 +1417,34 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
             genreData={genreData}
             selectedGenres={selectedGenres}
             onGenreToggle={handleGenreToggle}
+          />
+        )}
+
+        {/* Post Card Modal */}
+        <PostCardModal
+          visible={isModalVisible}
+          onClose={closePostModal}
+          post={expandedPost}
+          currentUser={user}
+          onPostUpdate={handlePostUpdate}
+          showDelete={true}
+        />
+
+        {/* Views Analytics Modal */}
+        {analyticsPost && (
+          <ViewsAnalytics
+            postId={analyticsPost.id}
+            postTitle={analyticsPost.title}
+            isOpen={showViewsAnalytics}
+            onClose={() => {
+              setShowViewsAnalytics(false);
+              setAnalyticsPost(null);
+            }}
+            currentUser={user}
+            postAuthor={analyticsPost.author || user}
+            totalDownloads={analyticsPost.totalDownloads || 0}
+            totalViews={analyticsPost.totalViews || 0}
+            totalComments={analyticsPost.totalComments || 0}
           />
         )}
       </View>
@@ -1315,6 +1587,19 @@ const styles = StyleSheet.create({
   dropdownArrow: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 12,
+  },
+  sortFilter: {
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+  },
+  sortFilterText: {
+    color: '#667eea',
+    fontSize: 14,
+    fontWeight: '600',
   },
   clearButton: {
     backgroundColor: 'rgba(255, 107, 107, 0.2)',
@@ -1790,6 +2075,292 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: 20,
     paddingTop: 20
+  },
+
+  // Profile Post Card Styles (from main-app.jsx)
+  profilePostCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 32,
+    marginBottom: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 32,
+    elevation: 12,
+    minHeight: 400,
+    position: 'relative',
+    marginHorizontal: 16,
+  },
+  profilePostHeader: {
+    position: 'relative',
+    height: 200,
+    overflow: 'hidden',
+    borderRadius: 32,
+  },
+  profilePostBanner: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profilePostBannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  profilePostPlayOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -40 }, { translateY: -40 }],
+    width: 80,
+    height: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 32,
+    elevation: 12,
+  },
+  profilePostPlayIcon: {
+    fontSize: 32,
+    color: '#7877c6',
+    marginLeft: 4,
+  },
+  profilePostPremiumBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: '#7877c6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#7877c6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  profilePostPremiumIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  profilePostPremiumText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  profilePostTimeBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  profilePostTimeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  profilePostContent: {
+    padding: 24,
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  profilePostProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  profilePostAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: 'rgba(120, 119, 198, 0.3)',
+    marginRight: 12,
+  },
+  profilePostAuthorInfo: {
+    flex: 1,
+  },
+  profilePostAuthorName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  profilePostDate: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '500',
+  },
+  profilePostTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 12,
+    lineHeight: 28,
+    letterSpacing: -0.01,
+  },
+  profilePostDescription: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  profilePostFeatures: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  profilePostFeaturesLabel: {
+    color: '#7877c6',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginRight: 8,
+  },
+  profilePostFeaturesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profilePostFeatureLink: {
+    color: '#ff77c6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  profilePostFeatureMore: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  profilePostTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  profilePostTag: {
+    backgroundColor: 'rgba(120, 119, 198, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(120, 119, 198, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profilePostTagIcon: {
+    fontSize: 12,
+    marginRight: 6,
+  },
+  profilePostTagText: {
+    fontSize: 12,
+    color: '#7877c6',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  profilePostStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginTop: 'auto',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  profilePostStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  profilePostStatIcon: {
+    fontSize: 18,
+  },
+  profilePostStatText: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  profilePostAnalyticsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+  },
+  profilePostAnalyticsIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  profilePostAnalyticsText: {
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  searchPaginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginTop: 20,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  searchPageButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+  },
+  searchPageButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.5,
+  },
+  searchPageButtonText: {
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  searchPageButtonTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.3)',
+  },
+  searchPageInfo: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
   },
 });
 

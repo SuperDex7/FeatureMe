@@ -105,13 +105,62 @@ export default function CreatePostScreen() {
 
   const handleFilePicker = async () => {
     try {
+      const isUserPlus = currentUser?.role === 'USERPLUS';
+      
+      // Only allow WAV files for USERPLUS
+      const allowedMimes = isUserPlus
+        ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav']
+        : ['audio/mpeg', 'audio/mp3'];
+      
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
+        type: allowedMimes,
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setSelectedFile(result.assets[0]);
+        const file = result.assets[0];
+        
+        // Check file type
+        const fileName = file.name || '';
+        const isMp3 = fileName.toLowerCase().endsWith('.mp3');
+        const isWav = fileName.toLowerCase().endsWith('.wav');
+        
+        if (!isMp3 && !isWav) {
+          Alert.alert(
+            'Invalid File Type',
+            isUserPlus ? 'Please select an MP3 or WAV file.' : 'Please select an MP3 file. Upgrade to Plus to upload WAV files.'
+          );
+          return;
+        }
+        
+        if (isWav && !isUserPlus) {
+          Alert.alert(
+            'WAV Files Not Available',
+            'WAV file uploads are only available for Plus members. Upgrade to upload WAV files.',
+            [
+              { text: 'OK' },
+              { text: 'Upgrade', onPress: () => router.push('/subscription') }
+            ]
+          );
+          return;
+        }
+        
+        // Check file size (15MB for USER, 90MB for USERPLUS)
+        const maxSizeMB = isUserPlus ? 90 : 15;
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        if (file.size && file.size > maxSizeBytes) {
+          Alert.alert(
+            'File Too Large',
+            `File size exceeds the limit (${maxSizeMB}MB). ${isUserPlus ? '' : 'Upgrade to Plus to upload files up to 90MB.'}`,
+            [
+              { text: 'OK' },
+              ...(isUserPlus ? [] : [{ text: 'Upgrade', onPress: () => router.push('/subscription') }])
+            ]
+          );
+          return;
+        }
+        
+        setSelectedFile(file);
         if (errors.file) {
           setErrors(prev => ({ ...prev, file: '' }));
         }

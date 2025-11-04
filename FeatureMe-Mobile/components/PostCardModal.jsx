@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -197,6 +198,32 @@ export default function PostCardModal({
       Alert.alert('Error', 'Failed to add comment');
     } finally {
       setIsCommenting(false);
+    }
+  };
+
+  const handleSharePost = async () => {
+    if (!post) return;
+    
+    try {
+      const shareMessage = post.title 
+        ? `Check out "${post.title}" by ${post.author?.userName || 'Unknown'} on FeatureMe! 🎵`
+        : `Check out this post on FeatureMe! 🎵`;
+      
+      // Use web URL format for better compatibility and clickable links
+      const postUrl = `https://featureme.co/post/${post.id}`;
+      
+      // Use url property for clickable links (works better than putting it in message)
+      await Share.share({
+        message: shareMessage,
+        url: postUrl, // This makes the link tappable on iOS and Android
+        title: post.title || 'FeatureMe Post',
+      });
+    } catch (error) {
+      // User cancelled the share dialog (this is expected behavior, not an error)
+      if (error.message && !error.message.includes('User did not share')) {
+        console.error('Error sharing post:', error);
+        Alert.alert('Error', 'Failed to share post. Please try again.');
+      }
     }
   };
 
@@ -1004,6 +1031,27 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  modalShareBtn: {
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modalShareIcon: {
+    fontSize: 18,
+  },
+  modalShareText: {
+    color: '#667eea',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalDeleteBtn: {
     backgroundColor: 'rgba(255, 68, 68, 0.1)',

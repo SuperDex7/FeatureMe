@@ -754,7 +754,9 @@ export default function MessagesScreen() {
   useEffect(() => {
     return () => {
       if (sound) {
-        sound.unloadAsync();
+        sound.unloadAsync().catch((error) => {
+          console.error('Error unloading sound in cleanup:', error);
+        });
       }
     };
   }, [sound]);
@@ -863,15 +865,25 @@ export default function MessagesScreen() {
   };
 
   const closeAudioPlayer = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-      setSound(null);
+    try {
+      if (sound) {
+        try {
+          await sound.unloadAsync();
+        } catch (error) {
+          console.error('Error unloading sound:', error);
+        }
+        setSound(null);
+      }
+    } catch (error) {
+      console.error('Error in closeAudioPlayer:', error);
+    } finally {
+      setShowAudioPlayer(false);
+      setCurrentAudioUrl(null);
+      setCurrentAudioName('');
+      setPlaybackStatus(null);
+      setIsPlaying(false);
+      setProgressLayout(null);
     }
-    setShowAudioPlayer(false);
-    setCurrentAudioUrl(null);
-    setCurrentAudioName('');
-    setPlaybackStatus(null);
-    setIsPlaying(false);
   };
 
   const handleDownload = async () => {
@@ -1379,9 +1391,9 @@ export default function MessagesScreen() {
                     setProgressLayout(event.nativeEvent.layout);
                   }}
                   onPress={(event) => {
-                    const { locationX, layout } = event.nativeEvent;
-                    if (playbackStatus?.isLoaded && playbackStatus.durationMillis) {
-                      const progress = locationX / layout.width;
+                    const { locationX } = event.nativeEvent;
+                    if (playbackStatus?.isLoaded && playbackStatus.durationMillis && progressLayout?.width) {
+                      const progress = locationX / progressLayout.width;
                       const seekPosition = progress * playbackStatus.durationMillis;
                       handleSeek(seekPosition);
                     }
@@ -1509,14 +1521,14 @@ export default function MessagesScreen() {
             style={styles.chatActionButton}
             onPress={() => setShowAddUser(true)}
           >
-            <Text style={styles.chatActionIcon}>➕</Text>
+            <Text style={styles.chatActionText}>Add User</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.chatActionButton}
             onPress={handleLeaveChat}
           >
-            <Text style={styles.chatActionIcon}>🚪</Text>
+            <Text style={styles.chatActionText}>Leave</Text>
           </TouchableOpacity>
         </View>
 
@@ -1600,10 +1612,16 @@ export default function MessagesScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Messages</Text>
         <TouchableOpacity 
-          style={styles.newMessageButton}
           onPress={() => setShowNewMessageModal(true)}
         >
-          <Text style={styles.newMessageIcon}>✏️</Text>
+          <LinearGradient
+            colors={['#667eea', '#764ba2']}
+            style={styles.newMessageButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.newMessageText}>Create Chat</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -1679,15 +1697,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   newMessageButton: {
-    width: 40,
+    paddingHorizontal: 16,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  newMessageIcon: {
-    fontSize: 18,
+  newMessageText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '600',
   },
   conversationItem: {
     flexDirection: 'row',
@@ -1825,14 +1845,18 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.5)',
   },
   chatActionButton: {
-    width: 40,
+    paddingHorizontal: 12,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  chatActionIcon: {
-    fontSize: 18,
+  chatActionText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '600',
   },
   messageContainer: {
     marginVertical: 4,

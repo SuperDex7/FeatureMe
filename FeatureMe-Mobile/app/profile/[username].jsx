@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  RefreshControl
+  RefreshControl,
+  Share
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -242,7 +243,8 @@ export default function UserProfileScreen() {
     setIsLoadingDemos(true);
     try {
       const demos = await DemoService.getAllUserDemos(user.id);
-      setUserDemos(demos || []);
+      // Reverse the order so newer demos appear first (matching web version)
+      setUserDemos((demos || []).reverse());
     } catch (err) {
       console.error('Failed to fetch user demos:', err);
       setUserDemos([]);
@@ -386,6 +388,28 @@ export default function UserProfileScreen() {
     } catch (error) {
       console.error('Error toggling follow:', error);
       Alert.alert('Error', 'Failed to update follow status');
+    }
+  };
+
+  const handleShareProfile = async () => {
+    try {
+      const shareMessage = `Check out ${user?.displayName || user?.userName || username}'s profile on FeatureMe! 🎵`;
+      
+      // Use web URL format for better compatibility and clickable links
+      const profileUrl = `https://featureme.co/profile/${username}`;
+      
+      // Use url property for clickable links (works better than putting it in message)
+      await Share.share({
+        message: shareMessage,
+        url: profileUrl, // This makes the link tappable on iOS and Android
+        title: `${user?.displayName || user?.userName || username}'s Profile`,
+      });
+    } catch (error) {
+      // User cancelled the share dialog (this is expected behavior, not an error)
+      if (error.message && !error.message.includes('User did not share')) {
+        console.error('Error sharing profile:', error);
+        Alert.alert('Error', 'Failed to share profile. Please try again.');
+      }
     }
   };
 
@@ -730,7 +754,9 @@ export default function UserProfileScreen() {
           <View style={{flex:1,alignItems:'center'}}>
             <Text style={{fontSize:18,fontWeight:'600',color:'white'}}>{user?.userName || 'Profile'}</Text>
           </View>
-          <View style={{width:36}} />
+          <TouchableOpacity onPress={handleShareProfile} style={{width:36,height:36,borderRadius:18,backgroundColor:'rgba(255,255,255,0.1)',alignItems:'center',justifyContent:'center'}}>
+            <Text style={{fontSize:20,color:'white'}}>🔗</Text>
+          </TouchableOpacity>
         </View>
         <ScrollView 
           style={styles.profileScrollView} 
@@ -777,7 +803,7 @@ export default function UserProfileScreen() {
                   defaultSource={require('../../assets/images/dpp.jpg')}
                 />
                 <View style={styles.profileOnlineIndicator} />
-                {user.role === "USERPLUS" && (
+                {/* {user.role === "USERPLUS" && (
                   <View style={styles.userPlusBadge}>
                     <LinearGradient
                       colors={['#974d9e', '#5491cd']}
@@ -788,7 +814,7 @@ export default function UserProfileScreen() {
                       <Text style={styles.userPlusText}>+</Text>
                     </LinearGradient>
                   </View>
-                )}
+                )} */}
               </View>
 
               <View style={styles.profileDetails}>

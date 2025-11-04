@@ -146,11 +146,18 @@ export default function MyPostsScreen() {
   }, []);
 
   useEffect(() => {
-    if (user && user.posts) {
+    if (user && user.posts && Array.isArray(user.posts) && user.posts.length > 0) {
       fetchPosts();
-    } else if (user && !user.posts) {
+    } else if (user && (!user.posts || (Array.isArray(user.posts) && user.posts.length === 0))) {
       setIsLoading(false);
       setPosts([]);
+      setTotalPages(0);
+      setStats({
+        totalPosts: 0,
+        totalLikes: 0,
+        totalViews: 0,
+        totalComments: 0
+      });
     }
   }, [user, page]);
 
@@ -165,6 +172,19 @@ export default function MyPostsScreen() {
   };
 
   const fetchPosts = async () => {
+    if (!user || !user.posts || (Array.isArray(user.posts) && user.posts.length === 0)) {
+      setIsLoading(false);
+      setPosts([]);
+      setTotalPages(0);
+      setStats({
+        totalPosts: 0,
+        totalLikes: 0,
+        totalViews: 0,
+        totalComments: 0
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${page}&size=20`;

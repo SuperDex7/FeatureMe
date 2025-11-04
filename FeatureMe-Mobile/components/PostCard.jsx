@@ -473,7 +473,7 @@ export default function PostCard({
           {role === 'USERPLUS' && (
             <View style={styles.premiumBadge}>
               <Text style={styles.premiumIcon}>✨</Text>
-              <Text style={styles.premiumText}>Premium</Text>
+              <Text style={styles.premiumText}>UserPlus</Text>
             </View>
           )}
 

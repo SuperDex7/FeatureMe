@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,56 +8,106 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
-  Alert,
-  Dimensions
+  Alert
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import api from '../services/api';
-import { listUsers } from '../services/userService';
-
-const { width: screenWidth } = Dimensions.get('window');
+import { searchUsers } from '../services/userService';
 
 export default function UserSearchScreen() {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [page, setPage] = useState(0);
+  const [size] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = users.filter(user =>
-        user.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (user.firstName && user.firstName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (user.lastName && user.lastName.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-      setFilteredUsers(filtered);
-      setHasSearched(true);
-    } else {
-      setFilteredUsers([]);
-      setHasSearched(false);
+  const fetchUsers = useCallback(async (term, pageNum) => {
+    // Prevent duplicate calls
+    if (loadingRef.current) {
+      return;
     }
-  }, [searchQuery, users]);
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
+    loadingRef.current = true;
+    
+    if (pageNum === 0) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+    
     try {
-      const response = await listUsers();
-      setUsers(response.data || []);
+      const response = await searchUsers(term, pageNum, size);
+      const data = response.data;
+      
+      // Handle different possible response structures
+      let usersData = [];
+      let totalPagesCount = 0;
+      let currentPageNum = pageNum;
+      
+      if (Array.isArray(data)) {
+        // If response is directly an array
+        usersData = data;
+        totalPagesCount = 1;
+      } else if (data.content) {
+        // Standard PagedModel structure
+        usersData = data.content || [];
+        totalPagesCount = data.page?.totalPages ?? data.totalPages ?? 0;
+        currentPageNum = data.page?.number ?? data.number ?? pageNum;
+      } else {
+        // Fallback
+        usersData = [];
+        totalPagesCount = 0;
+      }
+      
+      if (pageNum === 0) {
+        setUsers(usersData);
+      } else {
+        setUsers(prev => [...prev, ...usersData]);
+      }
+      
+      setTotalPages(totalPagesCount);
+      setHasMore(currentPageNum < totalPagesCount - 1);
+      setPage(currentPageNum);
+      setHasSearched(true);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Failed to load users');
+      if (pageNum === 0) {
+        Alert.alert('Error', 'Failed to search users');
+      }
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
+      loadingRef.current = false;
     }
-  };
+  }, [size]);
+
+  // Debounced search function
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        setPage(0);
+        fetchUsers(searchQuery, 0);
+      } else {
+        setUsers([]);
+        setTotalPages(0);
+        setHasMore(false);
+        setHasSearched(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, fetchUsers]);
+
+  const loadMoreUsers = useCallback(() => {
+    if (hasMore && !isLoading && !isLoadingMore && !loadingRef.current && searchQuery.trim()) {
+      fetchUsers(searchQuery, page + 1);
+    }
+  }, [hasMore, isLoading, isLoadingMore, page, searchQuery, fetchUsers]);
 
   const handleUserPress = (user) => {
     router.push(`/profile/${user.userName}`);
@@ -145,17 +195,42 @@ export default function UserSearchScreen() {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#667eea" />
-            <Text style={styles.loadingText}>Loading users...</Text>
+            <Text style={styles.loadingText}>Searching users...</Text>
           </View>
         ) : (
           <>
-            {filteredUsers.length > 0 ? (
+            {users.length > 0 ? (
               <FlatList
-                data={filteredUsers}
+                data={users}
                 renderItem={renderUserItem}
                 keyExtractor={(item) => item.id?.toString() || item.userName}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
+                onEndReached={loadMoreUsers}
+                onEndReachedThreshold={0.3}
+                removeClippedSubviews={false}
+                ListFooterComponent={
+                  isLoadingMore ? (
+                    <View style={styles.loadingMore}>
+                      <ActivityIndicator size="small" color="#667eea" />
+                      <Text style={styles.loadingMoreText}>Loading more...</Text>
+                    </View>
+                  ) : hasMore ? (
+                    <TouchableOpacity
+                      style={styles.loadMoreButton}
+                      onPress={loadMoreUsers}
+                      disabled={isLoadingMore}
+                    >
+                      <Text style={styles.loadMoreButtonText}>Load More</Text>
+                    </TouchableOpacity>
+                  ) : users.length > 0 ? (
+                    <View style={styles.endOfResults}>
+                      <Text style={styles.endOfResultsText}>
+                        Showing {users.length} result{users.length !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  ) : null
+                }
               />
             ) : (
               renderEmptyState()
@@ -302,6 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
+    marginTop:-400
   },
   emptyIcon: {
     fontSize: 48,
@@ -320,5 +396,40 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  loadingMore: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingMoreText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  loadMoreButton: {
+    marginVertical: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+  },
+  loadMoreButtonText: {
+    color: '#667eea',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  endOfResults: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfResultsText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 14,
   },
 });

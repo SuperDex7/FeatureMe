@@ -12,7 +12,8 @@ import {
   Alert,
   FlatList,
   RefreshControl,
-  TextInput
+  TextInput,
+  Share
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -33,7 +34,7 @@ import {
   getPostById,
   trackDownload 
 } from '../services/postsService';
-import { UserRelationsService, clearMyNotifications, changePassword } from '../services/userService';
+import { UserRelationsService, clearMyNotifications, changePassword, deleteAccount } from '../services/userService';
 import DemoService from '../services/DemoService';
 import LoggedInHeader from '../components/ui/LoggedInHeader';
 import { getCurrentUser } from '../services/api';
@@ -100,6 +101,89 @@ function formatTime(timestamp) {
 // Completely Redesigned Homepage Tab Component
 function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onShowActivity, onShowLatest, onRefresh, onNotificationPress }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Analytics modal state
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [selectedAnalyticsPost, setSelectedAnalyticsPost] = useState(null);
+  const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1); // Display page (1-indexed)
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalPosts, setTotalPosts] = useState(0);
+  const postsPerPage = 6;
+
+  useEffect(() => {
+    // Reset page when modal opens
+    if (analyticsModalOpen) {
+      setCurrentPage(1);
+    }
+  }, [analyticsModalOpen]);
+
+  useEffect(() => {
+    if (analyticsModalOpen && user.role === 'USERPLUS') {
+      fetchUserPosts();
+    }
+  }, [analyticsModalOpen, currentPage]);
+
+  const fetchUserPosts = async () => {
+    setLoadingAnalytics(true);
+    try {
+      if (!user?.posts || user.posts.length === 0) {
+        setUserPosts([]);
+        setTotalPages(0);
+        setTotalPosts(0);
+        return;
+      }
+
+      // Fetch only the current page from backend (backend uses 0-indexed pages)
+      const backendPage = currentPage - 1;
+      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${backendPage}&size=${postsPerPage}`;
+      const response = await api.get(endpoint);
+      
+      const postsData = response.data?.content || [];
+      const backendTotalPages = response.data?.page?.totalPages || 0;
+      const backendTotalElements = response.data?.page?.totalElements || 0;
+
+      setUserPosts(postsData);
+      setTotalPages(backendTotalPages);
+      setTotalPosts(backendTotalElements);
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+      setUserPosts([]);
+      setTotalPages(0);
+      setTotalPosts(0);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleAnalyticsPostSelect = (post) => {
+    setSelectedAnalyticsPost(post);
+    setAnalyticsModalOpen(false);
+    setShowViewsAnalytics(true);
+  };
+
+  const formatViews = (count) => {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -170,7 +254,7 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
                 <Text style={styles.userName}>{user.userName}</Text>
                 {user.role === "USERPLUS" && (
                   <View style={styles.premiumBadge}>
-                    <Text style={styles.premiumText}>✨ PREMIUM</Text>
+                    <Text style={styles.premiumText}>✨ UserPlus</Text>
                   </View>
                 )}
               </View>
@@ -340,6 +424,45 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
         </View>
       )}
 
+      {/* Analytics Section */}
+      <View style={styles.analyticsSection}>
+        {user.role === 'USERPLUS' ? (
+          <TouchableOpacity style={styles.analyticsCardPremium} onPress={() => setAnalyticsModalOpen(true)}>
+            <View style={styles.analyticsHeader}>
+              <Text style={styles.analyticsIcon}>📊</Text>
+              <View style={styles.analyticsInfo}>
+                <Text style={styles.analyticsTitle}>View Analytics</Text>
+                <Text style={styles.analyticsSubtitle}>Track your posts performance and engagement</Text>
+              </View>
+              <Text style={styles.analyticsArrow}>→</Text>
+            </View>
+            <View style={styles.analyticsStats}>
+              <Text style={styles.analyticsStatText}>{user?.posts?.length || 0} Posts</Text>
+              <Text style={styles.analyticsStatDivider}>•</Text>
+              <View style={styles.premiumBadgeInline}>
+                <Text style={styles.premiumTextInline}>✨ PLUS</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.analyticsCardUpgrade} onPress={() => Alert.alert('Upgrade Required', 'Get a Plus Membership to view analytics')}>
+            <View style={styles.analyticsHeader}>
+              <Text style={styles.analyticsIcon}>📊</Text>
+              <View style={styles.analyticsInfo}>
+                <Text style={styles.analyticsTitle}>View Analytics</Text>
+                <Text style={styles.analyticsSubtitle}>Track your posts performance and engagement</Text>
+              </View>
+              <Text style={styles.analyticsArrow}>→</Text>
+            </View>
+            <View style={styles.analyticsStats}>
+              <Text style={styles.analyticsStatText}>{user?.posts?.length || 0} Posts</Text>
+              <Text style={styles.analyticsStatDivider}>•</Text>
+              <Text style={styles.upgradeBadge}>Upgrade Required</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Trending Section */}
       <View style={styles.trendingCard}>
         <View style={styles.cardHeader}>
@@ -371,6 +494,129 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
 
       {/* Bottom Spacing */}
       <View style={styles.bottomSpacing} />
+      
+      {/* Analytics Modal - Post Selection */}
+      <Modal
+        visible={analyticsModalOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAnalyticsModalOpen(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setAnalyticsModalOpen(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📊 Select Post</Text>
+              <TouchableOpacity onPress={() => setAnalyticsModalOpen(false)}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              {loadingAnalytics ? (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="large" color="#667eea" />
+                  <Text style={styles.loadingText}>Loading your posts...</Text>
+                </View>
+              ) : userPosts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>📝</Text>
+                  <Text style={styles.emptyTitle}>No posts yet</Text>
+                  <Text style={styles.emptySubtitle}>Create your first post to see analytics here</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.analyticsPostsGrid}>
+                    {userPosts.map((post) => (
+                      <TouchableOpacity
+                        key={post.id}
+                        style={styles.analyticsPostItem}
+                        onPress={() => handleAnalyticsPostSelect(post)}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{ uri: post.author?.banner || 'https://via.placeholder.com/300' }}
+                          style={styles.analyticsPostBanner}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.analyticsPostInfo}>
+                          <Text style={styles.analyticsPostTitle} numberOfLines={2}>{post.title}</Text>
+                          <View style={styles.analyticsPostStats}>
+                            <View style={styles.analyticsPostStat}>
+                              <Text style={styles.analyticsPostStatIcon}>👁️</Text>
+                              <Text style={styles.analyticsPostStatValue}>{formatViews(post.totalViews || 0)}</Text>
+                            </View>
+                            <View style={styles.analyticsPostStat}>
+                              <Text style={styles.analyticsPostStatIcon}>❤️</Text>
+                              <Text style={styles.analyticsPostStatValue}>{post.likes?.length || 0}</Text>
+                            </View>
+                            <View style={styles.analyticsPostStat}>
+                              <Text style={styles.analyticsPostStatIcon}>💬</Text>
+                              <Text style={styles.analyticsPostStatValue}>{post.totalComments || 0}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.analyticsPostFooter}>
+                          <Text style={styles.analyticsPostFooterText}>Tap to view analytics →</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  {userPosts.length > 0 && (
+                    <View style={styles.analyticsPagination}>
+                      <View style={styles.analyticsPaginationInfo}>
+                        <Text style={styles.analyticsPaginationInfoText}>
+                          Showing {((currentPage - 1) * postsPerPage) + 1}-{Math.min(currentPage * postsPerPage, totalPosts)} of {totalPosts} posts
+                        </Text>
+                      </View>
+                      <View style={styles.analyticsPaginationControls}>
+                        <TouchableOpacity
+                          style={[styles.analyticsPaginationBtn, currentPage === 1 && styles.analyticsPaginationBtnDisabled]}
+                          onPress={goToPrevPage}
+                          disabled={currentPage === 1}
+                        >
+                          <Text style={styles.analyticsPaginationBtnText}>← Previous</Text>
+                        </TouchableOpacity>
+                        <View style={styles.analyticsPaginationPages}>
+                          <Text style={styles.analyticsPaginationPagesText}>{currentPage} of {totalPages || 1}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.analyticsPaginationBtn, currentPage >= totalPages && styles.analyticsPaginationBtnDisabled]}
+                          onPress={goToNextPage}
+                          disabled={currentPage >= totalPages}
+                        >
+                          <Text style={styles.analyticsPaginationBtnText}>Next →</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ViewsAnalytics Modal - Detailed Analytics */}
+      {selectedAnalyticsPost && (
+        <ViewsAnalytics
+          postId={selectedAnalyticsPost.id}
+          postTitle={selectedAnalyticsPost.title}
+          isOpen={showViewsAnalytics}
+          onClose={() => {
+            setShowViewsAnalytics(false);
+            setSelectedAnalyticsPost(null);
+          }}
+          currentUser={user}
+          postAuthor={selectedAnalyticsPost.author || user}
+          totalDownloads={selectedAnalyticsPost.totalDownloads || 0}
+          totalViews={selectedAnalyticsPost.totalViews || 0}
+          totalComments={selectedAnalyticsPost.totalComments || 0}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -430,6 +676,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   
   // Edit Profile Tab state
   const [editProfileTab, setEditProfileTab] = useState('basic');
@@ -544,7 +791,8 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
     try {
       // Load all demos initially - no pagination needed
       const demos = await DemoService.getAllUserDemos(user.id);
-      setUserDemos(demos || []);
+      // Reverse the order so newer demos appear first (matching web version)
+      setUserDemos((demos || []).reverse());
     } catch (err) {
       console.error('Failed to fetch user demos:', err);
       // Set empty array on error to show empty state
@@ -745,7 +993,10 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         uri: asset.uri,
         name: asset.name || `demo-${Date.now()}.mp3`,
         type: asset.mimeType || 'audio/mpeg',
+        size: asset.size,
       };
+      
+      // Check file type
       if (!isAllowedByRole(file.name, file.type)) {
         Alert.alert(
           'File type not allowed',
@@ -753,6 +1004,22 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
         );
         return;
       }
+      
+      // Check file size (15MB for USER, 90MB for USERPLUS)
+      const maxSizeMB = isUserPlus ? 90 : 15;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      if (file.size && file.size > maxSizeBytes) {
+        Alert.alert(
+          'File Too Large',
+          `File size exceeds the limit (${maxSizeMB}MB). ${isUserPlus ? '' : 'Upgrade to Plus to upload files up to 90MB.'}`,
+          [
+            { text: 'OK' },
+            ...(isUserPlus ? [] : [{ text: 'Upgrade', onPress: () => router.push('/subscription') }])
+          ]
+        );
+        return;
+      }
+      
       setSelectedDemoFile(file);
     } catch (e) {
       console.error('Error picking file:', e);
@@ -765,6 +1032,22 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       Alert.alert('Missing info', 'Please add a title and select an audio file.');
       return;
     }
+    
+    // Check demo limit based on role
+    const demoLimit = isUserPlus ? 6 : 3;
+    if (userDemos.length >= demoLimit) {
+      Alert.alert(
+        'Demo Limit Reached',
+        `You have reached the maximum number of demos (${demoLimit}). ${isUserPlus ? '' : 'Upgrade to Plus to upload up to 6 demos.'}`,
+        [
+          { text: 'OK' },
+          ...(isUserPlus ? [] : [{ text: 'Upgrade', onPress: () => router.push('/subscription') }])
+        ]
+      );
+      return;
+    }
+    
+    // Check file type
     if (!isAllowedByRole(selectedDemoFile?.name, selectedDemoFile?.type)) {
       Alert.alert(
         'File type not allowed',
@@ -772,6 +1055,22 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       );
       return;
     }
+    
+    // Check file size (15MB for USER, 90MB for USERPLUS)
+    const maxSizeMB = isUserPlus ? 90 : 15;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    if (selectedDemoFile.size && selectedDemoFile.size > maxSizeBytes) {
+      Alert.alert(
+        'File Too Large',
+        `File size exceeds the limit (${maxSizeMB}MB). ${isUserPlus ? '' : 'Upgrade to Plus to upload files up to 90MB.'}`,
+        [
+          { text: 'OK' },
+          ...(isUserPlus ? [] : [{ text: 'Upgrade', onPress: () => router.push('/subscription') }])
+        ]
+      );
+      return;
+    }
+    
     setIsSubmittingDemo(true);
     try {
       await DemoService.createDemo({ title: demoTitle.trim(), features: demoFeatures }, selectedDemoFile);
@@ -831,7 +1130,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -839,12 +1138,29 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
+        
+        // Check if USER is trying to upload a GIF (not allowed for free users)
+        const fileName = asset.fileName || asset.uri;
+        const isGif = fileName.toLowerCase().endsWith('.gif') || asset.mimeType === 'image/gif';
+        
+        if (isGif && !isUserPlus) {
+          Alert.alert(
+            'GIF Upload Not Available',
+            'GIF uploads are only available for Plus members. Upgrade to upload animated profile pictures.',
+            [
+              { text: 'OK' },
+              { text: 'Upgrade', onPress: () => router.push('/subscription') }
+            ]
+          );
+          return;
+        }
+        
         // Convert ImagePicker result to format expected by the code
         setSelectedProfilePic({
           uri: asset.uri,
           name: asset.fileName || `profile_${Date.now()}.jpg`,
-          mimeType: 'image/jpeg',
-          type: 'image/jpeg',
+          mimeType: asset.mimeType || 'image/jpeg',
+          type: asset.mimeType || 'image/jpeg',
         });
       }
     } catch (error) {
@@ -863,7 +1179,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
@@ -871,12 +1187,29 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
       
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
+        
+        // Check if USER is trying to upload a GIF (not allowed for free users)
+        const fileName = asset.fileName || asset.uri;
+        const isGif = fileName.toLowerCase().endsWith('.gif') || asset.mimeType === 'image/gif';
+        
+        if (isGif && !isUserPlus) {
+          Alert.alert(
+            'GIF Upload Not Available',
+            'GIF uploads are only available for Plus members. Upgrade to upload animated banners.',
+            [
+              { text: 'OK' },
+              { text: 'Upgrade', onPress: () => router.push('/subscription') }
+            ]
+          );
+          return;
+        }
+        
         // Convert ImagePicker result to format expected by the code
         setSelectedBanner({
           uri: asset.uri,
           name: asset.fileName || `banner_${Date.now()}.jpg`,
-          mimeType: 'image/jpeg',
-          type: 'image/jpeg',
+          mimeType: asset.mimeType || 'image/jpeg',
+          type: asset.mimeType || 'image/jpeg',
         });
       }
     } catch (error) {
@@ -1011,6 +1344,75 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    // First confirmation
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data, posts, demos, and profile.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              'Final Confirmation',
+              'This is your last chance to cancel. Your account and all associated data will be permanently deleted. This action cannot be undone.\n\nAre you absolutely sure?',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Yes, Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setIsDeletingAccount(true);
+                    try {
+                      if (!currentUser?.id) {
+                        Alert.alert('Error', 'Unable to identify user account.');
+                        setIsDeletingAccount(false);
+                        return;
+                      }
+                      
+                      await deleteAccount(currentUser.id);
+                      
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been successfully deleted. You will be logged out.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: async () => {
+                              // Clear auth token and redirect to login
+                              const { logout } = require('../services/api');
+                              await logout();
+                              router.replace('/login');
+                            }
+                          }
+                        ]
+                      );
+                    } catch (error) {
+                      console.error('Error deleting account:', error);
+                      const errorMessage = error.response?.data?.error || 'Failed to delete account. Please try again.';
+                      Alert.alert('Error', errorMessage);
+                    } finally {
+                      setIsDeletingAccount(false);
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   const renderContentGrid = () => {
     const isLoading = activeContentTab === 'posts' ? isLoadingPosts : 
                      activeContentTab === 'demos' ? isLoadingDemos : isLoadingFeatured;
@@ -1092,22 +1494,42 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
 
     return (
       <View style={activeContentTab === 'demos' ? styles.demoGridContainer : styles.profileContentContainer}>
-        {activeContentTab === 'demos' && isOwnProfile && (
-          <TouchableOpacity 
-            style={[styles.addDemoButton, { alignSelf: 'flex-start', marginBottom: 12 }]}
-            onPress={() => setShowAddDemoModal(true)}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={styles.addDemoGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+        {activeContentTab === 'demos' && isOwnProfile && (() => {
+          const demoLimit = isUserPlus ? 6 : 3;
+          const canAddMore = userDemos.length < demoLimit;
+          
+          return (
+            <TouchableOpacity 
+              style={[styles.addDemoButton, { alignSelf: 'flex-start', marginBottom: 12 }]}
+              onPress={() => {
+                if (canAddMore) {
+                  setShowAddDemoModal(true);
+                } else {
+                  Alert.alert(
+                    'Demo Limit Reached',
+                    `You have reached the maximum number of demos (${demoLimit}). ${isUserPlus ? '' : 'Upgrade to Plus to upload up to 6 demos.'}`,
+                    [
+                      { text: 'OK' },
+                      ...(isUserPlus ? [] : [{ text: 'Upgrade', onPress: () => router.push('/subscription') }])
+                    ]
+                  );
+                }
+              }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.addDemoText}>+ Add Demo</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
+              <LinearGradient
+                colors={canAddMore ? ['#667eea', '#764ba2'] : ['rgba(102, 126, 234, 0.5)', 'rgba(118, 75, 162, 0.5)']}
+                style={styles.addDemoGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.addDemoText}>
+                  {canAddMore ? '+ Add Demo' : `Demo Limit (${demoLimit}/${demoLimit})`}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          );
+        })()}
         {activeContentTab === 'demos' && isOwnProfile && (
           <Text style={styles.addDemoDescription}>
             Share finished music here so listeners can hear your sound.
@@ -1351,7 +1773,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
               />
               <View style={styles.profileOnlineIndicator} />
               {/* UserPlus Badge */}
-              {user.role === "USERPLUS" && (
+              {/* {user.role === "USERPLUS" && (
                 <View style={styles.userPlusBadge}>
                   <LinearGradient
                     colors={['#974d9e', '#5491cd']}
@@ -1362,7 +1784,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                     <Text style={styles.userPlusText}>+</Text>
                   </LinearGradient>
                 </View>
-              )}
+              )} */}
             </View>
 
             <View style={styles.profileDetails}>
@@ -1421,7 +1843,23 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                 
                 <TouchableOpacity 
                   style={styles.profileShareBtn}
-                  onPress={() => {/* Share profile functionality */}}
+                  onPress={async () => {
+                    try {
+                      const shareMessage = `Check out ${user?.displayName || user?.userName || 'this user'}'s profile on FeatureMe! 🎵`;
+                      const profileUrl = `https://featureme.co/profile/${user?.userName}`;
+                      
+                      await Share.share({
+                        message: shareMessage,
+                        url: profileUrl,
+                        title: `${user?.displayName || user?.userName}'s Profile`,
+                      });
+                    } catch (error) {
+                      if (error.message && !error.message.includes('User did not share')) {
+                        console.error('Error sharing profile:', error);
+                        Alert.alert('Error', 'Failed to share profile. Please try again.');
+                      }
+                    }
+                  }}
                 >
                   <Text style={styles.profileShareIcon}>📤</Text>
                 </TouchableOpacity>
@@ -1819,6 +2257,26 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                       </>
                     )}
                   </View>
+
+                  {/* Delete Account Section */}
+                  <View style={styles.addDemoSection}>
+                    <Text style={[styles.addDemoLabel, { color: '#ff4444', marginBottom: 8 }]}>
+                      Danger Zone
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
+                      Once you delete your account, there is no going back. All your posts, demos, and profile data will be permanently deleted.
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={handleDeleteAccount}
+                      disabled={isDeletingAccount}
+                      style={[styles.deleteAccountBtn]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.deleteAccountText}>
+                        {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
 
@@ -1962,6 +2420,30 @@ function SpotlightModalContent({
     }
   };
 
+  const handleShare = async () => {
+    if (!selectedSpotlightPost) return;
+    
+    try {
+      const shareMessage = `Check out "${selectedSpotlightPost.title}" by ${selectedSpotlightPost.author?.userName || 'Unknown'} on FeatureMe! 🎵`;
+      
+      // Use web URL format for better compatibility and clickable links
+      const postUrl = `https://featureme.co/post/${selectedSpotlightPost.id}`;
+      
+      // Use url property for clickable links (works better than putting it in message)
+      await Share.share({
+        message: shareMessage,
+        url: postUrl, // This makes the link tappable on iOS and Android
+        title: selectedSpotlightPost.title,
+      });
+    } catch (error) {
+      // User cancelled the share dialog (this is expected behavior, not an error)
+      if (error.message && !error.message.includes('User did not share')) {
+        console.error('Error sharing post:', error);
+        Alert.alert('Error', 'Failed to share post. Please try again.');
+      }
+    }
+  };
+
   return (
     <ScrollView style={styles.spotlightModalScrollView} showsVerticalScrollIndicator={false}>
       {/* Enhanced Spotlight Banner */}
@@ -2000,7 +2482,7 @@ function SpotlightModalContent({
               style={styles.spotlightModalPremiumBadgeGradient}
             >
               <Text style={styles.spotlightModalPremiumIcon}>✨</Text>
-              <Text style={styles.spotlightModalPremiumText}>PREMIUM</Text>
+              <Text style={styles.spotlightModalPremiumText}>UserPlus</Text>
             </LinearGradient>
           </View>
         )}
@@ -2037,7 +2519,7 @@ function SpotlightModalContent({
               <Text style={styles.spotlightModalDate}>{formatTime(selectedSpotlightPost.time)}</Text>
               {selectedSpotlightPost.author?.role === 'USERPLUS' && (
                 <View style={styles.spotlightModalProfilePremiumBadge}>
-                  <Text style={styles.spotlightModalProfilePremiumText}>✨ PREMIUM ARTIST</Text>
+                  <Text style={styles.spotlightModalProfilePremiumText}>✨ USERPLUS ARTIST</Text>
                 </View>
               )}
             </View>
@@ -2156,6 +2638,22 @@ function SpotlightModalContent({
             >
               <Text style={styles.spotlightModalActionIcon}>🎵</Text>
               <Text style={styles.spotlightModalActionText}>View Post</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.spotlightModalShareBtn}
+            onPress={handleShare}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#f093fb', '#f5576c']}
+              style={styles.spotlightModalShareGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.spotlightModalShareIcon}>📤</Text>
+              <Text style={styles.spotlightModalShareText}>Share</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -3990,6 +4488,90 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  // Analytics Section
+  analyticsSection: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
+  analyticsCardPremium: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  analyticsCardUpgrade: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.7,
+  },
+  analyticsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  analyticsIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  analyticsInfo: {
+    flex: 1,
+  },
+  analyticsTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  analyticsSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+  },
+  analyticsArrow: {
+    fontSize: 24,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  analyticsStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  analyticsStatText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+  },
+  analyticsStatDivider: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 14,
+    marginHorizontal: 8,
+  },
+  premiumBadgeInline: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  premiumTextInline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  upgradeBadge: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
   trendingCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginHorizontal: 16,
@@ -4170,7 +4752,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   modalContent: {
     backgroundColor: '#1a1a1a',
@@ -4178,8 +4760,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 16,
     paddingHorizontal: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
+    paddingBottom: 20,
+    maxHeight: '95%',
+    height: '87%',
   },
   addDemoModalContent: {
     backgroundColor: '#1a1a1a',
@@ -4313,6 +4896,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.3,
+  },
+  deleteAccountBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#ff4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAccountText: {
+    color: '#ff4444',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   editProfileTabs: {
     flexDirection: 'row',
@@ -4962,6 +5561,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
+  spotlightModalShareBtn: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#f093fb',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  spotlightModalShareGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotlightModalShareIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  spotlightModalShareText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
   spotlightModalDownloadBtn: {
     borderRadius: 25,
     overflow: 'hidden',
@@ -5012,5 +5637,142 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 18,
     marginBottom: 8,
+  },
+  // Analytics Modal Styles
+  modalCloseButton: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '300',
+  },
+  modalBody: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
+  modalBodyContent: {
+    paddingBottom: 80,
+  },
+  loadingState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  analyticsPostsGrid: {
+    gap: 16,
+  },
+  analyticsPostItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
+  },
+  analyticsPostBanner: {
+    width: '100%',
+    height: 120,
+  },
+  analyticsPostInfo: {
+    padding: 16,
+  },
+  analyticsPostTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  analyticsPostStats: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  analyticsPostStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  analyticsPostStatIcon: {
+    fontSize: 14,
+  },
+  analyticsPostStatValue: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  analyticsPostFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  analyticsPostFooterText: {
+    color: '#667eea',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  analyticsPagination: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  analyticsPaginationInfo: {
+    marginBottom: 16,
+  },
+  analyticsPaginationInfoText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  analyticsPaginationControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  analyticsPaginationBtn: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  analyticsPaginationBtnDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.5,
+  },
+  analyticsPaginationBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  analyticsPaginationPages: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  analyticsPaginationPagesText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

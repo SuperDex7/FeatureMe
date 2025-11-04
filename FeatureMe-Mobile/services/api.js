@@ -9,7 +9,7 @@ const API_BASE_URL = __DEV__
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30 seconds timeout for slower networks and heavy queries
+  timeout: 60000, // 60 seconds timeout for slower networks and heavy queries
   headers: {
     'Content-Type': 'application/json',
   },
@@ -19,16 +19,14 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
+      // If using FormData, delete Content-Type to let React Native set the boundary
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+      }
+      
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        if (__DEV__) {
-          console.log('Adding Bearer token to request:', config.url);
-        }
-      } else {
-        if (__DEV__) {
-          console.log('No auth token found for request:', config.url);
-        }
       }
     } catch (error) {
       console.error('Error getting auth token:', error);
@@ -45,15 +43,16 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
+   
   async (error) => {
     if (error.response) {
       const url = error.config?.url || '';
       const isPublicEndpoint = url.includes('/posts/get/') || 
                               url.includes('/posts/view/') || 
                               url.includes('/posts/download/') ||
-                              url.includes('/posts/views/') ||
+                              url.includes('/posts/views/') || 
                               url.includes('/posts/downloads/') ||
-                              url.includes('/posts/comments/') ||
+                              url.includes('/posts/comments/') || 
                               url.includes('/posts/likes/');
       
       const isAuthCheck = url.includes('/user/me');
@@ -89,7 +88,9 @@ api.interceptors.response.use(
     }
     
     return Promise.reject(error);
+    
   }
+
 );
 
 // Helper functions

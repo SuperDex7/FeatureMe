@@ -146,11 +146,13 @@ export default function LikedPostsScreen() {
   }, []);
 
   useEffect(() => {
-    if (user && user.likedPosts) {
+    if (user && user.likedPosts && Array.isArray(user.likedPosts) && user.likedPosts.length > 0) {
       fetchLikedPosts();
-    } else if (user && !user.likedPosts) {
+    } else if (user && (!user.likedPosts || (Array.isArray(user.likedPosts) && user.likedPosts.length === 0))) {
       setIsLoading(false);
       setLikedPosts([]);
+      setTotalPages(0);
+      setTotalLikedPosts(0);
     }
   }, [user, page]);
 
@@ -165,6 +167,14 @@ export default function LikedPostsScreen() {
   };
 
   const fetchLikedPosts = async () => {
+    if (!user || !user.likedPosts || (Array.isArray(user.likedPosts) && user.likedPosts.length === 0)) {
+      setIsLoading(false);
+      setLikedPosts([]);
+      setTotalPages(0);
+      setTotalLikedPosts(0);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${page}&size=20`;

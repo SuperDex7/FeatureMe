@@ -14,7 +14,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
-import LoggedInHeader from '../components/ui/LoggedInHeader';
 
 export default function SubscriptionPage() {
   const insets = useSafeAreaInsets();
@@ -241,8 +240,18 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <LoggedInHeader />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Subscription</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4f8cff" />
           <Text style={styles.loadingText}>Loading subscription status...</Text>
@@ -252,8 +261,18 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <View style={styles.container}>
-      <LoggedInHeader />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backIcon}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Subscription</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -299,7 +318,12 @@ export default function SubscriptionPage() {
 
         {/* Pricing Cards */}
         <View style={styles.pricingCards}>
-          {Object.entries(plans).map(([planType, plan]) => (
+          {Object.entries(plans).sort(([a], [b]) => {
+            // Show plus plan first, then free
+            if (a === 'plus') return -1;
+            if (b === 'plus') return 1;
+            return 0;
+          }).map(([planType, plan]) => (
             <View
               key={planType}
               style={[
@@ -490,10 +514,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backIcon: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: '300',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+  },
   hero: {
     alignItems: 'center',
     paddingVertical: 40,
-    paddingTop: 120, // Account for LoggedInHeader (60) + safe area insets
+    paddingTop: 20,
   },
   title: {
     fontSize: 32,
