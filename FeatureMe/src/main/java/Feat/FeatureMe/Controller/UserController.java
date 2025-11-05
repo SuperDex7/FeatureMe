@@ -169,6 +169,30 @@ public class UserController {
     }
     
 
+    // Default image URLs from S3
+    private static final String DEFAULT_PROFILE_PIC_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/dpp.jpg";
+    private static final String DEFAULT_BANNER_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/pb.jpg";
+    
+    /**
+     * Helper method to get default profile picture URL, replacing relative paths with S3 URL
+     */
+    private String getDefaultProfilePicUrl(String profilePic) {
+        if (profilePic == null || profilePic.isEmpty() || profilePic.equals("/dpp.jpg")) {
+            return DEFAULT_PROFILE_PIC_URL;
+        }
+        return profilePic;
+    }
+    
+    /**
+     * Helper method to get default banner URL, replacing relative paths with S3 URL
+     */
+    private String getDefaultBannerUrl(String banner) {
+        if (banner == null || banner.isEmpty() || banner.equals("/pb.jpg")) {
+            return DEFAULT_BANNER_URL;
+        }
+        return banner;
+    }
+
      @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
@@ -203,8 +227,8 @@ public class UserController {
             // Clean up temp file
             ppTemp.delete();
         } else {
-            // Use default profile picture
-            user.setProfilePic("/dpp.jpg");
+            // Use default profile picture - replace relative path with S3 URL
+            user.setProfilePic(getDefaultProfilePicUrl(user.getProfilePic()));
         }
         
         // Handle banner - use default if not provided
@@ -233,8 +257,8 @@ public class UserController {
             // Clean up temp file
             bannerTemp.delete();
         } else {
-            // Use default banner
-            user.setBanner("/pb.jpg");
+            // Use default banner - replace relative path with S3 URL
+            user.setBanner(getDefaultBannerUrl(user.getBanner()));
         }
         
         try {
