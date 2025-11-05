@@ -2,6 +2,7 @@ package Feat.FeatureMe.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -40,13 +41,13 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("/api/user/**").authenticated();
                 
                 // SPECIFIC posts endpoints that should be public (must come BEFORE general rule)
-                registry.requestMatchers("GET", "/api/posts/get/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/views/**").permitAll();
-                registry.requestMatchers("POST", "/api/posts/view/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/downloads/**").permitAll();
-                registry.requestMatchers("POST", "/api/posts/download/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/comments/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/likes/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/get/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/views/**").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/posts/view/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/downloads/**").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/posts/download/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/comments/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/likes/**").permitAll();
                 
                 // All other posts endpoints require authentication
                 registry.requestMatchers("/api/posts/**").permitAll();
