@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "96C4YKAXHM.com.featureme.app",
+        "paths": ["*"]
+      }
+    ]
+  }
+}
+

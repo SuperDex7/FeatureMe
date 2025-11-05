@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
@@ -54,7 +53,6 @@ public class OptimizedJwtAuthenticationFilter extends OncePerRequestFilter {
         
         final String authHeader = request.getHeader("Authorization");
         String jwt = null;
-        final String username;
 
         // Try to get JWT from Authorization header first, then from cookies
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -78,7 +76,7 @@ public class OptimizedJwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            username = jwtService.extractUsername(jwt);
+            String username = jwtService.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 

@@ -37,6 +37,7 @@ import Feat.FeatureMe.Service.PostLikeService;
 import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 import Feat.FeatureMe.Service.FileUploadService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
 
@@ -61,21 +62,21 @@ public class PostsController {
     
     // Create a post with a file upload. The "post" part contains the post's JSON data,
     // while the "file" part is the uploaded song file.
-    @PostMapping(path ="/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public PostsDTO createPost(@RequestPart("post") Posts posts,
+    @PostMapping(path ="/create")
+    public PostsDTO createPost(@RequestPart("post") String postJson,
                             @RequestPart("file") MultipartFile file) throws IOException {
+                    
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
         }
-        
+
         String email = authentication.getName();
         User user = userService.findByUsernameOrEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        
         // Validate file type and size based on user role
-        validateFileTypeForUser(file, user);
+        //validateFileTypeForUser(file, user);
         fileUploadService.validateFileForUserByCategory(file, user, "audio"); // Role-based size limits and file types
         
         // Upload file to S3 bucket with unique filename and folder organization
@@ -86,18 +87,23 @@ public class PostsController {
         
         // Upload the file and get its S3 URL
         String s3Url = s3Service.uploadFile(keyName, filePath);
+        tempFile.delete();
+        
+        // Parse post JSON and set fields
+        ObjectMapper mapper = new ObjectMapper();
+        Posts posts = mapper.readValue(postJson, Posts.class);
         
         // Set the S3 URL (e.g., to the "music" field) in the Posts entity
         posts.setMusic(s3Url);
         
         // Create the post and return the DTO
-        Posts createdPost = postsService.createPost(user.getUserName(), posts);
+        Posts createdPost = postsService.createPost(user.getId(), posts);
         return postsService.getPostById(createdPost.getId());
     }
     
     // Create a post with async file upload to prevent thread pool exhaustion
     @PostMapping(path ="/create-async", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public CompletableFuture<PostsDTO> createPostAsync(@RequestPart("post") Posts posts,
+    public CompletableFuture<PostsDTO> createPostAsync(@RequestPart("post") String postJson,
                             @RequestPart("file") MultipartFile file) throws IOException {
         // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -124,6 +130,8 @@ public class PostsController {
                 // Restore authentication in async thread
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    Posts posts = mapper.readValue(postJson, Posts.class);
                     posts.setMusic(s3Url);
                     Posts createdPost = postsService.createPost(user.getUserName(), posts);
                     return postsService.getPostById(createdPost.getId());

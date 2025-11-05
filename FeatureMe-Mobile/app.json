@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "FeatureMe Mobile",
+    "slug": "FeatureMe-Mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/PNGs/Logo-Gradient.png",
+    "scheme": "featurememobile",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.featureme.app",
+      "buildNumber": "2",
+      "associatedDomains": [
+        "applinks:featureme.co",
+        "applinks:www.featureme.co"
+      ],
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures and banners.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save images to your photo library.",
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos for your profile.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for audio features.",
+        "UIBackgroundModes": ["audio"],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/Jpgs/Asset15.jpg",
+        "backgroundImage": "./assets/images/Jpgs/Asset14.jpg",
+        "monochromeImage": "./assets/images/Jpgs/Asset13.jpg"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/PNGs/Logo-Gradient.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/PNGs/Logo-Gradient.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7676bcf8-47df-475c-8843-fbaa449d90ae"
+      }
+    }
+  }
+}

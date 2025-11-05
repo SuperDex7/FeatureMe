@@ -159,6 +159,7 @@ public class UserService {
             }
             
             // Sort likedPosts by ID (assuming newer likes have higher IDs)
+            // Reverse to show newest likes first (since we add to the end)
             List<String> sortedLikedPosts = u.getLikedPosts();
             if (sortedLikedPosts != null) {
                 sortedLikedPosts = new ArrayList<>(sortedLikedPosts);
@@ -408,8 +409,8 @@ public class UserService {
             !user.getProfilePic().startsWith("/") && user.getProfilePic().contains("amazonaws.com")) {
             try {
                 // Extract S3 key from full URL
-                String s3Key = extractS3KeyFromUrl(user.getProfilePic());
-                if (s3Key != null) {
+                String s3Key = s3Service.extractKeyFromUrl(user.getProfilePic());
+                if (s3Key != null && s3Key.contains("images/profiles")) {
                     s3Service.deleteFile(s3Key);
                 }
             } catch (Exception e) {
@@ -421,8 +422,8 @@ public class UserService {
             !user.getBanner().startsWith("/") && user.getBanner().contains("amazonaws.com")) {
             try {
                 // Extract S3 key from full URL
-                String s3Key = extractS3KeyFromUrl(user.getBanner());
-                if (s3Key != null) {
+                String s3Key = s3Service.extractKeyFromUrl(user.getBanner());
+                if (s3Key != null && s3Key.contains("images/banners")) {
                     s3Service.deleteFile(s3Key);
                 }
             } catch (Exception e) {

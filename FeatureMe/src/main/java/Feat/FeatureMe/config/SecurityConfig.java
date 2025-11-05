@@ -2,6 +2,7 @@ package Feat.FeatureMe.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -40,13 +41,13 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers("/api/user/**").authenticated();
                 
                 // SPECIFIC posts endpoints that should be public (must come BEFORE general rule)
-                registry.requestMatchers("GET", "/api/posts/get/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/views/**").permitAll();
-                registry.requestMatchers("POST", "/api/posts/view/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/downloads/**").permitAll();
-                registry.requestMatchers("POST", "/api/posts/download/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/comments/**").permitAll();
-                registry.requestMatchers("GET", "/api/posts/likes/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/get/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/views/**").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/posts/view/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/downloads/**").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/posts/download/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/comments/**").permitAll();
+                registry.requestMatchers(HttpMethod.GET, "/api/posts/likes/**").permitAll();
                 
                 // All other posts endpoints require authentication
                 registry.requestMatchers("/api/posts/**").permitAll();
@@ -90,7 +91,12 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 "http://localhost:3000",  // React frontend (HTTP setup)
                 "http://localhost:5173",  // Vite dev server
                 "https://localhost",      // HTTPS setup with nginx
-                "http://localhost"        // HTTP setup with nginx
+                "http://localhost",       // HTTP setup with nginx
+                "http://10.0.2.2:8080",  // Android emulator backend
+                "http://10.0.0.200:8080", // Your computer's IP for backend
+                "http://10.0.2.2:3000",  // Android emulator React dev
+                "exp://10.0.0.200:8081", // Expo development server
+                "exp://localhost:8081"    // Expo local development
             ));
         }
         
@@ -98,6 +104,9 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
+        
+        // Note: React Native apps don't send cookies by default, so JWT tokens
+        // should be sent in Authorization headers instead of cookies for mobile
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

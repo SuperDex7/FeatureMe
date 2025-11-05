@@ -109,6 +109,7 @@ public class StripeController {
         Session session = Session.create(sessionParams);
         Map<String, Object> result = new HashMap<>();
         result.put("id", session.getId());
+        result.put("url", session.getUrl());
         return result;
     }
     
@@ -176,6 +177,7 @@ public class StripeController {
         Session session = Session.create(sessionParams);
         Map<String, Object> result = new HashMap<>();
         result.put("id", session.getId());
+        result.put("url", session.getUrl());
         return result;
     }
     

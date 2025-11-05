@@ -6,7 +6,7 @@ import FeedItem from '../Components/FeedItem';
 import DemoGrid from '../ProfileComponets/DemoGrid';
 import AddDemo from '../ProfileComponets/AddDemo';
 import api, { getCurrentUser } from '../services/AuthService';
-import { UserRelationsService, updateProfile } from '../services/UserService';
+import { UserRelationsService, updateProfile, changePassword } from '../services/UserService';
 import DemoService from '../services/DemoService';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
@@ -54,6 +54,18 @@ export default function Profile() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
+  
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  
+  // Edit Profile Tab state
+  const [editProfileTab, setEditProfileTab] = useState('basic');
 
   const getPlatformIcon = (url) => {
     try {
@@ -232,6 +244,51 @@ export default function Profile() {
       alert('Failed to update profile');
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (isChangingPassword) return;
+    
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      alert('All password fields are required');
+      return;
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long');
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    try {
+      await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      
+      // Reset password form
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowPasswordFields(false);
+      
+      alert('Password changed successfully!');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to change password. Please check your current password.';
+      alert(errorMessage);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -541,11 +598,51 @@ export default function Profile() {
         <div className="profile-card" style={{ position: 'fixed', inset: '100px 20px 20px', maxWidth: 560, margin: 'auto', zIndex: 50, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h2 className="profile-card-title" style={{ margin: 0 }}>Edit Profile</h2>
-            <button type="button" className="profile-btn" onClick={() => setIsEditing(false)} aria-label="Close edit profile">✕</button>
+            <button type="button" className="profile-btn" onClick={() => {
+              setIsEditing(false);
+              setPasswordForm({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+              });
+              setShowPasswordFields(false);
+              setEditProfileTab('basic');
+            }} aria-label="Close edit profile">✕</button>
               </div>
+          
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '2px solid var(--profile-border)' }}>
+            <button
+              type="button"
+              className={`profile-tab ${editProfileTab === 'basic' ? 'is-active' : ''}`}
+              onClick={() => setEditProfileTab('basic')}
+              style={{ borderBottom: editProfileTab === 'basic' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
+            >
+              Basic Info
+            </button>
+            <button
+              type="button"
+              className={`profile-tab ${editProfileTab === 'images' ? 'is-active' : ''}`}
+              onClick={() => setEditProfileTab('images')}
+              style={{ borderBottom: editProfileTab === 'images' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
+            >
+              Images
+            </button>
+            <button
+              type="button"
+              className={`profile-tab ${editProfileTab === 'security' ? 'is-active' : ''}`}
+              onClick={() => setEditProfileTab('security')}
+              style={{ borderBottom: editProfileTab === 'security' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
+            >
+              Security
+            </button>
+          </div>
+
           <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: 12 }}>
-            {/* Basic Information */}
-            <h3 className="profile-card-title" style={{ margin: 0 }}>Basic Information</h3>
+            {/* Basic Info Tab */}
+            {editProfileTab === 'basic' && (
+              <>
+                <h3 className="profile-card-title" style={{ margin: 0 }}>Basic Information</h3>
             <label>
               <div className="profile-stat-label" style={{ marginBottom: 6 }}>Bio</div>
               <input className="profile-input" placeholder="Short bio (max 50 chars)" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} />
@@ -559,103 +656,190 @@ export default function Profile() {
               <textarea className="profile-input" rows={4} placeholder="About you" value={editForm.about} onChange={(e) => setEditForm({ ...editForm, about: e.target.value })} />
             </label>
 
-            <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                  <input type="radio" name="ppMethod" value="url" checked={uploadMethod.profilePic === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'url' })} /> URL
-                  </label>
-                <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                  <input type="radio" name="ppMethod" value="file" checked={uploadMethod.profilePic === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'file' })} /> File
-                </label>
-              </div>
-              {uploadMethod.profilePic === 'url' ? (
-                <label>
-                  <div className="profile-stat-label" style={{ marginBottom: 6 }}>Profile Picture URL</div>
-                  <input className="profile-input" placeholder="https://...jpg" value={editForm.profilePic} onChange={(e) => setEditForm({ ...editForm, profilePic: e.target.value })} />
-                </label>
-              ) : (
-                <label>
-                  <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Profile Picture</div>
-                  <input ref={fileInputRef} type="file" accept="image/*" />
-                </label>
-              )}
-            </div>
-
-            
-
-            <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                  <input type="radio" name="bannerMethod" value="url" checked={uploadMethod.banner === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'url' })} /> URL
-                </label>
-                <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                  <input type="radio" name="bannerMethod" value="file" checked={uploadMethod.banner === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'file' })} /> File
-                </label>
-          </div>
-              {uploadMethod.banner === 'url' ? (
-                <label>
-                  <div className="profile-stat-label" style={{ marginBottom: 6 }}>Banner Image URL</div>
-                  <input className="profile-input" placeholder="https://...jpg" value={editForm.banner} onChange={(e) => setEditForm({ ...editForm, banner: e.target.value })} />
-                </label>
-              ) : (
-                <label>
-                  <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Banner Image</div>
-                  <input ref={bannerInputRef} type="file" accept="image/*" />
-                </label>
-                )}
-              </div>
-{/* Social Links (USERPLUS only) */}
+            {/* Social Links (USERPLUS only) */}
             {currentUser?.role === 'USERPLUS' && (
-            <div style={{ display: 'grid', gap: 8 }}>
-              <h3 className="profile-card-title" style={{ margin: 0 }}>Social Links</h3>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button 
-                  type="button"
-                  className="profile-btn"
-                  onClick={() => {
-                    if ((editForm.socialMedia?.length || 0) >= 5) return;
-                    setEditForm(prev => ({ ...prev, socialMedia: [...(prev.socialMedia || []), ''] }));
-                  }}
-                  disabled={(editForm.socialMedia?.length || 0) >= 5}
-                >➕ Add Link {(editForm.socialMedia?.length || 0) >= 5 ? '(Max 5)' : ''}</button>
-              </div>
               <div style={{ display: 'grid', gap: 8 }}>
-                {(editForm.socialMedia || []).map((link, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}>
-                  <input
-                      className="profile-input"
-                      placeholder="https://example.com/your-profile"
-                      value={link}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditForm(prev => {
-                          const arr = [...(prev.socialMedia || [])];
-                          arr[idx] = val;
-                          return { ...prev, socialMedia: arr };
-                        });
-                      }}
-                    />
-                <button 
+                <h3 className="profile-card-title" style={{ margin: 0 }}>Social Links</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button 
+                    type="button"
+                    className="profile-btn"
+                    onClick={() => {
+                      if ((editForm.socialMedia?.length || 0) >= 5) return;
+                      setEditForm(prev => ({ ...prev, socialMedia: [...(prev.socialMedia || []), ''] }));
+                    }}
+                    disabled={(editForm.socialMedia?.length || 0) >= 5}
+                  >➕ Add Link {(editForm.socialMedia?.length || 0) >= 5 ? '(Max 5)' : ''}</button>
+                </div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {(editForm.socialMedia || []).map((link, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="profile-input"
+                        placeholder="https://example.com/your-profile"
+                        value={link}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm(prev => {
+                            const arr = [...(prev.socialMedia || [])];
+                            arr[idx] = val;
+                            return { ...prev, socialMedia: arr };
+                          });
+                        }}
+                      />
+                      <button 
+                        type="button"
+                        className="profile-btn"
+                        onClick={() => setEditForm(prev => ({ ...prev, socialMedia: (prev.socialMedia || []).filter((_, i) => i !== idx) }))}
+                        title="Remove link"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+              </>
+            )}
+
+            {/* Images Tab */}
+            {editProfileTab === 'images' && (
+              <>
+                <h3 className="profile-card-title" style={{ margin: 0 }}>Images</h3>
+                
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
+                      <input type="radio" name="ppMethod" value="url" checked={uploadMethod.profilePic === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'url' })} /> URL
+                    </label>
+                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
+                      <input type="radio" name="ppMethod" value="file" checked={uploadMethod.profilePic === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'file' })} /> File
+                    </label>
+                  </div>
+                  {uploadMethod.profilePic === 'url' ? (
+                    <label>
+                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Profile Picture URL</div>
+                      <input className="profile-input" placeholder="https://...jpg" value={editForm.profilePic} onChange={(e) => setEditForm({ ...editForm, profilePic: e.target.value })} />
+                    </label>
+                  ) : (
+                    <label>
+                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Profile Picture</div>
+                      <input ref={fileInputRef} type="file" accept="image/*" />
+                    </label>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
+                      <input type="radio" name="bannerMethod" value="url" checked={uploadMethod.banner === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'url' })} /> URL
+                    </label>
+                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
+                      <input type="radio" name="bannerMethod" value="file" checked={uploadMethod.banner === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'file' })} /> File
+                    </label>
+                  </div>
+                  {uploadMethod.banner === 'url' ? (
+                    <label>
+                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Banner Image URL</div>
+                      <input className="profile-input" placeholder="https://...jpg" value={editForm.banner} onChange={(e) => setEditForm({ ...editForm, banner: e.target.value })} />
+                    </label>
+                  ) : (
+                    <label>
+                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Banner Image</div>
+                      <input ref={bannerInputRef} type="file" accept="image/*" />
+                    </label>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Security Tab */}
+            {editProfileTab === 'security' && (
+              <>
+                <h3 className="profile-card-title" style={{ margin: 0 }}>Security</h3>
+                
+                {/* Change Password Section */}
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="profile-stat-label" style={{ marginBottom: 0 }}>Change Password</div>
+                    <button 
                       type="button"
                       className="profile-btn"
-                      onClick={() => setEditForm(prev => ({ ...prev, socialMedia: (prev.socialMedia || []).filter((_, i) => i !== idx) }))}
-                      title="Remove link"
-                    >✕</button>
-              </div>
-                ))}
-            </div>
-          </div>
-        )}
+                      onClick={() => setShowPasswordFields(!showPasswordFields)}
+                    >
+                      {showPasswordFields ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  
+                  {showPasswordFields && (
+                    <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: 8 }}>
+                      <label>
+                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>Current Password</div>
+                        <input 
+                          className="profile-input" 
+                          type="password"
+                          placeholder="Enter current password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} 
+                        />
+                      </label>
+                      
+                      <label>
+                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>New Password</div>
+                        <input 
+                          className="profile-input" 
+                          type="password"
+                          placeholder="Enter new password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} 
+                        />
+                      </label>
+                      
+                      <label>
+                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>Confirm New Password</div>
+                        <input 
+                          className="profile-input" 
+                          type="password"
+                          placeholder="Confirm new password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} 
+                        />
+                      </label>
+                      
+                      <button 
+                        type="submit" 
+                        disabled={isChangingPassword}
+                        className="profile-btn profile-btn--primary"
+                        style={{ justifySelf: 'flex-start' }}
+                      >
+                        {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Danger Zone */}
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--profile-border)' }}>
+                  <h3 className="profile-card-title">Danger Zone</h3>
+                  <p className="profile-paragraph">Deleting your account will permanently remove your profile, posts, demos, and relationships.</p>
+                  <button className="profile-btn" onClick={() => setShowDeleteModal(true)}>🗑️ Delete Account</button>
+                </div>
+              </>
+            )}
+
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="profile-btn" onClick={() => setIsEditing(false)}>Cancel</button>
+            <button type="button" className="profile-btn" onClick={() => {
+              setIsEditing(false);
+              setPasswordForm({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+              });
+              setShowPasswordFields(false);
+              setEditProfileTab('basic');
+            }}>Cancel</button>
               <button type="submit" disabled={editLoading} className="profile-btn profile-btn--primary">{editLoading ? 'Saving...' : 'Save'}</button>
       </div>
           </form>
-          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--profile-border)' }}>
-            <h3 className="profile-card-title">Danger Zone</h3>
-            <p className="profile-paragraph">Deleting your account will permanently remove your profile, posts, demos, and relationships.</p>
-            <button className="profile-btn" onClick={() => setShowDeleteModal(true)}>🗑️ Delete Account</button>
-      </div>
             </div>
         )}
         

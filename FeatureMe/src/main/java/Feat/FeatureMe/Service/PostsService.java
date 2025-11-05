@@ -2,8 +2,11 @@ package Feat.FeatureMe.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 import org.springframework.data.domain.Page;
@@ -78,8 +81,8 @@ public class PostsService {
     }
     
         
-    public Posts createPost(String authoruserName, Posts posts) {
-        User author = userRepository.findByUserName(authoruserName)
+    public Posts createPost(String authorId, Posts posts) {
+        User author = userRepository.findById(authorId)
                      .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
                      
@@ -540,11 +543,33 @@ public class PostsService {
 
 
     public PagedModel<PostsDTO> getAllById(List<String> ids, int page, int size ) {
+        // Fetch all posts matching the IDs to preserve order
+        // We need to fetch all to preserve order, then paginate manually
+        List<Posts> allPosts = postsRepository.findAllByIdIn(ids, PageRequest.of(0, Integer.MAX_VALUE)).getContent();
         
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Posts> posts = postsRepository.findAllByIdIn(ids, pageable);
+        // Create a map for quick lookup
+        Map<String, Posts> postMap = new HashMap<>();
+        for (Posts post : allPosts) {
+            postMap.put(post.getId(), post);
+        }
         
-        Page<PostsDTO> postsDTOPage = posts.map(p -> {
+        // Sort posts according to ID order (preserving the order of IDs list)
+        List<Posts> sortedPosts = new ArrayList<>();
+        for (String id : ids) {
+            Posts post = postMap.get(id);
+            if (post != null) {
+                sortedPosts.add(post);
+            }
+        }
+        
+        // Manual pagination
+        int totalElements = sortedPosts.size();
+        int start = page * size;
+        int end = Math.min(start + size, totalElements);
+        List<Posts> pagedPosts = start < totalElements ? sortedPosts.subList(start, end) : new ArrayList<>();
+        
+        // Convert to DTOs
+        List<PostsDTO> postsDTOList = pagedPosts.stream().map(p -> {
             User u = p.getAuthor();
             UserPostsDTO author = new UserPostsDTO(
                 u.getId(),
@@ -575,7 +600,14 @@ public class PostsService {
                 p.getTotalComments(),
                 p.getTotalDownloads()
             );
-        });
+        }).collect(Collectors.toList());
+        
+        // Create Page object manually
+        Page<PostsDTO> postsDTOPage = new org.springframework.data.domain.PageImpl<PostsDTO>(
+            postsDTOList,
+            PageRequest.of(page, size),
+            totalElements
+        );
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
@@ -658,8 +690,10 @@ public class PostsService {
             }
             
             if (isLiked) {
-                // User liked the post
+                // User liked the post - add to the end of the list
                 NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", Instant.now(), NotificationsDTO.NotiType.POST);
+                // Remove if already exists (in case of re-like), then add to end
+                user.getLikedPosts().remove(id);
                 user.getLikedPosts().add(id);
                 author.getNotifications().add(noti);
                 
