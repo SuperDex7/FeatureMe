@@ -26,12 +26,13 @@ export const AudioProvider = ({ children }) => {
 
   const audioPlayer = useAudioPlayer();
 
-  // Configure audio mode for speaker playback (not earpiece)
+  // Configure audio mode for speaker playback (not earpiece) and background playback
   useEffect(() => {
     const configureAudioMode = async () => {
       try {
         await setAudioModeAsync({
-          playsInSilentMode: true,
+          playsInSilentMode: true, // Required for staysActiveInBackground on iOS
+          staysActiveInBackground: true,
           allowsRecording: false,
           shouldPlayInBackground: true,
           shouldRouteThroughEarpiece: false, // Play through speaker, not earpiece
@@ -159,13 +160,11 @@ export const AudioProvider = ({ children }) => {
 
   const seekTo = useCallback(async (timeInSeconds) => {
     if (audioPlayer && duration > 0) {
-      console.log('Seeking to:', timeInSeconds, 'seconds');
       setIsSeeking(true);
       
       try {
         audioPlayer.seekTo(timeInSeconds);
         setPosition(timeInSeconds);
-        console.log('Actual position after seek:', timeInSeconds);
       } catch (error) {
         console.error('Error seeking:', error);
       } finally {

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FeatureMe-Mobile",
+    "name": "FeatureMe Mobile",
     "slug": "FeatureMe-Mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,21 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.featureme.app",
+      "buildNumber": "2",
+      "associatedDomains": [
+        "applinks:featureme.co",
+        "applinks:www.featureme.co"
+      ],
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures and banners.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save images to your photo library.",
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos for your profile.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for audio features.",
+        "UIBackgroundModes": ["audio"],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -43,6 +57,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7676bcf8-47df-475c-8843-fbaa449d90ae"
+      }
     }
   }
 }

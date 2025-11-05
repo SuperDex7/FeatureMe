@@ -9,6 +9,7 @@ import {
   Dimensions,
   PanResponder,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -86,13 +87,11 @@ const CentralizedAudioPlayer = ({
       onPanResponderTerminationRequest: () => false, // Don't allow termination
       onShouldBlockNativeResponder: () => true, // Block native responder
       onPanResponderGrant: (evt) => {
-        console.log('Drag grant - current position:', position, 'duration:', duration);
         isDraggingRef.current = true;
         setIsDragging(true);
         const { locationX } = evt.nativeEvent;
         const currentWidth = progressBarWidth || 300; // Use current width or fallback
         const percentage = Math.max(0, Math.min(100, (locationX / currentWidth) * 100));
-        console.log('Drag start - locationX:', locationX, 'width:', currentWidth, 'percentage:', percentage);
         dragPositionRef.current = percentage;
         setDragPosition(percentage);
       },
@@ -103,12 +102,10 @@ const CentralizedAudioPlayer = ({
         const percentage = Math.max(0, Math.min(100, (locationX / currentWidth) * 100));
         dragPositionRef.current = percentage;
         setDragPosition(percentage);
-        console.log('Drag move - locationX:', locationX, 'width:', currentWidth, 'percentage:', percentage, 'ref:', dragPositionRef.current);
       },
       onPanResponderRelease: (evt) => {
         const finalPosition = dragPositionRef.current;
         const { locationX } = evt.nativeEvent;
-        console.log('Drag release - final dragPosition:', finalPosition, 'duration:', duration, 'hasMoved:', hasMoved.current);
         
         // Only seek if this was a drag (has moved) OR if it was a tap (hasn't moved)
         // For tap, use the release location instead of drag position
@@ -125,7 +122,6 @@ const CentralizedAudioPlayer = ({
             seekTime = (tapPercentage / 100) * duration;
           }
           
-          console.log('Seeking to:', seekTime, 'seconds');
           onSeek(seekTime);
         }
         
@@ -259,7 +255,6 @@ const CentralizedAudioPlayer = ({
             style={styles.progressBar}
             onLayout={(event) => {
               const { width } = event.nativeEvent.layout;
-              console.log('Progress bar layout width:', width);
               setProgressBarWidth(width);
             }}
             {...(duration > 0 && panResponder.current?.panHandlers || {})}

@@ -1,8 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AudioProvider, useAudio } from '../contexts/AudioContext';
@@ -58,6 +59,80 @@ function GlobalAudioPlayer() {
   );
 }
 
+function UniversalLinkHandler() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Handle initial URL when app opens from a link
+    const handleInitialURL = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink(initialUrl);
+      }
+    };
+
+    // Handle URLs when app is already running
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    handleInitialURL();
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const handleDeepLink = (url) => {
+    try {
+      // Parse the URL
+      const parsedUrl = Linking.parse(url);
+      const { hostname, path } = parsedUrl;
+
+      // Only handle featureme.co links
+      if (hostname === 'featureme.co' || hostname === 'www.featureme.co') {
+        const pathSegments = path?.split('/').filter(Boolean) || [];
+
+        if (pathSegments.length === 0) {
+          // Root path - navigate to index
+          router.replace('/');
+          return;
+        }
+
+        const [firstSegment, ...rest] = pathSegments;
+
+        switch (firstSegment) {
+          case 'login':
+            router.replace('/login');
+            break;
+          case 'signup':
+            router.replace('/signup');
+            break;
+          case 'post':
+            // /post/:id
+            if (rest.length > 0) {
+              router.replace(`/post/${rest[0]}`);
+            }
+            break;
+          case 'profile':
+            // /profile/:username
+            if (rest.length > 0) {
+              router.replace(`/profile/${rest[0]}`);
+            }
+            break;
+          default:
+            // Unknown path - navigate to index
+            router.replace('/');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
+    }
+  };
+
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -65,6 +140,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AudioProvider>
+          <UniversalLinkHandler />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{headerShown: false}} />

@@ -3,12 +3,12 @@ import api from './api';
 // API base URL for WebSocket
 const API_BASE_URL = __DEV__ 
   ? 'http://10.0.0.200:8080'  // Development
-  : 'https://FeatureMe.com';  // Production
+  : 'https://featureme.co';  // Production
 
 // Use SockJS protocol for React Native (requires http/https, not ws/wss)
 const WS_URL = __DEV__ 
   ? 'http://10.0.0.200:8080/ws'  // Development - SockJS needs http
-  : 'https://FeatureMe.com/ws';  // Production - SockJS needs https
+  : 'https://featureme.co/ws';  // Production - SockJS needs https
 
 // Chat Service for handling all chat-related API calls
 export const ChatService = {
@@ -94,16 +94,10 @@ export class ChatWebSocketService {
                     },
                     onConnect: (frame) => {
                         this.isConnected = true;
-                        if (__DEV__) {
-                            console.log('✅ WebSocket connected - real-time updates enabled');
-                        }
                         resolve(frame);
                     },
                     onDisconnect: () => {
                         this.isConnected = false;
-                        if (__DEV__) {
-                            console.log('WebSocket disconnected');
-                        }
                     },
                     onStompError: (frame) => {
                         console.error('STOMP error:', frame);

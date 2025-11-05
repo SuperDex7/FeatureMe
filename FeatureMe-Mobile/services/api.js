@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // API Configuration for React Native
 const API_BASE_URL = __DEV__ 
   ? 'http://10.0.0.200:8080/api'  // Development - Your computer's IP
-  : 'https://FeatureMe.com/api';  // Production
+  : 'https://featureme.co/api';  // Production
 
 // Create axios instance with base configuration
 const api = axios.create({
