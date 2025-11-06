@@ -17,6 +17,7 @@ import PendingFeatures from './Components/PendingFeatures.jsx'
 import MessagesPage from './Pages/MessagesPage.jsx'
 import SubscriptionPage from './Pages/SubscriptionPage.jsx'
 import UserSearch from './Pages/UserSearch.jsx'
+import PrivacyPage from './Pages/PrivacyPage.jsx'
 
 const router = createBrowserRouter([
   {path: '/', element: <App />},
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
   {path: 'signup', element: <SignupPage />},
   {path: 'login', element: <LoginPage />},
   {path: 'forgot-password', element: <ForgotPasswordPage />},
+  {path: 'privacy-policy', element: <PrivacyPage />},
   {path: 'create-post', element: <ProtectedRoute><CreatePost /></ProtectedRoute>},
   {path: "/post/:id", element: <Post/>},
   {path: 'pending-features', element: <ProtectedRoute><PendingFeatures /></ProtectedRoute>},

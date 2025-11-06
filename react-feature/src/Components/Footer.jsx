@@ -44,7 +44,7 @@ function Footer() {
               <h4 className="footer-column-title">Support</h4>
               <ul className="footer-link-list">
                 <li><span className="footer-link">Help Center</span></li>
-                <li><span className="footer-link">Community Guidelines</span></li>
+                <li><a href="/privacy-policy" className="footer-link">Privacy Policy</a></li>
                 <li><span className="footer-link">Contact Us</span></li>
                 <li><span className="footer-link">Report Issue</span></li>
               </ul>
