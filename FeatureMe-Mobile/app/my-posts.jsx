@@ -128,6 +128,10 @@ function MyPostsItem({
 
 // Main My Posts Component
 export default function MyPostsScreen() {
+  const { width } = useWindowDimensions();
+  const cardMaxWidth = 400;
+  const numColumns = Math.max(1, Math.floor((width - 40) / (cardMaxWidth + 20)));
+  
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -238,22 +242,24 @@ export default function MyPostsScreen() {
   };
 
   const renderPostItem = ({ item }) => (
-    <MyPostsItem
-      key={item.id}
-      {...item}
-      currentUser={user}
-      onLikeUpdate={(likes) => {
-        setPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
-      }}
-      onCommentUpdate={(comments) => {
-        setPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-      onDeletePost={handleDeletePost}
-    />
+    <View style={styles.cardWrapper}>
+      <MyPostsItem
+        key={item.id}
+        {...item}
+        currentUser={user}
+        onLikeUpdate={(likes) => {
+          setPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, likes } : post
+          ));
+        }}
+        onCommentUpdate={(comments) => {
+          setPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, comments } : post
+          ));
+        }}
+        onDeletePost={handleDeletePost}
+      />
+    </View>
   );
 
   if (isLoading && page === 0) {
@@ -313,6 +319,7 @@ export default function MyPostsScreen() {
             renderItem={renderPostItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.postsList}
+            numColumns={numColumns}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -446,6 +453,12 @@ const styles = StyleSheet.create({
   postsList: {
     paddingHorizontal: 20,
     paddingBottom: 100, // Space for bottom navigation
+  },
+  cardWrapper: {
+    marginBottom: 20,
+    flex: 1,
+    marginHorizontal: 10,
+    maxWidth: 400,
   },
 
   // Post Card

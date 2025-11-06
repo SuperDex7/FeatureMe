@@ -78,6 +78,21 @@ export const isAuthenticated = async () => {
 export const getCurrentUser = async () => {
   try {
     const response = await api.get('/user/me');
+    // Check if user is banned - logout silently if so
+    if (response.data?.role === 'BANNED') {
+      await AsyncStorage.removeItem('authToken');
+      delete api.defaults.headers.common['Authorization'];
+      // Use setTimeout to navigate after clearing storage (silent logout)
+      setTimeout(async () => {
+        try {
+          const { router } = await import('expo-router');
+          router.replace('/login');
+        } catch (e) {
+          // If router import fails, the auth guard will handle redirect
+        }
+      }, 0);
+      return null;
+    }
     return response.data;
   } catch (error) {
     return null;

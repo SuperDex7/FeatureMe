@@ -19,9 +19,14 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle JWT expiration
+// Response interceptor to handle JWT expiration and banned users
 api.interceptors.response.use(
   (response) => {
+    // Check if user is banned - logout silently if so
+    if (response.config?.url?.includes('/user/me') && response.data?.role === 'BANNED') {
+      window.location.href = '/login';
+      return Promise.reject(new Error('User banned'));
+    }
     return response;
   },
   
@@ -101,6 +106,11 @@ export const logout = async () => {
 export const getCurrentUser = async () => {
   try {
     const response = await api.get('/user/me');
+    // Check if user is banned - logout silently if so
+    if (response.data?.role === 'BANNED') {
+      window.location.href = '/login';
+      return null;
+    }
     return response.data;
   } catch (error) {
     // Don't log errors for anonymous users - this is expected behavior
@@ -112,6 +122,11 @@ export const getCurrentUser = async () => {
 export const getCurrentUserSafe = async () => {
   try {
     const response = await api.get('/user/me');
+    // Check if user is banned - logout silently if so
+    if (response.data?.role === 'BANNED') {
+      window.location.href = '/login';
+      return null;
+    }
     return response.data;
   } catch (error) {
     // Silently return null for anonymous users

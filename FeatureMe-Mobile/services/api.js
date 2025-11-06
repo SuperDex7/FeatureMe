@@ -38,9 +38,24 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle JWT expiration
+// Response interceptor to handle JWT expiration and banned users
 api.interceptors.response.use(
-  (response) => {
+  async (response) => {
+    // Check if user is banned - logout silently if so
+    if (response.config?.url?.includes('/user/me') && response.data?.role === 'BANNED') {
+      await AsyncStorage.removeItem('authToken');
+      delete api.defaults.headers.common['Authorization'];
+      // Use setTimeout to navigate after clearing storage (silent logout)
+      setTimeout(async () => {
+        try {
+          const { router } = await import('expo-router');
+          router.replace('/login');
+        } catch (e) {
+          // If router import fails, the auth guard will handle redirect
+        }
+      }, 0);
+      return Promise.reject(new Error('User banned'));
+    }
     return response;
   },
    
@@ -121,6 +136,21 @@ export const logout = async () => {
 export const getCurrentUser = async () => {
   try {
     const response = await api.get('/user/me');
+    // Check if user is banned - logout silently if so
+    if (response.data?.role === 'BANNED') {
+      await AsyncStorage.removeItem('authToken');
+      delete api.defaults.headers.common['Authorization'];
+      // Use setTimeout to navigate after clearing storage (silent logout)
+      setTimeout(async () => {
+        try {
+          const { router } = await import('expo-router');
+          router.replace('/login');
+        } catch (e) {
+          // If router import fails, the auth guard will handle redirect
+        }
+      }, 0);
+      return null;
+    }
     return response.data;
   } catch (error) {
     return null;

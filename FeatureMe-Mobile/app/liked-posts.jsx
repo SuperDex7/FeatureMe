@@ -133,6 +133,10 @@ function LikedPostsItem({
 
 // Main Liked Posts Component
 export default function LikedPostsScreen() {
+  const { width } = useWindowDimensions();
+  const cardMaxWidth = 400;
+  const numColumns = Math.max(1, Math.floor((width - 40) / (cardMaxWidth + 20)));
+  
   const [user, setUser] = useState(null);
   const [likedPosts, setLikedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -206,20 +210,22 @@ export default function LikedPostsScreen() {
   };
 
   const renderLikedPostItem = ({ item }) => (
-    <LikedPostsItem
-      key={item.id}
-      {...item}
-      onLikeUpdate={(likes) => {
-        setLikedPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
-      }}
-      onCommentUpdate={(comments) => {
-        setLikedPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-    />
+    <View style={styles.cardWrapper}>
+      <LikedPostsItem
+        key={item.id}
+        {...item}
+        onLikeUpdate={(likes) => {
+          setLikedPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, likes } : post
+          ));
+        }}
+        onCommentUpdate={(comments) => {
+          setLikedPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, comments } : post
+          ));
+        }}
+      />
+    </View>
   );
 
   if (isLoading && page === 0) {
@@ -271,6 +277,7 @@ export default function LikedPostsScreen() {
             renderItem={renderLikedPostItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.postsList}
+            numColumns={numColumns}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -404,6 +411,12 @@ const styles = StyleSheet.create({
   postsList: {
     paddingHorizontal: 20,
     paddingBottom: 100, // Space for bottom navigation
+  },
+  cardWrapper: {
+    marginBottom: 20,
+    flex: 1,
+    marginHorizontal: 10,
+    maxWidth: 400,
   },
 
   // Liked Card

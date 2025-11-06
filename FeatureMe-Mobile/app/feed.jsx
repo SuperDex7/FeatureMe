@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  RefreshControl
+  RefreshControl,
+  useWindowDimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -630,6 +631,10 @@ function TabNavigation({ activeTab, onTabChange }) {
 
 // Main Feed Component
 export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
+  const { width } = useWindowDimensions();
+  const cardMaxWidth = 400;
+  const numColumns = Math.max(1, Math.floor((width - 40) / (cardMaxWidth + 20)));
+  
   const [activeTab, setActiveTab] = useState('spotlight');
   const [posts, setPosts] = useState([]);
   const [spotlightPosts, setSpotlightPosts] = useState([]);
@@ -1086,57 +1091,63 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   }));
 
   const renderFeedItem = ({ item }) => (
-    <FeedItem
-      key={item.id}
-      {...item}
-      onLikeUpdate={(likes) => {
-        setPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
-      }}
-      onCommentUpdate={(comments) => {
-        setPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-      onDeletePost={(postId) => setPosts(prev => prev.filter(post => post.id !== postId))}
-    />
+    <View style={styles.cardWrapper}>
+      <FeedItem
+        key={item.id}
+        {...item}
+        onLikeUpdate={(likes) => {
+          setPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, likes } : post
+          ));
+        }}
+        onCommentUpdate={(comments) => {
+          setPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, comments } : post
+          ));
+        }}
+        onDeletePost={(postId) => setPosts(prev => prev.filter(post => post.id !== postId))}
+      />
+    </View>
   );
 
   const renderSpotlightItem = ({ item }) => (
-    <SpotlightCard
-      key={item.id}
-      {...item}
-      onLikeUpdate={(likes) => {
-        setSpotlightPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
-      }}
-      onCommentUpdate={(comments) => {
-        setSpotlightPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-      onSpotlightPress={onSpotlightPress}
-      onDeletePost={(postId) => setSpotlightPosts(prev => prev.filter(post => post.id !== postId))}
-    />
+    <View style={styles.cardWrapper}>
+      <SpotlightCard
+        key={item.id}
+        {...item}
+        onLikeUpdate={(likes) => {
+          setSpotlightPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, likes } : post
+          ));
+        }}
+        onCommentUpdate={(comments) => {
+          setSpotlightPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, comments } : post
+          ));
+        }}
+        onSpotlightPress={onSpotlightPress}
+        onDeletePost={(postId) => setSpotlightPosts(prev => prev.filter(post => post.id !== postId))}
+      />
+    </View>
   );
 
   const renderLikedPostItem = ({ item }) => (
-    <LikedPostsItem
-      key={item.id}
-      {...item}
-      onLikeUpdate={(likes) => {
-        setLikedPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, likes } : post
-        ));
-      }}
-      onCommentUpdate={(comments) => {
-        setLikedPosts(prev => prev.map(post => 
-          post.id === item.id ? { ...post, comments } : post
-        ));
-      }}
-    />
+    <View style={styles.cardWrapper}>
+      <LikedPostsItem
+        key={item.id}
+        {...item}
+        onLikeUpdate={(likes) => {
+          setLikedPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, likes } : post
+          ));
+        }}
+        onCommentUpdate={(comments) => {
+          setLikedPosts(prev => prev.map(post => 
+            post.id === item.id ? { ...post, comments } : post
+          ));
+        }}
+      />
+    </View>
   );
 
   const openPostModal = (post) => {
@@ -1167,15 +1178,17 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
   };
 
   const renderMyPostItem = ({ item }) => (
-    <ProfilePostCard
-      item={item}
-      currentUser={user}
-      onPostPress={openPostModal}
-      onAnalyticsPress={(post) => {
-        setAnalyticsPost(post);
-        setShowViewsAnalytics(true);
-      }}
-    />
+    <View style={styles.cardWrapper}>
+      <ProfilePostCard
+        item={item}
+        currentUser={user}
+        onPostPress={openPostModal}
+        onAnalyticsPress={(post) => {
+          setAnalyticsPost(post);
+          setShowViewsAnalytics(true);
+        }}
+      />
+    </View>
   );
 
   const getCurrentData = () => {
@@ -1341,6 +1354,7 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
             renderItem={getCurrentRenderItem()}
             keyExtractor={(item, index) => `${item.id}-${index}`}
             contentContainerStyle={styles.postsList}
+            numColumns={numColumns}
             showsVerticalScrollIndicator={false}
             onEndReached={loadMorePosts}
             onEndReachedThreshold={0.1}
@@ -1647,6 +1661,12 @@ const styles = StyleSheet.create({
   postsList: {
     paddingHorizontal: 20,
     paddingBottom: 100, // Space for bottom navigation
+  },
+  cardWrapper: {
+    marginBottom: 20,
+    flex: 1,
+    marginHorizontal: 10,
+    maxWidth: 400,
   },
 
   profileSection: {

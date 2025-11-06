@@ -13,7 +13,8 @@ import {
   FlatList,
   RefreshControl,
   TextInput,
-  Share
+  Share,
+  Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -100,6 +101,16 @@ function formatTime(timestamp) {
 
 // Completely Redesigned Homepage Tab Component
 function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onShowActivity, onShowLatest, onRefresh, onNotificationPress }) {
+  const [dimensions, setDimensions] = useState(Dimensions.get('window'));
+  const isTablet = dimensions.width > 768;
+  
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions(window);
+    });
+    return () => subscription?.remove();
+  }, []);
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Analytics modal state
@@ -330,8 +341,10 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
         </ScrollView>
       </View>
 
+      {/* Homepage Cards Container - Wraps horizontally on tablet */}
+      <View style={styles.homepageCardsContainer}>
       {/* Activity Feed Card */}
-      <View style={styles.activityCard}>
+      <View style={[styles.activityCard, isTablet && styles.homepageCardTablet]}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Recent Activity</Text>
           <TouchableOpacity onPress={onShowActivity}>
@@ -383,7 +396,7 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
 
       {/* Latest Creation Spotlight */}
       {latestPost && (
-        <View style={styles.spotlightCard}>
+        <View style={[styles.spotlightCard, isTablet && styles.homepageCardTablet]}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Your Latest Hit</Text>
             <TouchableOpacity onPress={onShowLatest}>
@@ -425,7 +438,7 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
       )}
 
       {/* Analytics Section */}
-      <View style={styles.analyticsSection}>
+      <View style={[styles.analyticsSection, isTablet && styles.homepageCardTablet]}>
         {user.role === 'USERPLUS' ? (
           <TouchableOpacity style={styles.analyticsCardPremium} onPress={() => setAnalyticsModalOpen(true)}>
             <View style={styles.analyticsHeader}>
@@ -464,7 +477,7 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
       </View>
 
       {/* Trending Section */}
-      <View style={styles.trendingCard}>
+      <View style={[styles.trendingCard, isTablet && styles.homepageCardTablet]}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Trending Now</Text>
           <TouchableOpacity onPress={() => router.push('/feed')}>
@@ -490,6 +503,7 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
             <Text style={styles.trendingText}>Electronic</Text>
           </View>
         </ScrollView>
+      </View>
       </View>
 
       {/* Bottom Spacing */}
@@ -1547,11 +1561,11 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
               showDelete={isOwnProfile}
             />
           ) : (
-            <TouchableOpacity 
-              key={item.id || index} 
-              style={styles.profilePostCard}
-              onPress={() => handleCardPress(item)}
-            >
+            <View key={item.id || index} style={styles.cardWrapper}>
+              <TouchableOpacity 
+                style={styles.profilePostCard}
+                onPress={() => handleCardPress(item)}
+              >
               {/* Post Header with Banner */}
               <View style={styles.profilePostHeader}>
                 <Image 
@@ -1696,6 +1710,7 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                 )}
               </View>
             </TouchableOpacity>
+            </View>
           )
         ))}
         
@@ -3429,7 +3444,11 @@ const styles = StyleSheet.create({
   profileContentContainer: {
     paddingHorizontal: 16,
     paddingBottom: 20,
-    paddingTop:20
+    paddingTop:20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 16,
   },
 
   // Demo Grid Container - Now vertical for horizontal cards
@@ -3437,6 +3456,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 20,
+  },
+  cardWrapper: {
+    marginBottom: 20,
+    width: '100%',
+    maxWidth: 400,
   },
 
   // Modern Post Cards - Glassmorphism Style inspired by website
@@ -4459,10 +4483,25 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
+  // Homepage Cards Container
+  homepageCardsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  homepageCardTablet: {
+    flex: 1,
+    minWidth: 300,
+    maxWidth: '48%',
+    marginHorizontal: 0,
+  },
+  
   // Card Components
   activityCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginBottom: 20,
     borderRadius: 20,
     padding: 20,
@@ -4473,10 +4512,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
+    width: '100%',
   },
   spotlightCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginBottom: 20,
     borderRadius: 20,
     padding: 20,
@@ -4487,11 +4527,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
+    width: '100%',
   },
   // Analytics Section
   analyticsSection: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginBottom: 20,
+    width: '100%',
   },
   analyticsCardPremium: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -4574,7 +4616,7 @@ const styles = StyleSheet.create({
   
   trendingCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginBottom: 20,
     borderRadius: 20,
     padding: 20,
@@ -4585,6 +4627,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
+    width: '100%',
   },
   cardHeader: {
     flexDirection: 'row',
