@@ -10,6 +10,8 @@ import { AudioProvider, useAudio } from '../contexts/AudioContext';
 import CentralizedAudioPlayer from '../components/CentralizedAudioPlayer';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../services/api';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -133,6 +135,61 @@ function UniversalLinkHandler() {
   return null;
 }
 
+function TokenValidator() {
+  const router = useRouter();
+  
+  useEffect(() => {
+    const validateTokenOnStartup = async () => {
+      try {
+        // Check if token exists
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          // No token, user is not logged in - this is fine
+          return;
+        }
+        
+        // Token exists, validate it by calling /user/me
+        try {
+          const response = await api.get('/user/me');
+          // If we get here, token is valid
+          return;
+        } catch (error) {
+          // Token is invalid (401, 403, or other auth errors)
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            // Clear invalid token and redirect to login
+            await AsyncStorage.removeItem('authToken');
+            delete api.defaults.headers.common['Authorization'];
+            router.replace('/login');
+          } else if (error.response?.status === 500) {
+            const errorMessage = error.response.data || '';
+            if (typeof errorMessage === 'string' && (
+              errorMessage.includes('JWT expired') || 
+              errorMessage.includes('JWT token expired') ||
+              errorMessage.includes('ExpiredJwtException') ||
+              errorMessage.includes('Invalid JWT token') ||
+              errorMessage.includes('JWT authentication failed')
+            )) {
+              // Clear invalid token and redirect to login
+              await AsyncStorage.removeItem('authToken');
+              delete api.defaults.headers.common['Authorization'];
+              router.replace('/login');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Token validation error:', error);
+        // On any error, clear token to be safe
+        await AsyncStorage.removeItem('authToken');
+        delete api.defaults.headers.common['Authorization'];
+      }
+    };
+    
+    validateTokenOnStartup();
+  }, [router]);
+  
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -140,6 +197,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AudioProvider>
+          <TokenValidator />
           <UniversalLinkHandler />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />

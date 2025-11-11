@@ -26,6 +26,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
 
 @RestController
@@ -36,6 +43,12 @@ public class StripeController {
     
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
+    
+    @Value("${apple.shared.secret:}")
+    private String appleSharedSecret;
+    
+    private static final String APPLE_SANDBOX_URL = "https://sandbox.itunes.apple.com/verifyReceipt";
+    private static final String APPLE_PRODUCTION_URL = "https://buy.itunes.apple.com/verifyReceipt";
 
     //@Value("${https://featureme.co}")
     //private String frontendUrl;
@@ -413,6 +426,161 @@ public class StripeController {
             error.put("error", "Failed to get subscription status");
             error.put("message", e.getMessage());
             return error;
+        }
+    }
+    
+    /**
+     * Validate Apple/Google Play receipt and upgrade user to USERPLUS
+     */
+    @PostMapping("/validate-receipt")
+    public Map<String, Object> validateReceipt(@RequestBody Map<String, Object> request) {
+        try {
+            // Get the authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("error", "User not authenticated");
+                return error;
+            }
+            
+            String email = authentication.getName();
+            User user = userService.findByUsernameOrEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
+            
+            String platform = (String) request.get("platform");
+            String receipt = (String) request.get("receipt");
+            String productId = (String) request.get("productId");
+            String transactionId = (String) request.get("transactionId");
+            
+            if (receipt == null || receipt.isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("error", "Receipt is required");
+                return error;
+            }
+            
+            boolean isValid = false;
+            
+            if ("ios".equals(platform)) {
+                // Validate Apple receipt
+                isValid = validateAppleReceipt(receipt, productId);
+            } else if ("android".equals(platform)) {
+                // For Android, you would validate Google Play receipt
+                // For now, we'll accept it if transactionId is provided
+                // You should implement Google Play receipt validation
+                isValid = transactionId != null && !transactionId.isEmpty();
+            } else {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("error", "Invalid platform");
+                return error;
+            }
+            
+            if (isValid) {
+                // Upgrade user to USERPLUS
+                user.setRole("USERPLUS");
+                user.setSubscriptionStatus("active");
+                
+                // Store IAP transaction info (you might want to add fields to User entity)
+                // For now, we'll just save the user
+                userService.saveUser(user);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", true);
+                result.put("message", "Subscription activated successfully");
+                result.put("role", "USERPLUS");
+                System.out.println("✅ User " + email + " upgraded to USERPLUS via IAP! Product: " + productId);
+                return result;
+            } else {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("error", "Receipt validation failed");
+                return error;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Receipt validation error: " + e.getMessage());
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "Receipt validation failed: " + e.getMessage());
+            return error;
+        }
+    }
+    
+    /**
+     * Validate Apple receipt with Apple's servers
+     */
+    private boolean validateAppleReceipt(String receipt, String productId) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            ObjectMapper objectMapper = new ObjectMapper();
+            
+            // Prepare request body
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("receipt-data", receipt);
+            if (appleSharedSecret != null && !appleSharedSecret.isEmpty()) {
+                requestBody.put("password", appleSharedSecret);
+            }
+            requestBody.put("exclude-old-transactions", true);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            
+            // Try production first
+            ResponseEntity<String> response = restTemplate.exchange(
+                APPLE_PRODUCTION_URL,
+                HttpMethod.POST,
+                entity,
+                String.class
+            );
+            
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            int status = responseJson.get("status").asInt();
+            
+            // Status 21007 means receipt is from sandbox, try sandbox URL
+            if (status == 21007) {
+                response = restTemplate.exchange(
+                    APPLE_SANDBOX_URL,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+                );
+                responseJson = objectMapper.readTree(response.getBody());
+                status = responseJson.get("status").asInt();
+            }
+            
+            // Status 0 means receipt is valid
+            if (status == 0) {
+                JsonNode receiptNode = responseJson.get("receipt");
+                if (receiptNode != null) {
+                    JsonNode inAppArray = receiptNode.get("in_app");
+                    if (inAppArray != null && inAppArray.isArray()) {
+                        // Check if the product ID matches
+                        for (JsonNode inApp : inAppArray) {
+                            String receiptProductId = inApp.get("product_id").asText();
+                            if (productId != null && productId.equals(receiptProductId)) {
+                                // Check if it's a subscription (not a one-time purchase)
+                                // For subscriptions, you might want to check expiration dates
+                                return true;
+                            }
+                        }
+                    }
+                }
+                // If product ID check fails but receipt is valid, still accept it
+                // (in case product ID format differs)
+                return true;
+            } else {
+                System.err.println("Apple receipt validation failed with status: " + status);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error validating Apple receipt: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
     }
 

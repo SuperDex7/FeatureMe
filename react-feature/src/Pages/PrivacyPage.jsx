@@ -122,9 +122,18 @@ function PrivacyPage() {
           </section>
 
           <section>
-            <h2>9. Third-Party Links</h2>
+            <h2>9. Third-Party Content and Links</h2>
             <p>
-              Our platform may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review the privacy policies of any third-party sites you visit.
+              Our platform contains third-party content and links in the following ways:
+            </p>
+            <ul>
+              <li><strong>User-Generated Content:</strong> All posts, music, images, comments, and messages on our platform are created and uploaded by users. We do not create or control this content, but we provide the platform for users to share it.</li>
+              <li><strong>External Links:</strong> Users may include links to their social media profiles (YouTube, Spotify, SoundCloud, Instagram, TikTok, etc.) in their profiles. These links are user-provided and we do not control the content on those external sites.</li>
+              <li><strong>Third-Party Images:</strong> Our homepage displays record label logos for informational purposes. These images are loaded from external sources and we do not control their content or availability.</li>
+              <li><strong>External Services:</strong> We provide links to third-party services such as Stripe for payment processing and our own social media profiles.</li>
+            </ul>
+            <p>
+              We are not responsible for the privacy practices, content, or availability of third-party websites or services. We encourage you to review the privacy policies and terms of service of any third-party sites you visit.
             </p>
           </section>
 

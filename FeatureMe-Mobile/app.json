@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.featureme.app",
-      "buildNumber": "3",
+      "buildNumber": "5",
       "associatedDomains": [
         "applinks:featureme.co",
         "applinks:www.featureme.co"

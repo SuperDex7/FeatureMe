@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
+import iapService from '../services/iapService';
 
 export default function SubscriptionPage() {
   const insets = useSafeAreaInsets();
@@ -22,9 +24,45 @@ export default function SubscriptionPage() {
   const [currentPlan, setCurrentPlan] = useState('free');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [iapProducts, setIapProducts] = useState([]);
+  const [iapInitialized, setIapInitialized] = useState(false);
+  const [plusPrice, setPlusPrice] = useState({ monthly: 5.00, yearly: 50.00 });
 
   useEffect(() => {
+    // Initialize IAP service (iOS only, or both platforms if you want)
+    const initializeIAP = async () => {
+      if (Platform.OS === 'ios') {
+        try {
+          const result = await iapService.initialize();
+          if (result.success) {
+            setIapProducts(result.products);
+            setIapInitialized(true);
+            
+            // Update prices from IAP products if available
+            if (result.products && result.products.length > 0) {
+              result.products.forEach(product => {
+                const price = parseFloat(product.localizedPrice?.replace(/[^0-9.]/g, '') || 0);
+                if (product.productId.includes('monthly') && price > 0) {
+                  setPlusPrice(prev => ({ ...prev, monthly: price }));
+                } else if (product.productId.includes('yearly') && price > 0) {
+                  setPlusPrice(prev => ({ ...prev, yearly: price }));
+                }
+              });
+            }
+          } else {
+            console.warn('IAP initialization failed:', result.error);
+            // Fallback to web-based subscriptions
+          }
+        } catch (error) {
+          console.error('IAP initialization error:', error);
+          // Fallback to web-based subscriptions
+        }
+      }
+    };
+
+    initializeIAP();
+
     // Handle redirect messages from checkout
     if (params.success) {
       setMessage('🎉 Subscription successful! Welcome to FeatureMe Plus!');
@@ -56,6 +94,13 @@ export default function SubscriptionPage() {
     };
 
     checkUserRole();
+
+    // Cleanup IAP listeners on unmount
+    return () => {
+      if (Platform.OS === 'ios') {
+        iapService.cleanup();
+      }
+    };
   }, [params]);
 
   const plans = {
@@ -81,7 +126,7 @@ export default function SubscriptionPage() {
     },
     plus: {
       name: 'Plus',
-      price: { monthly: 5.00, yearly: 50.00 },
+      get price() { return plusPrice; },
       description: 'For serious creators and artists',
       features: [
         'Advanced Views Analytics',
@@ -95,7 +140,7 @@ export default function SubscriptionPage() {
         'Spotlight Page Upgrades',
         'TBD'
       ],
-      buttonText: currentPlan === 'plus' ? 'Current Plan' : 'Upgrade Now',
+      buttonText: currentPlan === 'plus' ? 'Current Plan' : 'Upgrade',
       popular: true,
       gradientColors: ['#4f8cff', '#a084e8']
     }
@@ -110,51 +155,122 @@ export default function SubscriptionPage() {
     return false;
   }
 
-  const handleCheckout = async () => {
-    setProcessing(true);
+  const handleUpgrade = async () => {
+    // On iOS, use in-app purchases
+    if (Platform.OS === 'ios' && iapInitialized) {
+      await handleIAPPurchase();
+    } else {
+      // On Android or if IAP not available, redirect to website
+      Alert.alert(
+        'Visit featureme.co',
+        'For more information about FeatureMe Plus features and subscription options, please visit our website.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Visit Website',
+            onPress: () => Linking.openURL('https://featureme.co/subscription')
+          }
+        ]
+      );
+    }
+  };
+
+  const handleIAPPurchase = async () => {
+    if (purchasing) return;
+
+    setPurchasing(true);
+    setMessage('');
+
     try {
-      // Determine which endpoint to call based on billing cycle
-      const endpoint = billingCycle === 'yearly' 
-        ? '/payment/create-checkout-session-yearly'
-        : '/payment/create-checkout-session';
+      // Get product ID for selected billing cycle
+      const productId = iapService.getProductId(billingCycle);
       
-      // Call your backend to create checkout session
-      const response = await api.post(endpoint);
-      const checkoutUrl = response.data.url;
-      
-      if (!checkoutUrl) {
-        throw new Error('Checkout URL not provided by server');
+      if (!productId) {
+        throw new Error('Product not available for selected billing cycle');
       }
-      
-      // Open Stripe checkout URL in browser
-      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
-        showTitle: true,
-        toolbarColor: '#1e222d',
-        enableBarCollapsing: false,
+
+      // Check if product is available
+      const product = iapService.getProduct(productId);
+      if (!product) {
+        throw new Error('Product not found. Please try again later.');
+      }
+
+      // Show confirmation
+      const confirmPurchase = await new Promise((resolve) => {
+        Alert.alert(
+          'Subscribe to FeatureMe Plus',
+          `Subscribe to ${product.localizedTitle || 'FeatureMe Plus'} for ${product.localizedPrice || `$${plans.plus.price[billingCycle]}`}?`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => resolve(false)
+            },
+            {
+              text: 'Subscribe',
+              onPress: () => resolve(true)
+            }
+          ]
+        );
       });
 
-      // Handle browser result
-      if (result.type === 'cancel') {
-        setMessage('❌ Checkout canceled. You can try again anytime!');
-      } else if (result.type === 'dismiss') {
-        // User may have completed or canceled - check status after delay
-        setTimeout(() => {
-          checkUserRole();
-        }, 2000);
-      } else {
-        // User completed checkout - refresh subscription status
-        setTimeout(() => {
-          checkUserRole();
-        }, 2000);
+      if (!confirmPurchase) {
+        setPurchasing(false);
+        return;
       }
-    } catch (err) {
-      console.error('Checkout error:', err);
-      Alert.alert(
-        'Error',
-        err.response?.data?.message || err.message || 'Failed to start checkout process'
-      );
+
+      // Initiate purchase
+      const result = await iapService.purchaseSubscription(productId, billingCycle);
+
+      if (result.success) {
+        setMessage('🎉 Subscription successful! Welcome to FeatureMe Plus!');
+        setCurrentPlan('plus');
+        
+        // Refresh user data to get updated role
+        await checkUserRole();
+      } else if (result.cancelled) {
+        setMessage('Purchase cancelled');
+      } else {
+        setMessage(`❌ ${result.error || 'Purchase failed. Please try again.'}`);
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      setMessage(`❌ ${error.message || 'Purchase failed. Please try again.'}`);
     } finally {
-      setProcessing(false);
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (Platform.OS !== 'ios' || !iapInitialized) {
+      Alert.alert(
+        'Restore Purchases',
+        'This feature is only available on iOS. Please contact support if you need help restoring your subscription.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setPurchasing(true);
+    setMessage('');
+
+    try {
+      const result = await iapService.restorePurchases();
+      
+      if (result.success && result.purchases.length > 0) {
+        setMessage('✅ Purchases restored successfully!');
+        await checkUserRole();
+      } else {
+        setMessage('No previous purchases found to restore.');
+      }
+    } catch (error) {
+      console.error('Restore purchases error:', error);
+      setMessage(`❌ Failed to restore purchases: ${error.message}`);
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -192,7 +308,6 @@ export default function SubscriptionPage() {
             text: 'Downgrade',
             style: 'destructive',
             onPress: async () => {
-              setProcessing(true);
               try {
                 const response = await api.get('/payment/cancel-subscription');
                 
@@ -205,16 +320,14 @@ export default function SubscriptionPage() {
               } catch (err) {
                 console.error('Downgrade error:', err);
                 setMessage('❌ Downgrade error: ' + (err.response?.data?.message || err.message));
-              } finally {
-                setProcessing(false);
               }
             }
           }
         ]
       );
     } else if (planType === 'plus' && currentPlan === 'free') {
-      // Upgrade to plus
-      handleCheckout();
+      // Use IAP on iOS, web redirect on Android
+      handleUpgrade();
     }
     // If already on the same plan, do nothing (button is disabled)
   };
@@ -316,6 +429,24 @@ export default function SubscriptionPage() {
           </View>
         ) : null}
 
+        {/* Website Information */}
+        {currentPlan === 'free' && (
+          <View style={styles.upgradeNotice}>
+            <Text style={styles.upgradeNoticeIcon}>ℹ️</Text>
+            <Text style={styles.upgradeNoticeTitle}>More Information</Text>
+            <Text style={styles.upgradeNoticeText}>
+              For more details about FeatureMe Plus features and plans, visit our website
+            </Text>
+            <TouchableOpacity
+              style={styles.upgradeNoticeButton}
+              onPress={handleUpgrade}
+            >
+              <Text style={styles.upgradeNoticeButtonText}>Visit featureme.co</Text>
+              <Text style={styles.externalLinkIcon}>↗</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Pricing Cards */}
         <View style={styles.pricingCards}>
           {Object.entries(plans).sort(([a], [b]) => {
@@ -400,9 +531,9 @@ export default function SubscriptionPage() {
                     <TouchableOpacity
                       style={styles.planButton}
                       onPress={() => handlePlanAction(planType)}
-                      disabled={isButtonDisabled(planType) || processing}
+                      disabled={isButtonDisabled(planType) || purchasing}
                     >
-                      {processing && planType === 'plus' ? (
+                      {purchasing && planType === 'plus' ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
                         <Text style={styles.planButtonText}>{plan.buttonText}</Text>
@@ -417,9 +548,9 @@ export default function SubscriptionPage() {
                       isButtonDisabled(planType) && styles.planButtonDisabled
                     ]}
                     onPress={() => handlePlanAction(planType)}
-                    disabled={isButtonDisabled(planType) || processing}
+                    disabled={isButtonDisabled(planType) || purchasing}
                   >
-                    {processing && planType === 'plus' ? (
+                    {purchasing && planType === 'plus' ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
                       <Text style={styles.planButtonText}>{plan.buttonText}</Text>
@@ -436,16 +567,29 @@ export default function SubscriptionPage() {
           <View style={styles.customerPortalSection}>
             <Text style={styles.portalTitle}>Manage Your Subscription</Text>
             <Text style={styles.portalDescription}>
-              Access your billing information, update payment methods, and manage your subscription
+              {Platform.OS === 'ios' 
+                ? 'Manage your subscription through your Apple ID settings or restore previous purchases.'
+                : 'Access your billing information, update payment methods, and manage your subscription'}
             </Text>
-            <TouchableOpacity
-              style={styles.portalButton}
-              onPress={openCustomerPortal}
-            >
-              <Text style={styles.portalIcon}>⚙️</Text>
-              <Text style={styles.portalButtonText}>Open Customer Portal</Text>
-              <Text style={styles.externalLinkIcon}>↗</Text>
-            </TouchableOpacity>
+            {Platform.OS === 'ios' ? (
+              <TouchableOpacity
+                style={styles.portalButton}
+                onPress={handleRestorePurchases}
+                disabled={purchasing}
+              >
+                <Text style={styles.portalIcon}>🔄</Text>
+                <Text style={styles.portalButtonText}>Restore Purchases</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.portalButton}
+                onPress={openCustomerPortal}
+              >
+                <Text style={styles.portalIcon}>⚙️</Text>
+                <Text style={styles.portalButtonText}>Open Customer Portal</Text>
+                <Text style={styles.externalLinkIcon}>↗</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -462,8 +606,8 @@ export default function SubscriptionPage() {
               <Text style={styles.faqAnswer}>Your subscription will remain active until the end of your billing period, then automatically downgrade to free.</Text>
             </View>
             <View style={styles.faqItem}>
-              <Text style={styles.faqQuestion}>What payment methods do you accept?</Text>
-              <Text style={styles.faqAnswer}>We accept all major credit cards through our secure Stripe payment system.</Text>
+              <Text style={styles.faqQuestion}>Where can I learn more about subscriptions?</Text>
+              <Text style={styles.faqAnswer}>For more information about FeatureMe Plus features and subscription options, please visit our website at featureme.co</Text>
             </View>
           </View>
         </View>
@@ -878,5 +1022,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
+  },
+  upgradeNotice: {
+    backgroundColor: 'rgba(79, 140, 255, 0.15)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 140, 255, 0.3)',
+    alignItems: 'center',
+  },
+  upgradeNoticeIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+  },
+  upgradeNoticeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  upgradeNoticeText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  upgradeNoticeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(79, 140, 255, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4f8cff',
+    gap: 8,
+  },
+  upgradeNoticeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4f8cff',
   },
 });
