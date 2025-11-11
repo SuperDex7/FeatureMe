@@ -19,6 +19,7 @@ services:
       - stripe.api.secret=${STRIPE_SECRET_KEY}
       - stripe.webhook.secret=${STRIPE_WEBHOOK_SECRET}
       - resend.api.key=${RESEND_API_KEY}
+      - APPLE_SHARED_SECRET=${APPLE_SHARED_SECRET}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=

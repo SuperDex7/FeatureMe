@@ -90,6 +90,7 @@ jobs:
               - STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
               - STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
               - RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+              - APPLE_SHARED_SECRET=${{ secrets.APPLE_SHARED_SECRET }}
               - AWS_ACCESSKEYID=${{ secrets.AWS_ACCESSKEYID }}
               - AWS_SECRETACCESSKEY=${{ secrets.AWS_SECRETACCESSKEY }}
               - AWS_REGION=${{ env.AWS_REGION }}
