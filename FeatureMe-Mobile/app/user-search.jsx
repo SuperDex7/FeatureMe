@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchUsers } from '../services/userService';
@@ -113,30 +114,68 @@ export default function UserSearchScreen() {
     router.push(`/profile/${user.userName}`);
   };
 
-  const renderUserItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.userItem}
-      onPress={() => handleUserPress(item)}
-    >
-      <Image 
-        source={{ 
-          uri: item.profilePic || 'https://via.placeholder.com/50'
-        }}
-        style={styles.userAvatar}
-        defaultSource={require('../assets/images/dpp.jpg')}
-      />
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.userName}</Text>
-        <Text style={styles.userRole}>{item.role || 'USER'}</Text>
-        {(item.firstName || item.lastName) && (
-          <Text style={styles.userFullName}>
-            {item.firstName} {item.lastName}
-          </Text>
-        )}
+  const renderUserItem = ({ item }) => {
+    const isUserPlus = item.role === 'USERPLUS';
+    const userCard = (
+      <View style={[styles.userItem, isUserPlus && styles.userItemPlus]}>
+        <Image 
+          source={{ 
+            uri: item.profilePic || 'https://via.placeholder.com/50'
+          }}
+          style={styles.userAvatar}
+          defaultSource={require('../assets/images/dpp.jpg')}
+        />
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>{item.userName}</Text>
+          {item.bio ? (
+            <Text style={styles.userBio} numberOfLines={1}>
+              {item.bio}
+            </Text>
+          ) : (
+            <Text style={styles.userBioPlaceholder}>No bio available</Text>
+          )}
+          <View style={styles.userStats}>
+            <Text style={styles.userStatText}>
+              {item.followersCount || 0} followers
+            </Text>
+            <Text style={styles.userStatSeparator}>•</Text>
+            <Text style={styles.userStatText}>
+              {item.postsCount || 0} posts
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.arrowIcon}>›</Text>
       </View>
-      <Text style={styles.arrowIcon}>›</Text>
-    </TouchableOpacity>
-  );
+    );
+
+    if (isUserPlus) {
+      return (
+        <TouchableOpacity 
+          onPress={() => handleUserPress(item)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['rgba(151, 77, 158, 0.3)', 'rgba(84, 145, 205, 0.3)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.userItemGradient}
+          >
+            {userCard}
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity 
+        style={styles.userItemContainer}
+        onPress={() => handleUserPress(item)}
+        activeOpacity={0.8}
+      >
+        {userCard}
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -332,12 +371,27 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 20,
   },
+  userItemContainer: {
+    marginVertical: 4,
+  },
+  userItemGradient: {
+    borderRadius: 12,
+    marginVertical: 4,
+    padding: 1.5,
+  },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 15, 35, 0.95)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  userItemPlus: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
   },
   userAvatar: {
     width: 50,
@@ -356,16 +410,30 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 4,
   },
-  userRole: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  userFullName: {
-    fontSize: 14,
+  userBio: {
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 18,
+  },
+  userBioPlaceholder: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontStyle: 'italic',
+    marginBottom: 4,
+  },
+  userStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  userStatText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  userStatSeparator: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 6,
   },
   arrowIcon: {
     fontSize: 20,

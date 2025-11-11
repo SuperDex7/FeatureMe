@@ -156,7 +156,7 @@ function Homepage2() {
             <div className="home-stat-card home-stat-clickable" onClick={() => showTheFollow('followers')}>
               <div className="home-stat-icon">👥</div>
               <div className="home-stat-content">
-                <span className="home-stat-number">{relationshipSummary?.followersCount || 0}</span>
+                <span className="home-stat-number">{user?.followersCount ?? 0}</span>
                 <span className="home-stat-label">Followers</span>
               </div>
             </div>
@@ -164,7 +164,7 @@ function Homepage2() {
             <div className="home-stat-card home-stat-clickable" onClick={() => showTheFollow('following')}>
               <div className="home-stat-icon">🔗</div>
               <div className="home-stat-content">
-                <span className="home-stat-number">{relationshipSummary?.followingCount || 0}</span>
+                <span className="home-stat-number">{user?.followingCount ?? 0}</span>
                 <span className="home-stat-label">Following</span>
               </div>
             </div>

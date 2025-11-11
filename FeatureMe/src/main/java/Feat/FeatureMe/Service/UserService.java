@@ -190,7 +190,9 @@ public class UserService {
                 u.getChats(),
                 sortedLikedPosts,
                 sortedComments,
-                sortedNotifications
+                sortedNotifications,
+                u.getFollowersCount(),
+                u.getFollowingCount()
             );
         })
         .toList();
@@ -254,7 +256,9 @@ public class UserService {
             user.getChats(),
             sortedLikedPosts,
             sortedComments,
-            sortedNotifications
+            sortedNotifications,
+            user.getFollowersCount(),
+            user.getFollowingCount()
         );
     }
     public PagedModel<UserPostsDTO> getUserByName(String userName, int page, int size) {
@@ -281,7 +285,7 @@ public class UserService {
         Pageable pageable = PageRequest.of(page, size);
        
         Page<User> users = userRepository.findByUserNameContainingIgnoreCase(userName, pageable);
-        
+       
         Page<UserSearchDTO> usersDTO = users.map(u -> {
             return new UserSearchDTO(
                 u.getId(),
@@ -294,8 +298,8 @@ public class UserService {
                 u.getBadges() != null ? u.getBadges() : Collections.emptyList(),
                 u.getDemo() != null ? u.getDemo() : Collections.emptyList(),
                 u.getSocialMedia() != null ? u.getSocialMedia() : Collections.emptyList(),
-                0,
-                0,
+                u.getFollowersCount(),
+                u.getFollowingCount(),
                 u.getPosts() != null ? u.getPosts().size() : 0
             );
         });
@@ -528,7 +532,9 @@ public class UserService {
             user.getChats(),
             sortedLikedPosts,
             sortedComments,
-            sortedNotifications
+            sortedNotifications,
+            user.getFollowersCount(),
+            user.getFollowingCount()
         );
     }
 
@@ -590,4 +596,5 @@ public class UserService {
             return null;
         }
     }
+    
 }

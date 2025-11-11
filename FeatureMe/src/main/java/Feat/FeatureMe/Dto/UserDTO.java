@@ -19,7 +19,9 @@ public record UserDTO(
         List<String> chats,
         List<String> likedPosts,
         List<CommentedOnDTO> comments,
-        List<NotificationsDTO> notifications
+        List<NotificationsDTO> notifications,
+        int followersCount,
+        int followingCount
         
 ) {
 

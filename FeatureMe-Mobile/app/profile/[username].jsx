@@ -374,8 +374,29 @@ export default function UserProfileScreen() {
     if (!currentUser || !user || currentUser.userName === username) return;
     
     try {
+      // Optimistically update the UI immediately
+      const newFollowingStatus = !isFollowing;
+      
+      // Update following status immediately
+      setIsFollowing(newFollowingStatus);
+      
+      // Update counts immediately
+      setUser(prev => prev ? {
+        ...prev,
+        followersCount: newFollowingStatus
+          ? (prev.followersCount || 0) + 1
+          : Math.max(0, (prev.followersCount || 0) - 1)
+      } : null);
+      
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        followingCount: newFollowingStatus
+          ? (prev.followingCount || 0) + 1
+          : Math.max(0, (prev.followingCount || 0) - 1)
+      } : null);
+      
+      // Make the API call
       await UserRelationsService.toggleFollow(username);
-      setIsFollowing(!isFollowing);
       
       // Update relationship summary to reflect new follower count
       const relationshipResponse = await UserRelationsService.getRelationshipSummary(username);
@@ -383,10 +404,38 @@ export default function UserProfileScreen() {
       
       Alert.alert(
         'Success', 
-        isFollowing ? `You unfollowed ${username}` : `You are now following ${username}`
+        newFollowingStatus ? `You are now following ${username}` : `You unfollowed ${username}`
       );
     } catch (error) {
       console.error('Error toggling follow:', error);
+      // Revert optimistic update on error
+      setIsFollowing(isFollowing);
+      
+      // Revert counts
+      setUser(prev => prev ? {
+        ...prev,
+        followersCount: isFollowing
+          ? (prev.followersCount || 0) + 1
+          : Math.max(0, (prev.followersCount || 0) - 1)
+      } : null);
+      
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        followingCount: isFollowing
+          ? (prev.followingCount || 0) + 1
+          : Math.max(0, (prev.followingCount || 0) - 1)
+      } : null);
+      
+      // Refresh user data to get correct state
+      try {
+        if (username) {
+          const userResponse = await api.get(`/user/get/${username}`);
+          setUser(userResponse.data);
+        }
+      } catch (refreshError) {
+        console.error('Error refreshing user data:', refreshError);
+      }
+      
       Alert.alert('Error', 'Failed to update follow status');
     }
   };
@@ -869,7 +918,7 @@ export default function UserProfileScreen() {
                       setShowFollowModal(true);
                     }}
                   >
-                    <Text style={styles.profileStatNumber}>{relationshipSummary?.followersCount || 0}</Text>
+                    <Text style={styles.profileStatNumber}>{user?.followersCount ?? 0}</Text>
                     <Text style={styles.profileStatLabel}>Followers</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -879,7 +928,7 @@ export default function UserProfileScreen() {
                       setShowFollowModal(true);
                     }}
                   >
-                    <Text style={styles.profileStatNumber}>{relationshipSummary?.followingCount || 0}</Text>
+                    <Text style={styles.profileStatNumber}>{user?.followingCount ?? 0}</Text>
                     <Text style={styles.profileStatLabel}>Following</Text>
                   </TouchableOpacity>
                 </View>

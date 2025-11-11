@@ -44,6 +44,9 @@ public class User implements UserDetails{
     @Indexed
     private String subscriptionStatus; // active, canceled, past_due, etc.
 
+    private int followersCount = 0;
+    private int followingCount = 0;
+
     private String bio;
     private String about;
     private String profilePic;
@@ -172,6 +175,22 @@ public class User implements UserDetails{
 
     public void setSubscriptionStatus(String subscriptionStatus) {
         this.subscriptionStatus = subscriptionStatus;
+    }
+
+    public int getFollowersCount() {
+        return followersCount;
+    }
+
+    public void setFollowersCount(int followersCount) {
+        this.followersCount = followersCount;
+    }
+
+    public int getFollowingCount() {
+        return followingCount;
+    }
+
+    public void setFollowingCount(int followingCount) {
+        this.followingCount = followingCount;
     }
 
     public String getBio() {

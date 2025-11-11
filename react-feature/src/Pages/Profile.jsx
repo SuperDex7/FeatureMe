@@ -201,13 +201,56 @@ export default function Profile() {
   };
 
   const handleFollow = async () => {
-    if (!currentUser) return;
+    if (!currentUser || !user) return;
     try {
+      // Optimistically update the UI immediately
+      const newFollowingStatus = !isFollowing;
+      
+      // Update following status immediately
+      setIsFollowing(newFollowingStatus);
+      
+      // Update counts immediately
+      setUser(prev => prev ? {
+        ...prev,
+        followersCount: newFollowingStatus
+          ? (prev.followersCount || 0) + 1
+          : Math.max(0, (prev.followersCount || 0) - 1)
+      } : null);
+      
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        followingCount: newFollowingStatus
+          ? (prev.followingCount || 0) + 1
+          : Math.max(0, (prev.followingCount || 0) - 1)
+      } : null);
+      
+      // Make the API call
       await UserRelationsService.toggleFollow(username);
-      setIsFollowing(!isFollowing);
+      
+      // Refresh relationship data to ensure consistency
       await loadRelationship();
     } catch (e) {
       console.error('toggle follow error', e);
+      // Revert optimistic update on error
+      setIsFollowing(isFollowing);
+      
+      // Revert counts
+      setUser(prev => prev ? {
+        ...prev,
+        followersCount: isFollowing
+          ? (prev.followersCount || 0) + 1
+          : Math.max(0, (prev.followersCount || 0) - 1)
+      } : null);
+      
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        followingCount: isFollowing
+          ? (prev.followingCount || 0) + 1
+          : Math.max(0, (prev.followingCount || 0) - 1)
+      } : null);
+      
+      // Refresh data to get correct state
+      await loadRelationship();
       alert('Failed to update follow status');
     }
   };
@@ -442,13 +485,13 @@ export default function Profile() {
                 </li>
                 <li>
                   <button className="profile-stat-button" onClick={() => { setFollowPopupType('followers'); setShowFollow(true); }}>
-                    <span className="profile-stat-value">{relationshipSummary?.followersCount || 0}</span>
+                    <span className="profile-stat-value">{user?.followersCount ?? 0}</span>
                     <span className="profile-stat-label">Followers</span>
                       </button>
                 </li>
                 <li>
                   <button className="profile-stat-button" onClick={() => { setFollowPopupType('following'); setShowFollow(true); }}>
-                    <span className="profile-stat-value">{relationshipSummary?.followingCount || 0}</span>
+                    <span className="profile-stat-value">{user?.followingCount ?? 0}</span>
                     <span className="profile-stat-label">Following</span>
                   </button>
                 </li>

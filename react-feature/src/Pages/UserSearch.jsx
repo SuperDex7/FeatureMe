@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/AuthService";
 import DemoService from "../services/DemoService";
@@ -22,6 +22,7 @@ function UserSearch() {
     const [playingDemo, setPlayingDemo] = useState(null);
     const [loadedDemos, setLoadedDemos] = useState({});
     const [loadingDemos, setLoadingDemos] = useState({});
+    const pendingFollowUpdates = useRef(new Set());
 
     // Debounced search function
     const debouncedSearch = useCallback(
@@ -91,6 +92,36 @@ function UserSearch() {
         getCurrentUser();
     }, []);
 
+    // Check following status when currentUser becomes available and we have users
+    useEffect(() => {
+        const checkFollowingStatus = async () => {
+            if (!currentUser || users.length === 0) return;
+            
+            // Skip checking users that have pending updates
+            const usersToCheck = users.filter(user => !pendingFollowUpdates.current.has(user.userName));
+            if (usersToCheck.length === 0) return;
+            
+            try {
+                const followingChecks = usersToCheck.map(user => 
+                    api.get(`/user-relations/is-following/${user.userName}`)
+                        .then(res => ({ userName: user.userName, isFollowing: res.data }))
+                        .catch(() => ({ userName: user.userName, isFollowing: false }))
+                );
+                
+                const results = await Promise.all(followingChecks);
+                const statusMap = {};
+                results.forEach(result => {
+                    statusMap[result.userName] = result.isFollowing;
+                });
+                setFollowingStatus(prev => ({ ...prev, ...statusMap }));
+            } catch (err) {
+                console.error("Error checking following status:", err);
+            }
+        };
+        
+        checkFollowingStatus();
+    }, [currentUser, users]);
+
     useEffect(() => {
         debouncedSearch(searchTerm);
     }, [searchTerm, debouncedSearch]);
@@ -98,33 +129,106 @@ function UserSearch() {
     const handleFollowToggle = async (targetUserName) => {
         if (!currentUser) return;
         
+        // Prevent multiple simultaneous updates for the same user
+        if (pendingFollowUpdates.current.has(targetUserName)) {
+            return;
+        }
+        
         try {
+            // Mark this user as having a pending update
+            pendingFollowUpdates.current.add(targetUserName);
+            
+            // Optimistically update the UI immediately
+            const wasFollowing = followingStatus[targetUserName] ?? false;
+            const newFollowingStatus = !wasFollowing;
+            
+            // Update following status immediately
+            setFollowingStatus(prev => ({
+                ...prev,
+                [targetUserName]: newFollowingStatus
+            }));
+            
+            // Update counts immediately
+            setUsers(prevUsers => 
+                prevUsers.map(user => {
+                    if (user.userName === targetUserName) {
+                        return {
+                            ...user,
+                            followersCount: newFollowingStatus 
+                                ? (user.followersCount || 0) + 1 
+                                : Math.max(0, (user.followersCount || 0) - 1)
+                        };
+                    }
+                    return user;
+                })
+            );
+            
+            // Update current user's following count
+            setCurrentUser(prev => prev ? {
+                ...prev,
+                followingCount: newFollowingStatus
+                    ? (prev.followingCount || 0) + 1
+                    : Math.max(0, (prev.followingCount || 0) - 1)
+            } : null);
+            
+            // Make the API call
             const response = await api.post(`/user-relations/follow/${targetUserName}`);
             
-            // Check the response text - backend returns "Followed" or "Unfollowed"
+            // Verify the response matches our optimistic update
             const responseText = response.data.toString();
             const isFollowing = responseText === "Followed";
             
-            setFollowingStatus(prev => ({
-                ...prev,
-                [targetUserName]: isFollowing
-            }));
-            
-            // Update the user's follower count in the local state
-            setUsers(prevUsers => 
-                prevUsers.map(user => 
-                    user.userName === targetUserName 
-                        ? { 
-                            ...user, 
-                            followersCount: isFollowing 
-                                ? (user.followersCount || 0) + 1 
-                                : Math.max((user.followersCount || 0) - 1, 0)
-                          }
-                        : user
-                )
-            );
+            if (isFollowing !== newFollowingStatus) {
+                // If there's a mismatch, revert and refresh
+                setFollowingStatus(prev => ({
+                    ...prev,
+                    [targetUserName]: isFollowing
+                }));
+                // Refresh the user data
+                if (searchTerm.trim()) {
+                    fetchUsers(searchTerm, page);
+                }
+            }
         } catch (err) {
             console.error("Error toggling follow:", err);
+            // Revert optimistic update on error
+            const wasFollowing = followingStatus[targetUserName] ?? false;
+            setFollowingStatus(prev => ({
+                ...prev,
+                [targetUserName]: wasFollowing
+            }));
+            
+            // Revert counts
+            setUsers(prevUsers => 
+                prevUsers.map(user => {
+                    if (user.userName === targetUserName) {
+                        return {
+                            ...user,
+                            followersCount: wasFollowing
+                                ? (user.followersCount || 0) + 1
+                                : Math.max(0, (user.followersCount || 0) - 1)
+                        };
+                    }
+                    return user;
+                })
+            );
+            
+            setCurrentUser(prev => prev ? {
+                ...prev,
+                followingCount: wasFollowing
+                    ? (prev.followingCount || 0) + 1
+                    : Math.max(0, (prev.followingCount || 0) - 1)
+            } : null);
+            
+            // Refresh the user data
+            if (searchTerm.trim()) {
+                fetchUsers(searchTerm, page);
+            }
+        } finally {
+            // Remove from pending updates after a short delay to allow state to settle
+            setTimeout(() => {
+                pendingFollowUpdates.current.delete(targetUserName);
+            }, 1000);
         }
     };
 
@@ -277,9 +381,6 @@ function UserSearch() {
                                             >
                                                 {user.userName}
                                             </h3>
-                                            {user.role && user.role !== 'USER' && (
-                                                <span className="user-role-badge">{user.role}</span>
-                                            )}
                                             {user.role === 'USERPLUS' && (
                                                 <span className="premium-indicator">⭐</span>
                                             )}

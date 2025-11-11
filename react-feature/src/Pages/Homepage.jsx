@@ -141,8 +141,8 @@ function Homepage() {
           </div>
           <div className="hero-stats-row">
             <div className="hero-stat"><span>{user?.posts?.length || 0}</span><label>Posts</label></div>
-            <div className="hero-stat"><span>{relationshipSummary?.followersCount || 0}</span><label className="clickable" onClick={() => showTheFollow('followers')}>Followers</label></div>
-            <div className="hero-stat"><span>{relationshipSummary?.followingCount || 0}</span><label className="clickable" onClick={() => showTheFollow('following')}>Following</label></div>
+            <div className="hero-stat"><span>{user?.followersCount ?? 0}</span><label className="clickable" onClick={() => showTheFollow('followers')}>Followers</label></div>
+            <div className="hero-stat"><span>{user?.followingCount ?? 0}</span><label className="clickable" onClick={() => showTheFollow('following')}>Following</label></div>
            
           </div>
         </section>

@@ -273,12 +273,12 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
             
             <View style={styles.statsRow}>
               <TouchableOpacity style={styles.statItem} onPress={() => onShowFollow('followers')}>
-                <Text style={styles.statNumber}>{relationshipSummary?.followersCount || 0}</Text>
+                <Text style={styles.statNumber}>{user?.followersCount ?? 0}</Text>
                 <Text style={styles.statLabel}>Followers</Text>
               </TouchableOpacity>
               <View style={styles.statDivider} />
               <TouchableOpacity style={styles.statItem} onPress={() => onShowFollow('following')}>
-                <Text style={styles.statNumber}>{relationshipSummary?.followingCount || 0}</Text>
+                <Text style={styles.statNumber}>{user?.followingCount ?? 0}</Text>
                 <Text style={styles.statLabel}>Following</Text>
               </TouchableOpacity>
               <View style={styles.statDivider} />
@@ -1828,14 +1828,14 @@ function ProfileTab({ user, relationshipSummary, onShowFollow, onRefresh }) {
                   style={styles.profileStatItem}
                   onPress={() => onShowFollow('followers')}
                 >
-                  <Text style={styles.profileStatNumber}>{relationshipSummary?.followersCount || 0}</Text>
+                  <Text style={styles.profileStatNumber}>{user?.followersCount ?? 0}</Text>
                   <Text style={styles.profileStatLabel}>Followers</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.profileStatItem}
                   onPress={() => onShowFollow('following')}
                 >
-                  <Text style={styles.profileStatNumber}>{relationshipSummary?.followingCount || 0}</Text>
+                  <Text style={styles.profileStatNumber}>{user?.followingCount ?? 0}</Text>
                   <Text style={styles.profileStatLabel}>Following</Text>
                 </TouchableOpacity>
               </View>

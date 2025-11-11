@@ -53,6 +53,12 @@ public class UserRelationService {
             userRelationRepository.deleteByFollowerUserNameAndFollowingUserNameAndStatus(
                 followerUserName, followingUserName, UserRelation.RelationStatus.ACTIVE);
             
+            // Update counters
+            following.setFollowersCount(Math.max(0, following.getFollowersCount() - 1));
+            follower.setFollowingCount(Math.max(0, follower.getFollowingCount() - 1));
+            userRepository.save(following);
+            userRepository.save(follower);
+            
             // Remove notification
             removeFollowNotification(following, followerUserName);
             
@@ -69,6 +75,12 @@ public class UserRelationService {
             );
             
             userRelationRepository.save(newRelation);
+            
+            // Update counters
+            following.setFollowersCount(following.getFollowersCount() + 1);
+            follower.setFollowingCount(follower.getFollowingCount() + 1);
+            userRepository.save(following);
+            userRepository.save(follower);
             
             // Add notification
             addFollowNotification(following, followerUserName);
@@ -145,10 +157,12 @@ public class UserRelationService {
      * Get relationship summary for a user
      */
     public UserRelationSummaryDTO getRelationshipSummary(String userName, String currentUserName) {
-        long followersCount = userRelationRepository.countByFollowingUserNameAndStatus(
-            userName, UserRelation.RelationStatus.ACTIVE);
-        long followingCount = userRelationRepository.countByFollowerUserNameAndStatus(
-            userName, UserRelation.RelationStatus.ACTIVE);
+        // Get counts from User entity (stored counts, no need to query UserRelation)
+        User user = userRepository.findByUserName(userName)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userName));
+        
+        long followersCount = user.getFollowersCount();
+        long followingCount = user.getFollowingCount();
         
         boolean isFollowing = false;
         boolean isFollowedBy = false;
