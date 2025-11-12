@@ -485,6 +485,10 @@ public class UserController {
             User user = userService.findByUsernameOrEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
             
+            // Note: Apple subscription status is verified when users restore purchases
+            // The restore purchases flow calls /payment/validate-receipt which updates the user's role
+            // For automatic real-time updates, implement Apple Server-to-Server Notifications (webhooks)
+            
             UserDTO userDTO = userService.getAUser(user.getUserName());
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {

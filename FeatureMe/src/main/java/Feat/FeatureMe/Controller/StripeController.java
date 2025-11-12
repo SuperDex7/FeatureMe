@@ -460,16 +460,23 @@ public class StripeController {
                 return error;
             }
             
-            boolean isValid = false;
+            Map<String, Object> validationResult = null;
             
             if ("ios".equals(platform)) {
-                // Validate Apple receipt
-                isValid = validateAppleReceipt(receipt, productId);
+                // Validate Apple receipt and get subscription details
+                validationResult = validateAppleReceipt(receipt, productId);
             } else if ("android".equals(platform)) {
                 // For Android, you would validate Google Play receipt
                 // For now, we'll accept it if transactionId is provided
                 // You should implement Google Play receipt validation
-                isValid = transactionId != null && !transactionId.isEmpty();
+                if (transactionId != null && !transactionId.isEmpty()) {
+                    validationResult = new HashMap<>();
+                    validationResult.put("valid", true);
+                } else {
+                    validationResult = new HashMap<>();
+                    validationResult.put("valid", false);
+                    validationResult.put("error", "Transaction ID is required for Android");
+                }
             } else {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
@@ -477,25 +484,61 @@ public class StripeController {
                 return error;
             }
             
-            if (isValid) {
-                // Upgrade user to USERPLUS
-                user.setRole("USERPLUS");
-                user.setSubscriptionStatus("active");
+            if (validationResult != null && Boolean.TRUE.equals(validationResult.get("valid"))) {
+                // Check if subscription is expired
+                boolean isExpired = false;
+                if ("ios".equals(platform) && validationResult.get("expiresAt") != null) {
+                    Long expiresAt = ((Number) validationResult.get("expiresAt")).longValue();
+                    long currentTime = System.currentTimeMillis();
+                    if (expiresAt < currentTime) {
+                        isExpired = true;
+                        System.out.println("⚠️ Subscription expired for user " + email + ". Expired at: " + expiresAt);
+                    }
+                }
                 
-                // Store IAP transaction info (you might want to add fields to User entity)
-                // For now, we'll just save the user
-                userService.saveUser(user);
-                
-                Map<String, Object> result = new HashMap<>();
-                result.put("success", true);
-                result.put("message", "Subscription activated successfully");
-                result.put("role", "USERPLUS");
-                System.out.println("✅ User " + email + " upgraded to USERPLUS via IAP! Product: " + productId);
-                return result;
+                if (isExpired) {
+                    // Subscription expired - downgrade user
+                    user.setRole("USER");
+                    user.setSubscriptionStatus("expired");
+                    userService.saveUser(user);
+                    
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", false);
+                    result.put("error", "Subscription has expired");
+                    result.put("role", "USER");
+                    System.out.println("❌ User " + email + " subscription expired. Downgraded to USER.");
+                    return result;
+                } else {
+                    // Subscription is active - upgrade user to USERPLUS
+                    user.setRole("USERPLUS");
+                    user.setSubscriptionStatus("active");
+                    
+                    // Store Apple IAP original transaction ID (unique subscription identifier)
+                    if ("ios".equals(platform)) {
+                        String originalTransactionId = (String) validationResult.get("originalTransactionId");
+                        if (originalTransactionId != null) {
+                            user.setAppleOriginalTransactionId(originalTransactionId);
+                        }
+                    }
+                    
+                    userService.saveUser(user);
+                    
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("message", "Subscription activated successfully");
+                    result.put("role", "USERPLUS");
+                    System.out.println("✅ User " + email + " upgraded to USERPLUS via IAP! Product: " + productId);
+                    if ("ios".equals(platform) && validationResult.get("originalTransactionId") != null) {
+                        System.out.println("   Original Transaction ID: " + validationResult.get("originalTransactionId"));
+                    }
+                    return result;
+                }
             } else {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
-                error.put("error", "Receipt validation failed");
+                String errorMsg = validationResult != null ? 
+                    (String) validationResult.get("error") : "Receipt validation failed";
+                error.put("error", errorMsg);
                 return error;
             }
             
@@ -511,8 +554,10 @@ public class StripeController {
     
     /**
      * Validate Apple receipt with Apple's servers
+     * Returns a Map with validation result and subscription details
      */
-    private boolean validateAppleReceipt(String receipt, String productId) {
+    private Map<String, Object> validateAppleReceipt(String receipt, String productId) {
+        Map<String, Object> result = new HashMap<>();
         try {
             RestTemplate restTemplate = new RestTemplate();
             ObjectMapper objectMapper = new ObjectMapper();
@@ -555,32 +600,90 @@ public class StripeController {
             // Status 0 means receipt is valid
             if (status == 0) {
                 JsonNode receiptNode = responseJson.get("receipt");
-                if (receiptNode != null) {
-                    JsonNode inAppArray = receiptNode.get("in_app");
-                    if (inAppArray != null && inAppArray.isArray()) {
-                        // Check if the product ID matches
-                        for (JsonNode inApp : inAppArray) {
-                            String receiptProductId = inApp.get("product_id").asText();
-                            if (productId != null && productId.equals(receiptProductId)) {
-                                // Check if it's a subscription (not a one-time purchase)
-                                // For subscriptions, you might want to check expiration dates
-                                return true;
+                JsonNode latestReceiptInfo = responseJson.get("latest_receipt_info");
+                
+                // Use latest_receipt_info if available (for subscriptions), otherwise use receipt.in_app
+                JsonNode transactionsToCheck = latestReceiptInfo != null && latestReceiptInfo.isArray() 
+                    ? latestReceiptInfo 
+                    : (receiptNode != null ? receiptNode.get("in_app") : null);
+                
+                if (transactionsToCheck != null && transactionsToCheck.isArray()) {
+                    // Find the most recent transaction for the product
+                    JsonNode matchingTransaction = null;
+                    long latestPurchaseDate = 0;
+                    
+                    for (JsonNode transaction : transactionsToCheck) {
+                        String receiptProductId = transaction.has("product_id") 
+                            ? transaction.get("product_id").asText() 
+                            : null;
+                        
+                        // Check if product ID matches (or if no productId specified, accept any)
+                        if (productId == null || (receiptProductId != null && receiptProductId.equals(productId))) {
+                            // Get purchase date to find the latest transaction
+                            long purchaseDate = transaction.has("purchase_date_ms") 
+                                ? transaction.get("purchase_date_ms").asLong() 
+                                : 0;
+                            
+                            if (purchaseDate > latestPurchaseDate) {
+                                latestPurchaseDate = purchaseDate;
+                                matchingTransaction = transaction;
                             }
                         }
                     }
+                    
+                    if (matchingTransaction != null) {
+                        // Extract subscription details
+                        result.put("valid", true);
+                        
+                        // Original Transaction ID - stays the same across renewals
+                        if (matchingTransaction.has("original_transaction_id")) {
+                            result.put("originalTransactionId", 
+                                matchingTransaction.get("original_transaction_id").asText());
+                        }
+                        
+                        // Current Transaction ID - changes with each renewal
+                        if (matchingTransaction.has("transaction_id")) {
+                            result.put("transactionId", 
+                                matchingTransaction.get("transaction_id").asText());
+                        }
+                        
+                        // Product ID
+                        if (matchingTransaction.has("product_id")) {
+                            result.put("productId", 
+                                matchingTransaction.get("product_id").asText());
+                        }
+                        
+                        // Expiration date (for subscriptions)
+                        if (matchingTransaction.has("expires_date_ms")) {
+                            result.put("expiresAt", 
+                                matchingTransaction.get("expires_date_ms").asLong());
+                        } else if (matchingTransaction.has("expires_date")) {
+                            // If expires_date is in ISO format, convert it
+                            // For now, we'll just note that it exists
+                            result.put("hasExpiration", true);
+                        }
+                        
+                        return result;
+                    }
                 }
-                // If product ID check fails but receipt is valid, still accept it
-                // (in case product ID format differs)
-                return true;
+                
+                // If we get here, receipt is valid but we couldn't find matching product
+                result.put("valid", false);
+                result.put("error", "Product ID not found in receipt");
+                return result;
             } else {
                 System.err.println("Apple receipt validation failed with status: " + status);
-                return false;
+                result.put("valid", false);
+                result.put("error", "Apple receipt validation failed with status: " + status);
+                return result;
             }
             
         } catch (Exception e) {
             System.err.println("Error validating Apple receipt: " + e.getMessage());
             e.printStackTrace();
-            return false;
+            result.put("valid", false);
+            result.put("error", "Error validating receipt: " + e.getMessage());
+            return result;
         }
     }
 

@@ -43,6 +43,10 @@ public class User implements UserDetails{
     private String stripeSubscriptionId;
     @Indexed
     private String subscriptionStatus; // active, canceled, past_due, etc.
+    
+    // Apple IAP-related fields
+    @Indexed
+    private String appleOriginalTransactionId; // Unique subscription identifier (stays same across renewals)
 
     private int followersCount = 0;
     private int followingCount = 0;
@@ -175,6 +179,14 @@ public class User implements UserDetails{
 
     public void setSubscriptionStatus(String subscriptionStatus) {
         this.subscriptionStatus = subscriptionStatus;
+    }
+
+    public String getAppleOriginalTransactionId() {
+        return appleOriginalTransactionId;
+    }
+
+    public void setAppleOriginalTransactionId(String appleOriginalTransactionId) {
+        this.appleOriginalTransactionId = appleOriginalTransactionId;
     }
 
     public int getFollowersCount() {

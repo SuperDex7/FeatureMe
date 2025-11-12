@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking,
   Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -156,25 +155,44 @@ export default function SubscriptionPage() {
   }
 
   const handleUpgrade = async () => {
-    // On iOS, use in-app purchases
-    if (Platform.OS === 'ios' && iapInitialized) {
-      await handleIAPPurchase();
-    } else {
-      // On Android or if IAP not available, redirect to website
-      Alert.alert(
-        'Visit featureme.co',
-        'For more information about FeatureMe Plus features and subscription options, please visit our website.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Visit Website',
-            onPress: () => Linking.openURL('https://featureme.co/subscription')
+    // On iOS, try in-app purchases
+    if (Platform.OS === 'ios') {
+      if (!iapInitialized) {
+        // Try to initialize IAP first
+        setMessage('Initializing in-app purchases...');
+        try {
+          const result = await iapService.initialize();
+          if (result.success) {
+            setIapProducts(result.products);
+            setIapInitialized(true);
+            
+            // Update prices from IAP products if available
+            if (result.products && result.products.length > 0) {
+              result.products.forEach(product => {
+                const price = parseFloat(product.localizedPrice?.replace(/[^0-9.]/g, '') || 0);
+                if (product.productId.includes('monthly') && price > 0) {
+                  setPlusPrice(prev => ({ ...prev, monthly: price }));
+                } else if (product.productId.includes('yearly') && price > 0) {
+                  setPlusPrice(prev => ({ ...prev, yearly: price }));
+                }
+              });
+            }
+            
+            // Now try the purchase
+            await handleIAPPurchase();
+          } else {
+            setMessage(`❌ IAP Initialization Failed: ${result.error || 'Unknown error'}\n\nPlease check your connection and try again.`);
           }
-        ]
-      );
+        } catch (error) {
+          console.error('IAP initialization error:', error);
+          setMessage(`❌ IAP Initialization Error: ${error.message || 'Unknown error'}\n\nPlease check your connection and try again.`);
+        }
+      } else {
+        await handleIAPPurchase();
+      }
+    } else {
+      // On Android, show message instead of redirecting
+      setMessage('⚠️ In-app purchases are currently only available on iOS. Please use the website to subscribe on Android.');
     }
   };
 
@@ -232,26 +250,42 @@ export default function SubscriptionPage() {
         // Refresh user data to get updated role
         await checkUserRole();
       } else if (result.cancelled) {
-        setMessage('Purchase cancelled');
+        setMessage('Purchase cancelled by user');
       } else {
-        setMessage(`❌ ${result.error || 'Purchase failed. Please try again.'}`);
+        const errorMsg = result.error || 'Purchase failed. Please try again.';
+        console.error('Purchase failed:', errorMsg);
+        setMessage(`❌ Purchase Failed:\n${errorMsg}\n\nPlease check the console for more details.`);
       }
     } catch (error) {
       console.error('Purchase error:', error);
-      setMessage(`❌ ${error.message || 'Purchase failed. Please try again.'}`);
+      const errorDetails = error.message || error.toString() || 'Unknown error occurred';
+      setMessage(`❌ Purchase Error:\n${errorDetails}\n\nCheck the console for full error details.`);
     } finally {
       setPurchasing(false);
     }
   };
 
   const handleRestorePurchases = async () => {
-    if (Platform.OS !== 'ios' || !iapInitialized) {
-      Alert.alert(
-        'Restore Purchases',
-        'This feature is only available on iOS. Please contact support if you need help restoring your subscription.',
-        [{ text: 'OK' }]
-      );
+    if (Platform.OS !== 'ios') {
+      setMessage('⚠️ Restore purchases is only available on iOS.');
       return;
+    }
+    
+    if (!iapInitialized) {
+      setMessage('⚠️ IAP not initialized. Attempting to initialize...');
+      try {
+        const result = await iapService.initialize();
+        if (result.success) {
+          setIapProducts(result.products);
+          setIapInitialized(true);
+        } else {
+          setMessage(`❌ Failed to initialize IAP: ${result.error || 'Unknown error'}`);
+          return;
+        }
+      } catch (error) {
+        setMessage(`❌ IAP initialization error: ${error.message || 'Unknown error'}`);
+        return;
+      }
     }
 
     setPurchasing(true);
@@ -263,12 +297,17 @@ export default function SubscriptionPage() {
       if (result.success && result.purchases.length > 0) {
         setMessage('✅ Purchases restored successfully!');
         await checkUserRole();
-      } else {
+      } else if (result.success && result.purchases.length === 0) {
         setMessage('No previous purchases found to restore.');
+      } else {
+        const errorMsg = result.error || 'Unknown error occurred';
+        console.error('Restore purchases failed:', errorMsg);
+        setMessage(`❌ Failed to restore purchases:\n${errorMsg}\n\nCheck the console for more details.`);
       }
     } catch (error) {
       console.error('Restore purchases error:', error);
-      setMessage(`❌ Failed to restore purchases: ${error.message}`);
+      const errorDetails = error.message || error.toString() || 'Unknown error occurred';
+      setMessage(`❌ Restore Purchases Error:\n${errorDetails}\n\nCheck the console for full error details.`);
     } finally {
       setPurchasing(false);
     }

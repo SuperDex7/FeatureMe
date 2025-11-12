@@ -50,21 +50,35 @@ class IAPService {
 
       if (products.length === 0) {
         console.warn('No IAP products found. Make sure products are configured in App Store Connect.');
+        // Don't fail initialization if products aren't found - they might not be approved yet
+        // This allows the app to still work, just without IAP functionality
       }
 
       return { success: true, products };
     } catch (error) {
       console.error('IAP initialization error:', error);
       
+      // Clean up connection if it was partially established
+      try {
+        if (this.isInitialized) {
+          RNIap.endConnection();
+          this.isInitialized = false;
+        }
+      } catch (cleanupError) {
+        console.error('Error cleaning up IAP connection:', cleanupError);
+      }
+      
       // Provide more specific error messages
       let errorMessage = error.message || 'IAP initialization failed';
       
-      if (error.message?.includes('E_SERVICE_ERROR') || error.message?.includes('Service unavailable')) {
+      if (error.code === 'E_SERVICE_ERROR' || error.message?.includes('E_SERVICE_ERROR') || error.message?.includes('Service unavailable')) {
         errorMessage = 'App Store service unavailable. Please check your connection and try again.';
-      } else if (error.message?.includes('E_NETWORK_ERROR')) {
+      } else if (error.code === 'E_NETWORK_ERROR' || error.message?.includes('E_NETWORK_ERROR')) {
         errorMessage = 'Network error. Please check your connection.';
-      } else if (error.message?.includes('not available')) {
-        errorMessage = 'In-app purchases are not available on this device.';
+      } else if (error.code === 'E_ITEM_UNAVAILABLE' || error.message?.includes('not available') || error.message?.includes('unavailable')) {
+        errorMessage = 'In-app purchases are not available on this device or products are not configured.';
+      } else if (error.code === 'E_USER_ERROR' || error.message?.includes('user')) {
+        errorMessage = 'Unable to connect to App Store. Please sign in to your Apple ID and try again.';
       }
       
       return { success: false, error: errorMessage };
