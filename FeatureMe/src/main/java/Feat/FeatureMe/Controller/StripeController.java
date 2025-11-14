@@ -33,6 +33,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Base64;
 
 
 @RestController
@@ -686,5 +687,191 @@ public class StripeController {
             return result;
         }
     }
+    
+    /**
+     * Webhook handler for Apple App Store Server Notifications v2
+     * Handles subscription lifecycle events (renewals, cancellations, expirations, etc.)
+     * 
+     * Apple sends JWT-signed notifications. For production, you should verify the JWT signature
+     * using Apple's public keys from https://api.appstoreconnect.apple.com/v1/certificates
+     */
+    @PostMapping("/apple-webhook")
+    public Map<String, Object> handleAppleWebhook(@RequestBody String signedPayload) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            System.out.println("📱 Received Apple App Store Server Notification");
+            
+            // Parse JWT without verification for now (production should verify signature)
+            // Apple sends notifications as JWT tokens
+            String[] jwtParts = signedPayload.split("\\.");
+            if (jwtParts.length != 3) {
+                System.err.println("❌ Invalid JWT format");
+                response.put("success", false);
+                response.put("error", "Invalid JWT format");
+                return response;
+            }
+            
+            // Decode the payload (second part of JWT)
+            String payloadJson = new String(Base64.getUrlDecoder().decode(jwtParts[1]));
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode notificationPayload = objectMapper.readTree(payloadJson);
+            
+            // Extract notification data
+            String notificationType = notificationPayload.has("notification_type") 
+                ? notificationPayload.get("notification_type").asText() 
+                : null;
+            
+            JsonNode data = notificationPayload.get("data");
+            if (data == null) {
+                System.err.println("❌ Missing data in notification");
+                response.put("success", false);
+                response.put("error", "Missing data in notification");
+                return response;
+            }
+            
+            // Extract signedTransactionInfo (JWT containing transaction details)
+            String signedTransactionInfo = data.has("signedTransactionInfo") 
+                ? data.get("signedTransactionInfo").asText() 
+                : null;
+            
+            if (signedTransactionInfo == null) {
+                System.err.println("❌ Missing signedTransactionInfo");
+                response.put("success", false);
+                response.put("error", "Missing signedTransactionInfo");
+                return response;
+            }
+            
+            // Parse the transaction info JWT
+            String[] transactionParts = signedTransactionInfo.split("\\.");
+            String transactionPayloadJson = new String(Base64.getUrlDecoder().decode(transactionParts[1]));
+            JsonNode transactionInfo = objectMapper.readTree(transactionPayloadJson);
+            
+            // Extract originalTransactionId (unique subscription identifier)
+            String originalTransactionId = transactionInfo.has("originalTransactionId") 
+                ? transactionInfo.get("originalTransactionId").asText() 
+                : null;
+            
+            if (originalTransactionId == null) {
+                System.err.println("❌ Missing originalTransactionId");
+                response.put("success", false);
+                response.put("error", "Missing originalTransactionId");
+                return response;
+            }
+            
+            // Find user by originalTransactionId
+            User user = userService.findByAppleOriginalTransactionId(originalTransactionId)
+                .orElse(null);
+            
+            if (user == null) {
+                System.out.println("⚠️ User not found for originalTransactionId: " + originalTransactionId);
+                // This might be a new subscription - we'll handle it when they validate receipt
+                response.put("success", true);
+                response.put("message", "User not found - will be handled on next receipt validation");
+                return response;
+            }
+            
+            System.out.println("📱 Processing notification type: " + notificationType + " for user: " + user.getEmail());
+            
+            // Handle different notification types
+            if (notificationType == null) {
+                System.err.println("⚠️ Notification type is null");
+                response.put("success", false);
+                response.put("error", "Notification type is null");
+                return response;
+            }
+            
+            switch (notificationType) {
+                case "INITIAL_BUY":
+                case "DID_RENEW":
+                case "DID_RECOVER":
+                    // Subscription is active
+                    user.setRole("USERPLUS");
+                    user.setSubscriptionStatus("active");
+                    userService.saveUser(user);
+                    System.out.println("✅ User " + user.getEmail() + " subscription active/renewed! Notification: " + notificationType);
+                    break;
+                    
+                case "DID_FAIL_TO_RENEW":
+                    // Subscription failed to renew (payment issue)
+                    // Keep USERPLUS until expiration, but mark status
+                    user.setSubscriptionStatus("payment_failed");
+                    userService.saveUser(user);
+                    System.out.println("⚠️ User " + user.getEmail() + " subscription payment failed! Notification: " + notificationType);
+                    break;
+                    
+                case "DID_CANCEL":
+                    // User canceled subscription - will expire at period end
+                    user.setSubscriptionStatus("cancel_at_period_end");
+                    userService.saveUser(user);
+                    System.out.println("⚠️ User " + user.getEmail() + " subscription canceled (will expire at period end)! Notification: " + notificationType);
+                    break;
+                    
+                case "EXPIRED":
+                    // Subscription expired - downgrade user
+                    user.setRole("USER");
+                    user.setSubscriptionStatus("expired");
+                    userService.saveUser(user);
+                    System.out.println("❌ User " + user.getEmail() + " subscription expired! Downgraded to USER. Notification: " + notificationType);
+                    break;
+                    
+                case "REFUND":
+                    // Subscription refunded - downgrade immediately
+                    user.setRole("USER");
+                    user.setSubscriptionStatus("refunded");
+                    userService.saveUser(user);
+                    System.out.println("❌ User " + user.getEmail() + " subscription refunded! Downgraded to USER. Notification: " + notificationType);
+                    break;
+                    
+                case "REVOKE":
+                    // Subscription revoked (family sharing removed, etc.) - downgrade
+                    user.setRole("USER");
+                    user.setSubscriptionStatus("revoked");
+                    userService.saveUser(user);
+                    System.out.println("❌ User " + user.getEmail() + " subscription revoked! Downgraded to USER. Notification: " + notificationType);
+                    break;
+                    
+                case "GRACE_PERIOD_EXPIRED":
+                    // Grace period expired - downgrade
+                    user.setRole("USER");
+                    user.setSubscriptionStatus("grace_period_expired");
+                    userService.saveUser(user);
+                    System.out.println("❌ User " + user.getEmail() + " grace period expired! Downgraded to USER. Notification: " + notificationType);
+                    break;
+                    
+                case "PRICE_INCREASE":
+                    // Price increase - user needs to consent
+                    user.setSubscriptionStatus("price_increase_consent_required");
+                    userService.saveUser(user);
+                    System.out.println("⚠️ User " + user.getEmail() + " needs to consent to price increase! Notification: " + notificationType);
+                    break;
+                    
+                case "REFUND_DECLINED":
+                    // Refund declined - reactivate subscription
+                    user.setRole("USERPLUS");
+                    user.setSubscriptionStatus("active");
+                    userService.saveUser(user);
+                    System.out.println("✅ User " + user.getEmail() + " refund declined - subscription reactivated! Notification: " + notificationType);
+                    break;
+                    
+                default:
+                    System.out.println("ℹ️ Unhandled notification type: " + notificationType + " for user: " + user.getEmail());
+                    break;
+            }
+            
+            response.put("success", true);
+            response.put("message", "Notification processed successfully");
+            response.put("notification_type", notificationType);
+            return response;
+            
+        } catch (Exception e) {
+            System.err.println("❌ Apple webhook error: " + e.getMessage());
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("error", "Error processing notification: " + e.getMessage());
+            return response;
+        }
+    }
+    
 
 }

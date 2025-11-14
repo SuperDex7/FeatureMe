@@ -597,4 +597,11 @@ public class UserService {
         }
     }
     
+    /**
+     * Find user by Apple originalTransactionId
+     */
+    public Optional<User> findByAppleOriginalTransactionId(String appleOriginalTransactionId) {
+        return userRepository.findByAppleOriginalTransactionId(appleOriginalTransactionId);
+    }
+    
 }

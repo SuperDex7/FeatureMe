@@ -26,4 +26,6 @@ public interface UserRepository extends MongoRepository<User, String> {
     
     Optional<User> findByStripeCustomerId(String stripeCustomerId);
     
+    Optional<User> findByAppleOriginalTransactionId(String appleOriginalTransactionId);
+    
 }
