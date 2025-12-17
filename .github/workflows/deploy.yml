@@ -60,7 +60,7 @@ jobs:
           --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
           --comment "Deploy FeatureMe application" \
-          --parameters 'commands=["cd /home/ubuntu/FeatureMe","git pull origin main"]'
+          --parameters 'commands=["cd /home/ubuntu/FeatureMe","git stash","git pull origin main","chmod +x scripts/*.sh"]'
         
         # Wait a moment for the first command to complete
         sleep 10

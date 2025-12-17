@@ -26,8 +26,10 @@ certbot certificates
 echo ""
 
 # Renew certificates
+# Use --no-directory-hooks to prevent certbot from trying to restart nginx
+# (nginx is running in Docker, so we'll reload it manually)
 echo "Attempting to renew certificates..."
-certbot renew --force-renewal
+certbot renew --force-renewal --no-directory-hooks
 
 if [ $? -eq 0 ]; then
     echo ""
