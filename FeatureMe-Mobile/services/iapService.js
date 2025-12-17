@@ -15,6 +15,13 @@ const PRODUCT_IDS = {
   },
 };
 
+// Explicit export for Apple's static analysis - product IDs must be visible as string literals
+// This ensures Apple can detect the IAP products in the binary during review
+export const IOS_PRODUCT_IDS = [
+  'com.featureme.app.plus.monthly',
+  'com.featureme.app.plus.yearly',
+];
+
 class IAPService {
   constructor() {
     this.products = [];
@@ -28,60 +35,122 @@ class IAPService {
    */
   async initialize() {
     try {
+      // Always reset state before initializing to ensure clean connection
       if (this.isInitialized) {
-        return { success: true, products: this.products };
+        try {
+          await RNIap.endConnection();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        this.isInitialized = false;
+        this.products = [];
       }
 
       // Note: IAP requires native code, so it won't work in Expo Go
       // Users need to use a development build (EAS Build) or production build
 
-      // Connect to store
-      await RNIap.initConnection();
+      console.log('[IAP] Starting initialization...');
+      console.log('[IAP] Platform:', Platform.OS);
       
       // Get product IDs based on platform
       const productIds = Platform.OS === 'ios' 
         ? Object.values(PRODUCT_IDS.ios)
         : Object.values(PRODUCT_IDS.android);
+      
+      console.log('[IAP] Requesting products:', productIds);
 
-      // Load available products
-      const products = await RNIap.getProducts(productIds);
+      // Connect to store with timeout
+      console.log('[IAP] Connecting to App Store...');
+      const connectionPromise = RNIap.initConnection();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000)
+      );
+      
+      await Promise.race([connectionPromise, timeoutPromise]);
+      console.log('[IAP] ✓ Connected to App Store');
+
+      // Load available products with timeout
+      console.log('[IAP] Fetching products from App Store...');
+      const productsPromise = RNIap.getProducts(productIds);
+      const productsTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Products fetch timeout after 10s')), 10000)
+      );
+      
+      const products = await Promise.race([productsPromise, productsTimeoutPromise]);
+      
+      console.log('[IAP] ✓ Received products:', products.length);
+      if (products.length > 0) {
+        products.forEach(p => {
+          console.log(`[IAP]   - ${p.productId}: ${p.localizedTitle} (${p.localizedPrice})`);
+        });
+      } else {
+        console.warn('[IAP] ⚠️ No products returned. Possible causes:');
+        console.warn('[IAP]   1. Product IDs don\'t match App Store Connect:', productIds);
+        console.warn('[IAP]   2. Products not approved/available for this app version');
+        console.warn('[IAP]   3. Products not associated with the app version in App Store Connect');
+        console.warn('[IAP]   4. Sandbox account not signed in (TestFlight)');
+        console.warn('[IAP]   5. Products still in review');
+      }
+      
       this.products = products;
       this.isInitialized = true;
 
       if (products.length === 0) {
-        console.warn('No IAP products found. Make sure products are configured in App Store Connect.');
-        // Don't fail initialization if products aren't found - they might not be approved yet
-        // This allows the app to still work, just without IAP functionality
+        console.warn('[IAP] ⚠️ No IAP products found. Make sure:');
+        console.warn('[IAP]   - Product IDs match exactly: com.featureme.app.plus.monthly, com.featureme.app.plus.yearly');
+        console.warn('[IAP]   - Products are approved in App Store Connect');
+        console.warn('[IAP]   - Products are associated with the app version');
+        console.warn('[IAP]   - You are signed in with a sandbox Apple ID (TestFlight)');
+        // Return success but with empty products - let the UI handle this
+      } else {
+        console.log('[IAP] ✓ Initialization successful');
       }
 
       return { success: true, products };
     } catch (error) {
-      console.error('IAP initialization error:', error);
+      console.error('[IAP] ✗ Initialization failed');
+      console.error('[IAP] Error code:', error.code);
+      console.error('[IAP] Error message:', error.message);
+      console.error('[IAP] Full error:', JSON.stringify(error, null, 2));
       
       // Clean up connection if it was partially established
       try {
         if (this.isInitialized) {
-          RNIap.endConnection();
+          await RNIap.endConnection();
           this.isInitialized = false;
         }
       } catch (cleanupError) {
-        console.error('Error cleaning up IAP connection:', cleanupError);
+        // Ignore cleanup errors
       }
       
-      // Provide more specific error messages
+      // Reset state
+      this.products = [];
+      this.isInitialized = false;
+      
+      // Provide more specific error messages with diagnostic info
       let errorMessage = error.message || 'IAP initialization failed';
+      let diagnosticInfo = '';
       
       if (error.code === 'E_SERVICE_ERROR' || error.message?.includes('E_SERVICE_ERROR') || error.message?.includes('Service unavailable')) {
         errorMessage = 'App Store service unavailable. Please check your connection and try again.';
-      } else if (error.code === 'E_NETWORK_ERROR' || error.message?.includes('E_NETWORK_ERROR')) {
-        errorMessage = 'Network error. Please check your connection.';
+        diagnosticInfo = 'Service error - App Store servers may be down or unreachable.';
+      } else if (error.code === 'E_NETWORK_ERROR' || error.message?.includes('E_NETWORK_ERROR') || error.message?.includes('timeout')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+        diagnosticInfo = 'Network/timeout error - Check internet connection.';
       } else if (error.code === 'E_ITEM_UNAVAILABLE' || error.message?.includes('not available') || error.message?.includes('unavailable')) {
-        errorMessage = 'In-app purchases are not available on this device or products are not configured.';
+        errorMessage = 'In-app purchases are not available. Please ensure products are configured in App Store Connect.';
+        diagnosticInfo = 'Products unavailable - Check: 1) Product IDs match, 2) Products approved, 3) Associated with app version, 4) Sandbox account signed in.';
       } else if (error.code === 'E_USER_ERROR' || error.message?.includes('user')) {
         errorMessage = 'Unable to connect to App Store. Please sign in to your Apple ID and try again.';
+        diagnosticInfo = 'User error - Sign in to Apple ID (sandbox account for TestFlight).';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'Connection timeout. Please check your connection and try again.';
+        diagnosticInfo = 'Timeout - App Store servers took too long to respond.';
       }
       
-      return { success: false, error: errorMessage };
+      console.error('[IAP] Diagnostic:', diagnosticInfo);
+      
+      return { success: false, error: errorMessage, diagnostic: diagnosticInfo };
     }
   }
 
@@ -264,6 +333,24 @@ class IAPService {
   getProductId(billingCycle) {
     const platform = Platform.OS === 'ios' ? 'ios' : 'android';
     return PRODUCT_IDS[platform][billingCycle];
+  }
+
+  /**
+   * Get diagnostic information about IAP state
+   */
+  getDiagnostics() {
+    return {
+      isInitialized: this.isInitialized,
+      productsCount: this.products.length,
+      productIds: Platform.OS === 'ios' ? Object.values(PRODUCT_IDS.ios) : Object.values(PRODUCT_IDS.android),
+      products: this.products.map(p => ({
+        productId: p.productId,
+        title: p.localizedTitle,
+        price: p.localizedPrice,
+        available: true
+      })),
+      platform: Platform.OS
+    };
   }
 
   /**

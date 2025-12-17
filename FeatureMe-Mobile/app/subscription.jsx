@@ -16,6 +16,11 @@ import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
 import iapService from '../services/iapService';
 
+// Apple IAP Product IDs - Hardcoded here for Apple's static analysis
+// These must match exactly what's configured in App Store Connect
+const APPLE_PRODUCT_ID_MONTHLY = 'com.featureme.app.plus.monthly';
+const APPLE_PRODUCT_ID_YEARLY = 'com.featureme.app.plus.yearly';
+
 export default function SubscriptionPage() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -27,35 +32,77 @@ export default function SubscriptionPage() {
   const [iapProducts, setIapProducts] = useState([]);
   const [iapInitialized, setIapInitialized] = useState(false);
   const [plusPrice, setPlusPrice] = useState({ monthly: 5.00, yearly: 50.00 });
+  const [iapDiagnostics, setIapDiagnostics] = useState(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
-    // Initialize IAP service (iOS only, or both platforms if you want)
-    const initializeIAP = async () => {
+    // Initialize IAP service (iOS only)
+    const initializeIAP = async (retryCount = 0) => {
       if (Platform.OS === 'ios') {
+        // Product IDs are hardcoded above for Apple's static analysis
+        // Reference them to ensure they're included in the binary (not tree-shaken)
+        const _productIds = [APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY];
+        // These string literals will be visible in the compiled binary
         try {
           const result = await iapService.initialize();
-          if (result.success) {
+          if (result.success && result.products && result.products.length > 0) {
             setIapProducts(result.products);
             setIapInitialized(true);
+            setMessage(''); // Clear any previous messages
+            setIapDiagnostics(null); // Clear diagnostics on success
+            setShowDiagnostics(false);
             
             // Update prices from IAP products if available
-            if (result.products && result.products.length > 0) {
-              result.products.forEach(product => {
-                const price = parseFloat(product.localizedPrice?.replace(/[^0-9.]/g, '') || 0);
-                if (product.productId.includes('monthly') && price > 0) {
-                  setPlusPrice(prev => ({ ...prev, monthly: price }));
-                } else if (product.productId.includes('yearly') && price > 0) {
-                  setPlusPrice(prev => ({ ...prev, yearly: price }));
-                }
-              });
-            }
+            result.products.forEach(product => {
+              const price = parseFloat(product.localizedPrice?.replace(/[^0-9.]/g, '') || 0);
+              if (product.productId.includes('monthly') && price > 0) {
+                setPlusPrice(prev => ({ ...prev, monthly: price }));
+              } else if (product.productId.includes('yearly') && price > 0) {
+                setPlusPrice(prev => ({ ...prev, yearly: price }));
+              }
+            });
           } else {
-            console.warn('IAP initialization failed:', result.error);
-            // Fallback to web-based subscriptions
+            // Retry initialization up to 2 times with delay
+            if (retryCount < 2) {
+              console.log(`IAP initialization retry ${retryCount + 1}/2`);
+              setTimeout(() => {
+                initializeIAP(retryCount + 1);
+              }, 2000);
+            } else {
+              console.log('IAP products not available after retries');
+              // Store diagnostics for later display
+              const diagnostics = iapService.getDiagnostics();
+              setIapDiagnostics({
+                error: 'Products not available',
+                requestedIds: [APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY],
+                productsFound: diagnostics.productsCount,
+                isInitialized: diagnostics.isInitialized,
+                diagnostic: 'Products may not be approved or associated with this app version'
+              });
+              // Don't show error - just log it. IAP will be retried when user clicks upgrade
+            }
           }
         } catch (error) {
-          console.error('IAP initialization error:', error);
-          // Fallback to web-based subscriptions
+          // Retry initialization up to 2 times with delay
+          if (retryCount < 2) {
+            console.log(`IAP initialization error, retry ${retryCount + 1}/2:`, error.message);
+            setTimeout(() => {
+              initializeIAP(retryCount + 1);
+            }, 2000);
+          } else {
+            console.log('IAP initialization failed after retries:', error.message);
+            // Store diagnostics for later display
+            const diagnostics = iapService.getDiagnostics();
+            setIapDiagnostics({
+              error: 'Initialization failed',
+              errorCode: error.code,
+              errorMessage: error.message,
+              requestedIds: [APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY],
+              isInitialized: diagnostics.isInitialized,
+              diagnostic: error.message || 'Unknown error'
+            });
+            // Don't show error - IAP will be retried when user clicks upgrade
+          }
         }
       }
     };
@@ -155,19 +202,31 @@ export default function SubscriptionPage() {
   }
 
   const handleUpgrade = async () => {
-    // On iOS, try in-app purchases
+    // On iOS, use in-app purchases only
     if (Platform.OS === 'ios') {
       if (!iapInitialized) {
-        // Try to initialize IAP first
+        // Try to initialize IAP first with retries
         setMessage('Initializing in-app purchases...');
-        try {
-          const result = await iapService.initialize();
-          if (result.success) {
-            setIapProducts(result.products);
-            setIapInitialized(true);
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+          try {
+            // Reset IAP service state before retry
+            if (retryCount > 0) {
+              iapService.cleanup();
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between retries
+            }
             
-            // Update prices from IAP products if available
-            if (result.products && result.products.length > 0) {
+            const result = await iapService.initialize();
+            if (result.success && result.products && result.products.length > 0) {
+              setIapProducts(result.products);
+              setIapInitialized(true);
+              setMessage('');
+              setIapDiagnostics(null); // Clear diagnostics on success
+              setShowDiagnostics(false);
+              
+              // Update prices from IAP products if available
               result.products.forEach(product => {
                 const price = parseFloat(product.localizedPrice?.replace(/[^0-9.]/g, '') || 0);
                 if (product.productId.includes('monthly') && price > 0) {
@@ -176,23 +235,100 @@ export default function SubscriptionPage() {
                   setPlusPrice(prev => ({ ...prev, yearly: price }));
                 }
               });
+              
+              // Now try the purchase
+              await handleIAPPurchase();
+              return;
+            } else {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                setMessage(`Initializing in-app purchases... (attempt ${retryCount + 1}/${maxRetries})`);
+                continue;
+              } else {
+                // Products not found - provide helpful diagnostic message
+                const diagnosticMsg = result.diagnostic || 'Products may not be available yet.';
+                const diagnostics = iapService.getDiagnostics();
+                setIapDiagnostics({
+                  error: 'Products not found',
+                  diagnostic: diagnosticMsg,
+                  requestedIds: [APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY],
+                  productsFound: diagnostics.productsCount,
+                  isInitialized: diagnostics.isInitialized
+                });
+                console.error('[IAP] Products not found after retries. Diagnostic:', diagnosticMsg);
+                console.error('[IAP] Requested product IDs:', APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY);
+                setMessage('⚠️ Subscription products are not available.\n\nCommon causes:\n• Products are "In Review" (must be "Approved" or "Ready to Submit")\n• You are not signed in with a sandbox Apple ID\n• Products not approved in App Store Connect\n\nTap for diagnostic details');
+                setShowDiagnostics(true);
+                return;
+              }
             }
-            
-            // Now try the purchase
-            await handleIAPPurchase();
-          } else {
-            setMessage(`❌ IAP Initialization Failed: ${result.error || 'Unknown error'}\n\nPlease check your connection and try again.`);
+          } catch (error) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              setMessage(`Initializing in-app purchases... (attempt ${retryCount + 1}/${maxRetries})`);
+              continue;
+            } else {
+              console.error('[IAP] Initialization failed after retries:', error);
+              console.error('[IAP] Error code:', error.code);
+              console.error('[IAP] Error message:', error.message);
+              const errorMsg = error.message || 'Unknown error';
+              const diagnostics = iapService.getDiagnostics();
+              setIapDiagnostics({
+                error: 'Connection failed',
+                errorCode: error.code,
+                errorMessage: errorMsg,
+                requestedIds: [APPLE_PRODUCT_ID_MONTHLY, APPLE_PRODUCT_ID_YEARLY],
+                isInitialized: diagnostics.isInitialized
+              });
+              setMessage(`⚠️ Unable to connect to App Store.\n\nError: ${errorMsg}\n\nPlease check your connection and ensure you are signed in to your Apple ID.\n\nTap for diagnostic details`);
+              setShowDiagnostics(true);
+              return;
+            }
           }
-        } catch (error) {
-          console.error('IAP initialization error:', error);
-          setMessage(`❌ IAP Initialization Error: ${error.message || 'Unknown error'}\n\nPlease check your connection and try again.`);
         }
       } else {
-        await handleIAPPurchase();
+        // Check if products are available before attempting purchase
+        const productId = iapService.getProductId(billingCycle);
+        const product = iapService.getProduct(productId);
+        
+        if (product) {
+          await handleIAPPurchase();
+        } else {
+          // Products not available - try to reinitialize
+          setMessage('Refreshing subscription options...');
+          iapService.cleanup();
+          setIapInitialized(false);
+          // Retry initialization
+          await handleUpgrade();
+        }
       }
     } else {
-      // On Android, show message instead of redirecting
-      setMessage('⚠️ In-app purchases are currently only available on iOS. Please use the website to subscribe on Android.');
+      // On Android, use web subscriptions
+      await handleWebSubscription();
+    }
+  };
+
+  const handleWebSubscription = async () => {
+    try {
+      setMessage('');
+      const endpoint = billingCycle === 'yearly' 
+        ? '/payment/create-checkout-session-yearly'
+        : '/payment/create-checkout-session';
+      
+      const response = await api.post(endpoint);
+      const checkoutUrl = response.data.url;
+      
+      if (checkoutUrl) {
+        await WebBrowser.openBrowserAsync(checkoutUrl, {
+          showTitle: true,
+          toolbarColor: '#1e222d',
+        });
+      } else {
+        setMessage('❌ Unable to create checkout session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Web subscription error:', error);
+      setMessage('❌ Unable to start subscription. Please check your connection and try again.');
     }
   };
 
@@ -463,9 +599,42 @@ export default function SubscriptionPage() {
 
         {/* Success/Error Messages */}
         {message ? (
-          <View style={styles.messageContainer}>
+          <TouchableOpacity 
+            style={styles.messageContainer}
+            onPress={() => showDiagnostics && setShowDiagnostics(!showDiagnostics)}
+            activeOpacity={showDiagnostics ? 0.7 : 1}
+          >
             <Text style={styles.messageText}>{message}</Text>
-          </View>
+            {showDiagnostics && iapDiagnostics && (
+              <View style={styles.diagnosticsContainer}>
+                <Text style={styles.diagnosticsTitle}>Diagnostic Information:</Text>
+                <Text style={styles.diagnosticsText}>
+                  Status: {iapDiagnostics.isInitialized ? 'Initialized' : 'Not Initialized'}
+                </Text>
+                {iapDiagnostics.productsFound !== undefined && (
+                  <Text style={styles.diagnosticsText}>
+                    Products Found: {iapDiagnostics.productsFound} / 2
+                  </Text>
+                )}
+                <Text style={styles.diagnosticsText}>
+                  Requested IDs: {iapDiagnostics.requestedIds?.join(', ')}
+                </Text>
+                {iapDiagnostics.errorCode && (
+                  <Text style={styles.diagnosticsText}>
+                    Error Code: {iapDiagnostics.errorCode}
+                  </Text>
+                )}
+                {iapDiagnostics.diagnostic && (
+                  <Text style={styles.diagnosticsText}>
+                    Details: {iapDiagnostics.diagnostic}
+                  </Text>
+                )}
+                <Text style={styles.diagnosticsHint}>
+                  Tap to collapse
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         ) : null}
 
         {/* Website Information */}
@@ -669,6 +838,60 @@ export default function SubscriptionPage() {
             <Text style={styles.trustDescription}>What you see is what you pay</Text>
           </View>
         </View>
+
+        {/* Required Subscription Information (Apple Guidelines 3.1.2) */}
+        <View style={styles.legalSection}>
+          <Text style={styles.legalTitle}>Subscription Information</Text>
+          
+          {/* Subscription Title */}
+          <View style={styles.legalItem}>
+            <Text style={styles.legalLabel}>Subscription Name:</Text>
+            <Text style={styles.legalValue}>FeatureMe Plus</Text>
+          </View>
+
+          {/* Subscription Length */}
+          <View style={styles.legalItem}>
+            <Text style={styles.legalLabel}>Subscription Length:</Text>
+            <Text style={styles.legalValue}>
+              {billingCycle === 'monthly' ? '1 Month (Auto-renewable)' : '1 Year (Auto-renewable)'}
+            </Text>
+          </View>
+
+          {/* Subscription Price */}
+          <View style={styles.legalItem}>
+            <Text style={styles.legalLabel}>Price:</Text>
+            <Text style={styles.legalValue}>
+              ${plans.plus.price[billingCycle]}{billingCycle === 'monthly' ? '/month' : '/year'}
+              {billingCycle === 'yearly' && (
+                <Text style={styles.legalSubtext}> (${(plans.plus.price.yearly / 12).toFixed(2)}/month)</Text>
+              )}
+            </Text>
+          </View>
+
+          {/* Legal Links */}
+          <View style={styles.legalLinks}>
+            <TouchableOpacity
+              style={styles.legalLink}
+              onPress={() => WebBrowser.openBrowserAsync('https://featureme.co/privacy-policy')}
+            >
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+              <Text style={styles.externalLinkIcon}>↗</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.legalLink}
+              onPress={() => WebBrowser.openBrowserAsync('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+            >
+              <Text style={styles.legalLinkText}>Terms of Use (EULA)</Text>
+              <Text style={styles.externalLinkIcon}>↗</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.legalNote}>
+            Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. 
+            Manage your subscription in your Apple ID account settings.
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -809,6 +1032,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     textAlign: 'center',
+  },
+  diagnosticsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  diagnosticsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4f8cff',
+    marginBottom: 8,
+  },
+  diagnosticsText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+    fontFamily: 'monospace',
+  },
+  diagnosticsHint: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   pricingCards: {
     gap: 20,
@@ -1104,5 +1351,70 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#4f8cff',
+  },
+  legalSection: {
+    backgroundColor: 'rgba(30, 34, 45, 0.95)',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(127, 83, 172, 0.2)',
+  },
+  legalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  legalItem: {
+    marginBottom: 16,
+  },
+  legalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  legalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  legalSubtext: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  legalLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(79, 140, 255, 0.2)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4f8cff',
+    gap: 6,
+  },
+  legalLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4f8cff',
+  },
+  legalNote: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 8,
   },
 });
