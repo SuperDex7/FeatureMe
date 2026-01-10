@@ -109,6 +109,42 @@ FeatureMe is a music collaboration platform that connects musicians, producers, 
 - Universal links for deep navigation
 - Push notifications (ready for implementation)
 
+## 🧪 Testing
+
+### Test Framework
+- **Unit Testing**: JUnit 5 with Spring Boot Test framework
+- **Mocking**: Mockito for mocking dependencies
+- **Coverage**: Service layer tests ensuring business logic validation, data transformation, and error handling
+
+### Running Tests
+
+#### Backend Tests
+```bash
+cd FeatureMe
+./mvnw test
+
+# Run specific test class
+./mvnw test -Dtest=PostsServiceTest
+
+# Run with coverage (if configured)
+./mvnw test jacoco:report
+```
+
+#### Test Structure
+```
+FeatureMe/
+└── src/test/java/
+    └── Feat/FeatureMe/
+        └── Service/
+            └── PostsServiceTest.java  # Service layer unit tests
+```
+
+**Test Features:**
+- ✅ Pure unit tests with mocked dependencies (no database required)
+- ✅ Fast execution without external dependencies
+- ✅ Comprehensive business logic validation
+- ✅ Error handling and edge case coverage
+
 ## 🛠️ Development
 
 ### Project Structure
@@ -117,6 +153,7 @@ FeatureMe/
 ├── FeatureMe/                # Spring Boot Backend
 │   ├── src/main/java/        # Java source code
 │   ├── src/main/resources/   # Configuration files
+│   ├── src/test/java/        # Unit tests (JUnit 5)
 │   ├── Dockerfile            # Backend container config
 │   └── pom.xml               # Maven dependencies
 ├── react-feature/            # React Web Frontend
@@ -155,6 +192,7 @@ FeatureMe/
 | Payments | Stripe | Subscription Plans, Payment Processing |
 | Real-time | WebSocket + SockJS + STOMP | Live Messaging |
 | Caching | Redis | Session Management, Performance |
+| Testing | JUnit 5 + Mockito | Unit Testing, Test Coverage |
 | Containerization | Docker + Docker Compose | Deployment, Scaling |
 | Reverse Proxy | Nginx | SSL, Load Balancing, CORS |
 | Mobile Deployment | Expo Application Services (EAS) | iOS App Store, TestFlight |
@@ -356,8 +394,16 @@ I welcome contributions! Please follow these steps:
 ### Development Guidelines
 - Follow Java coding standards for backend
 - Use ESLint for frontend code quality
-- Write tests for new features
+- Write unit tests for new service layer features using JUnit 5
+- Mock dependencies to ensure fast, isolated tests
 - Update documentation as needed
+
+### Testing Best Practices
+- Write tests for all service layer business logic
+- Use Mockito for mocking repositories and external services
+- Keep tests fast and independent (no database/external dependencies)
+- Follow AAA pattern (Arrange, Act, Assert)
+- Use descriptive test method names with `@DisplayName` annotations
 
 
 ## 🌟 Acknowledgments
