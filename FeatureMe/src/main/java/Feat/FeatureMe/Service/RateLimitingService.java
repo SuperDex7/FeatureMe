@@ -55,6 +55,18 @@ public class RateLimitingService {
     }
 
     /**
+     * Clear login attempts after a successful login so only failed attempts
+     * count toward the limit (legit users on a shared IP don't get locked out).
+     */
+    public void resetLoginAttempts(String identifier) {
+        try {
+            redisTemplate.delete(RATE_LIMIT_PREFIX + "login:" + identifier);
+        } catch (Exception e) {
+            System.err.println("Rate limiting reset error: " + e.getMessage());
+        }
+    }
+
+    /**
      * Generic rate limiting check using sliding window algorithm
      */
     private boolean checkRateLimit(String key, int limit, Duration window) {

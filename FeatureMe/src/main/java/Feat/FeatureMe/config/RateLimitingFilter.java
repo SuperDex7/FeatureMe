@@ -82,6 +82,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         response.setHeader("X-RateLimit-Reset", String.valueOf(System.currentTimeMillis() / 1000 + rateLimitInfo.getResetTimeSeconds()));
 
         filterChain.doFilter(request, response);
+
+        // Only failed logins should count toward the login limit
+        if ("login".equals(rateLimitType) && response.getStatus() >= 200 && response.getStatus() < 300) {
+            rateLimitingService.resetLoginAttempts(identifier);
+        }
     }
 
     private boolean shouldSkipRateLimit(String requestURI) {
@@ -120,15 +125,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             // Ignore authentication errors
         }
 
-        // Fall back to IP address
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
+        // Prefer X-Real-IP: nginx overwrites it with $remote_addr, so clients can't spoof it.
         String xRealIp = request.getHeader("X-Real-IP");
         if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
+            return xRealIp.trim();
+        }
+
+        // X-Forwarded-For is appended to (not replaced) by nginx, so the FIRST entry is
+        // client-controlled. The LAST entry is the one added by our own proxy.
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            String[] hops = xForwardedFor.split(",");
+            return hops[hops.length - 1].trim();
         }
 
         return request.getRemoteAddr();
