@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -277,7 +278,7 @@ public class UserController {
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -387,7 +388,7 @@ public class UserController {
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
         
@@ -452,7 +453,7 @@ public class UserController {
     public ResponseEntity<?> clearMyNotifications() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
 
@@ -477,7 +478,7 @@ public class UserController {
     public ResponseEntity<?> getCurrentUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
             
@@ -504,7 +505,7 @@ public class UserController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "User not authenticated"));
             }

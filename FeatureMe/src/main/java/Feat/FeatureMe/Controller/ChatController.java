@@ -1,6 +1,7 @@
 package Feat.FeatureMe.Controller;
 
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.web.PagedModel;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -51,7 +52,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             
@@ -73,7 +74,7 @@ public class ChatController {
     public java.util.List<ChatMessage> getChatMessagesPaged(@PathVariable String chatRoomId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "15") int size) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             String email = authentication.getName();
@@ -92,7 +93,7 @@ public class ChatController {
     public PagedModel<MostRecentChatDTO> getChats(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "5") int size) {
     // Get the authenticated user
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
+    if (!AuthUtils.isLoggedIn(authentication)) {
         throw new RuntimeException("User not authenticated - please log in again");
     }
     
@@ -107,7 +108,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             
@@ -128,7 +129,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             
@@ -149,7 +150,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             
@@ -181,7 +182,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             
@@ -202,7 +203,7 @@ public class ChatController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 throw new RuntimeException("User not authenticated - please log in again");
             }
             

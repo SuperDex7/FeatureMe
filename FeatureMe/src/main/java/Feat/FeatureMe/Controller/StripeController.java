@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -63,7 +64,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSession() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -131,7 +132,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSessionYearly() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -328,7 +329,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -403,7 +404,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -438,7 +439,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
                 error.put("error", "User not authenticated");
