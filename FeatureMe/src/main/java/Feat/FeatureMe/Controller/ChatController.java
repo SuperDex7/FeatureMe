@@ -8,7 +8,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import java.security.Principal;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import Feat.FeatureMe.Dto.MostRecentChatDTO;
@@ -227,92 +227,63 @@ public class ChatController {
     
     
     
-@MessageMapping("/chat/{chatRoomId}/add")
-@SendTo("/topic/chat/{chatRoomId}")
-public ChatMessage addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor,@DestinationVariable String chatRoomId){
+    // ---- STOMP handlers ----
+    // The acting user always comes from the authenticated WebSocket session (see
+    // WebSocketAuthInterceptor), never from the message body, and must be in the chat.
 
-    // For adding users via WebSocket, we get the adder from the addedBy field
-    String addedUserName = chatMessage.getSender();
-    String adderUserName = chatMessage.getAddedBy();
-    
-    if (addedUserName == null || addedUserName.trim().isEmpty()) {
-        throw new SecurityException("User to add is required");
-    }
-    
-    if (adderUserName == null || adderUserName.trim().isEmpty()) {
-        throw new SecurityException("User doing the adding is required");
-    }
-    
-    // Verify both users exist
-    User userToAdd = userService.findByUsernameOrEmail(addedUserName)
-        .orElseThrow(() -> new SecurityException("User to add not found: " + addedUserName));
-    
-    User adderUser = userService.findByUsernameOrEmail(adderUserName)
-        .orElseThrow(() -> new SecurityException("User doing the adding not found: " + adderUserName));
-    
-    // Validate message type
-    if (chatMessage.getType().toString().equals("JOIN")) {
-        return chatService.joinChat(chatRoomId, addedUserName, adderUserName);
-    }
-    
-    throw new SecurityException("Wrong Message Type: " + chatMessage.getType());
-        
+    @MessageMapping("/chat/{chatRoomId}/add")
+    @SendTo("/topic/chat/{chatRoomId}")
+    public ChatMessage addUser(@Payload ChatMessage chatMessage, @DestinationVariable String chatRoomId, Principal principal) {
+        User adder = requireChatMember(principal, chatRoomId);
 
+        if (chatMessage.getType() != ChatMessage.MessageType.JOIN) {
+            throw new SecurityException("Wrong Message Type: " + chatMessage.getType());
+        }
+
+        // For JOIN messages the client puts the user being added in "sender"
+        String addedUserName = chatMessage.getSender();
+        if (addedUserName == null || addedUserName.trim().isEmpty()) {
+            throw new SecurityException("User to add is required");
+        }
+        User userToAdd = userService.findByUsernameOrEmail(addedUserName)
+            .orElseThrow(() -> new SecurityException("User to add not found: " + addedUserName));
+
+        return chatService.joinChat(chatRoomId, userToAdd.getUserName(), adder.getUserName());
+    }
+
+    @MessageMapping("/chat/{chatRoomId}/send")
+    @SendTo("/topic/chat/{chatRoomId}")
+    public ChatMessage sendMessage(@Payload ChatMessage chatMessage, @DestinationVariable String chatRoomId, Principal principal) {
+        User sender = requireChatMember(principal, chatRoomId);
+
+        chatMessage.setSender(sender.getUserName());
+        chatMessage.setAddedBy(null);
+        chatMessage.setType(ChatMessage.MessageType.CHAT);
+
+        return chatService.sendMessage(chatMessage, chatRoomId);
+    }
+
+    @MessageMapping("/chat/{chatRoomId}/leave")
+    @SendTo("/topic/chat/{chatRoomId}")
+    public ChatMessage leaveChat(@Payload ChatMessage chatMessage, @DestinationVariable String chatRoomId, Principal principal) {
+        User user = requireChatMember(principal, chatRoomId);
+
+        if (chatMessage.getType() != ChatMessage.MessageType.LEAVE) {
+            throw new SecurityException("Wrong Message Type: " + chatMessage.getType());
+        }
+
+        return chatService.leaveChat(chatRoomId, user.getUserName(), user.getUserName());
+    }
+
+    private User requireChatMember(Principal principal, String chatRoomId) {
+        if (principal == null) {
+            throw new SecurityException("Not authenticated");
+        }
+        User user = userService.findByUsernameOrEmail(principal.getName())
+            .orElseThrow(() -> new SecurityException("User not found"));
+        if (!chatService.isUserInChat(chatRoomId, user.getUserName())) {
+            throw new SecurityException("Not a member of this chat");
+        }
+        return user;
+    }
 }
-@MessageMapping("/chat/{chatRoomId}/send")
-@SendTo("/topic/chat/{chatRoomId}")
-public ChatMessage sendMessage(@Payload ChatMessage chatMessage, @DestinationVariable String chatRoomId, SimpMessageHeaderAccessor headerAccessor){
-     
-    // For WebSocket connections, we'll validate the sender by checking if the username exists
-    // This is a simplified approach - in production you'd want more robust authentication
-    String senderUsername = chatMessage.getSender();
-    if (senderUsername == null || senderUsername.trim().isEmpty()) {
-        throw new SecurityException("Sender username is required");
-    }
-    
-    // Verify the user exists
-    User senderUser = userService.findByUsernameOrEmail(senderUsername)
-        .orElseThrow(() -> new SecurityException("User not found: " + senderUsername));
-    
-    // Set the sender in the message to ensure consistency
-    chatMessage.setSender(senderUser.getUserName());
-    
-    return chatService.sendMessage(chatMessage, chatRoomId);
-
-}
-
-@MessageMapping("/chat/{chatRoomId}/leave")
-@SendTo("/topic/chat/{chatRoomId}")
-public ChatMessage leaveChat(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor,@DestinationVariable String chatRoomId){
-    // Validate the sender username
-    String senderUsername = chatMessage.getSender();
-    if (senderUsername == null || senderUsername.trim().isEmpty()) {
-        throw new SecurityException("Sender username is required");
-    }
-    
-    // Verify the user exists
-    User senderUser = userService.findByUsernameOrEmail(senderUsername)
-        .orElseThrow(() -> new SecurityException("User not found: " + senderUsername));
-
-    // Set user in session
-    if (headerAccessor.getSessionAttributes() != null) {
-        headerAccessor.getSessionAttributes().put("user", senderUser);
-        headerAccessor.getSessionAttributes().put("username", senderUser.getEmail());
-    }
-
-    // Validate message type
-    if (chatMessage.getType().toString().equals("LEAVE")) {
-        return chatService.leaveChat(chatRoomId, senderUser.getUserName(), senderUser.getUserName());
-    }
-
-    throw new SecurityException("Wrong Message Type: " + chatMessage.getType());
-
-}
-@MessageMapping("/chat.sendPrivateMessage")
-public void sendPrivateMessage(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor){
-
-}
-
-
-}
-

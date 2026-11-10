@@ -17,6 +17,7 @@ import Feat.FeatureMe.Service.CachedUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -82,30 +83,36 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         .build();
     }
 
+    /**
+     * Origins allowed for REST CORS and the WebSocket handshake.
+     * Production sets ALLOWED_ORIGINS (comma-separated); otherwise local dev origins.
+     */
+    static List<String> allowedOrigins() {
+        String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            return Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+        }
+        return List.of(
+            "http://localhost:3000",  // React frontend (HTTP setup)
+            "http://localhost:5173",  // Vite dev server
+            "https://localhost",      // HTTPS setup with nginx
+            "http://localhost",       // HTTP setup with nginx
+            "http://10.0.2.2:8080",  // Android emulator backend
+            "http://10.0.0.200:8080", // Your computer's IP for backend
+            "http://10.0.2.2:3000",  // Android emulator React dev
+            "exp://10.0.0.200:8081", // Expo development server
+            "exp://localhost:8081"    // Expo local development
+        );
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Get allowed origins from environment or use defaults
-        String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            // Production: use environment variable
-            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        } else {
-            // Development: use localhost origins
-            configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",  // React frontend (HTTP setup)
-                "http://localhost:5173",  // Vite dev server
-                "https://localhost",      // HTTPS setup with nginx
-                "http://localhost",       // HTTP setup with nginx
-                "http://10.0.2.2:8080",  // Android emulator backend
-                "http://10.0.0.200:8080", // Your computer's IP for backend
-                "http://10.0.2.2:3000",  // Android emulator React dev
-                "exp://10.0.0.200:8081", // Expo development server
-                "exp://localhost:8081"    // Expo local development
-            ));
-        }
-        
+        configuration.setAllowedOrigins(allowedOrigins());
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
