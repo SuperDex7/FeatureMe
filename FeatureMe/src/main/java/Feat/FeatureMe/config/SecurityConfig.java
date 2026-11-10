@@ -36,11 +36,18 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(registry ->{
+                // Spring's error dispatch must stay reachable, otherwise every error becomes a 401
+                registry.requestMatchers("/error").permitAll();
+                registry.requestMatchers("/actuator/health").permitAll();
+
+                // Signup, login, password reset, availability checks
                 registry.requestMatchers("/api/user/auth/**").permitAll();
-                registry.requestMatchers("/api/user/me").authenticated();
-                registry.requestMatchers("/api/user/**").authenticated();
-                
-                // SPECIFIC posts endpoints that should be public (must come BEFORE general rule)
+
+                // Payment provider callbacks (no user session; Stripe verifies its signature)
+                registry.requestMatchers(HttpMethod.POST, "/api/payment/webhook").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/payment/apple-webhook").permitAll();
+
+                // Public post pages (shared /post/:id links work while logged out)
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/get/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/views/**").permitAll();
                 registry.requestMatchers(HttpMethod.POST, "/api/posts/view/**").permitAll();
@@ -48,13 +55,12 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers(HttpMethod.POST, "/api/posts/download/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/comments/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/likes/**").permitAll();
-                
-                // All other posts endpoints require authentication
-                registry.requestMatchers("/api/posts/**").permitAll();
-                
-                //registry.requestMatchers("/api/chats/**").authenticated();
-                registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
-                registry.anyRequest().permitAll();
+
+                // SockJS/STOMP handshake
+                registry.requestMatchers("/ws/**").permitAll();
+
+                // Everything else (posts writes, chats, demos, s3, payments, users, relations) needs a valid JWT
+                registry.anyRequest().authenticated();
             })
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(optimizedJwtAuthenticationFilter(cachedUserDetailsService), UsernamePasswordAuthenticationFilter.class)
