@@ -13,3 +13,12 @@ zHidden/
 .DS_Store
 Thumbs.db
 
+
+# Local dev TLS certs (regenerate with docker/generate-certs.sh)
+docker/certs/*.key
+docker/certs/*.crt
+docker/certs/*.p12
+
+# Personal notes (keep out of the repo)
+*Interview*.md
+*Resume*
