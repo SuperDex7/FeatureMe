@@ -29,8 +29,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,7 +41,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
-import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -175,6 +177,20 @@ public class UserController {
     private static final String DEFAULT_PROFILE_PIC_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/dpp.jpg";
     private static final String DEFAULT_BANNER_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/pb.jpg";
     
+    /**
+     * The web client's JWT cookie. HttpOnly so scripts can't read it, Secure so it only
+     * travels over HTTPS, and SameSite=Lax so other sites can't send it with their requests.
+     */
+    static ResponseCookie sessionCookie(String value, Duration maxAge) {
+        return ResponseCookie.from("sessionToken", value)
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(maxAge)
+            .build();
+    }
+
     /**
      * Helper method to get default profile picture URL, replacing relative paths with S3 URL
      */
@@ -430,12 +446,7 @@ public class UserController {
             String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getEmail());
             
             // Create HttpOnly cookie for the JWT token
-            Cookie sessionCookie = new Cookie("sessionToken", token);
-            sessionCookie.setHttpOnly(true);
-            sessionCookie.setSecure(true); // Set to true in production with HTTPS
-            sessionCookie.setPath("/");
-            sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
-            response.addCookie(sessionCookie);
+            response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie(token, Duration.ofHours(24)).toString());
                     
             Map<String, String> responseBody = new HashMap<>();
             responseBody.put("message", "Login successful");
@@ -563,13 +574,9 @@ public class UserController {
 
     @PostMapping("/auth/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
-        // Create an empty cookie to clear the session token
-        Cookie sessionCookie = new Cookie("sessionToken", "");
-        sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(true); // Set to true in production with HTTPS
-        sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(0); // Expire immediately
-        response.addCookie(sessionCookie);
+        // Overwrite the session cookie with an empty one that expires immediately
+        // (attributes must match the login cookie for the browser to replace it)
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie("", Duration.ZERO).toString());
         
         Map<String, String> responseBody = new HashMap<>();
         responseBody.put("message", "Logout successful");
