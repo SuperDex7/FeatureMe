@@ -445,8 +445,22 @@ public class UserController {
     }
 
     @GetMapping("/get/notifications/{userName}")
-    public List<NotificationsDTO> getMethodName(@PathVariable String userName) {
-        return userService.getNoti(userName);
+    public ResponseEntity<?> getMyNotifications(@PathVariable String userName) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        User currentUser = userService.findByUsernameOrEmail(authentication.getName())
+            .orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        // Path kept for client compatibility, but you can only read your own notifications
+        if (!currentUser.getUserName().equals(userName)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only view your own notifications");
+        }
+        List<NotificationsDTO> notifications = userService.getNoti(currentUser.getUserName());
+        return ResponseEntity.ok(notifications);
     }
 
     @PostMapping("/notifications/clear")
