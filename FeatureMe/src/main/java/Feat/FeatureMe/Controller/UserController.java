@@ -445,7 +445,8 @@ public class UserController {
             
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            // Same message for unknown user and wrong password
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
         
     }
