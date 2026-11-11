@@ -23,12 +23,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
-import org.springframework.boot.autoconfigure.websocket.servlet.WebSocketServletAutoConfiguration;
+import org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
+import org.springframework.boot.webmvc.autoconfigure.DispatcherServletAutoConfiguration;
+import org.springframework.boot.tomcat.autoconfigure.servlet.TomcatServletWebServerAutoConfiguration;
+import org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration;
+import org.springframework.boot.websocket.autoconfigure.servlet.WebSocketMessagingAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -67,12 +67,12 @@ class WebSocketAuthIntegrationTest {
 
     @SpringBootConfiguration
     @ImportAutoConfiguration({
-        ServletWebServerFactoryAutoConfiguration.class,
+        TomcatServletWebServerAutoConfiguration.class,
         DispatcherServletAutoConfiguration.class,
         WebMvcAutoConfiguration.class,
         HttpMessageConvertersAutoConfiguration.class,
         JacksonAutoConfiguration.class,
-        WebSocketServletAutoConfiguration.class,
+        WebSocketMessagingAutoConfiguration.class,
     })
     @Import({ WebSocketConfig.class, WebSocketAuthInterceptor.class, ChatController.class })
     static class TestApp { }

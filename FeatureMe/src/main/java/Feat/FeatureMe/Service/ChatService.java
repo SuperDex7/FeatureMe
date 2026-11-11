@@ -823,7 +823,7 @@ return newChat;
     private void sendChatDeletionNotification(String chatRoomId, String chatName) {
         try {
             // Send a general notification to all users about the chat deletion
-            messagingTemplate.convertAndSend("/topic/chat-deletions", Map.of(
+            messagingTemplate.convertAndSend("/topic/chat-deletions", (Object) Map.of(
                 "chatRoomId", chatRoomId,
                 "chatName", chatName,
                 "message", "Chat '" + chatName + "' has been deleted",
