@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
+import Icon from "./ui/Icon";
 import "../Styling/LikesSection.css";
 
 function LikesSection({ 
@@ -129,99 +130,61 @@ function LikesSection({
 
   const isUserLiked = currentUser ? localLikes.some(like => like.userName === currentUser.userName) : false;
 
+  const shownLikes = (showAllLikes ? paginatedLikes : localLikes) || [];
+  const likeCount = totalLikes || localLikes.length;
+
   return (
-    <div className="posts-likes-container">
-      {/* Header */}
-      <div className="posts-likes-header">
-        <div className="posts-likes-title-section">
-          <div className="posts-likes-icon">❤️</div>
-          <h3 className="posts-likes-title">Likes</h3>
-          <div className="posts-likes-count">{totalLikes || localLikes.length}</div>
-        </div>
-        
+    <div className="fm-likes">
+      <div className="fm-likes__head">
+        <button
+          type="button"
+          className={`fm-btn ${isUserLiked ? "fm-btn--primary" : "fm-btn--secondary"} fm-likes__like`}
+          onClick={handleLike}
+          disabled={isLiking || !currentUser}
+          aria-pressed={isUserLiked}
+        >
+          <Icon name="heart" size={18} fill={isUserLiked ? "currentColor" : "none"} />
+          {isLiking ? "Saving..." : isUserLiked ? "Liked" : "Like"}
+        </button>
+        <span className="fm-likes__count">
+          {likeCount} {likeCount === 1 ? "like" : "likes"}
+        </span>
         {totalLikes > (localLikes?.length || 0) && (
-          <button 
-            className="posts-view-all-btn"
-            onClick={toggleShowAllLikes}
-          >
-            {showAllLikes ? 'Recent' : `View All`}
+          <button type="button" className="fm-likes__toggle" onClick={toggleShowAllLikes}>
+            {showAllLikes ? "Show recent" : "View all"}
           </button>
         )}
       </div>
 
-      {/* Like Button */}
-      <div className="posts-like-button-section">
-        <button 
-          className={`posts-like-btn ${isUserLiked ? 'posts-liked' : ''} ${isLiking ? 'posts-liking' : ''}`}
-          onClick={handleLike}
-          disabled={isLiking}
-        >
-          <div className="posts-like-btn-content">
-            <span className="posts-like-icon">
-              {isLiking ? '⏳' : isUserLiked ? '❤️' : '🤍'}
-            </span>
-            <span className="posts-like-text">
-              {isLiking ? 'Processing...' : isUserLiked ? 'Liked' : 'Like'}
-            </span>
-          </div>
-          {isUserLiked && <div className="posts-like-particles"></div>}
+      {shownLikes.length > 0 ? (
+        <ul className="fm-likes__list">
+          {shownLikes.map((like, index) => (
+            like && like.userName ? (
+              <li key={`${like.userName}-${index}`}>
+                <a href={`/profile/${like.userName}`} className="fm-likes__person">
+                  <img src={like.profilePic || "/dpp.jpg"} alt="" loading="lazy" />
+                  <span>{like.userName}</span>
+                </a>
+              </li>
+            ) : null
+          ))}
+        </ul>
+      ) : (
+        !loading && <p className="fm-likes__empty">No likes yet. Be the first to show some love.</p>
+      )}
+
+      {showAllLikes && hasMore && !loading && (
+        <button type="button" className="fm-btn fm-btn--secondary fm-likes__more" onClick={loadMoreLikes}>
+          Load more
         </button>
-      </div>
+      )}
 
-      {/* Likes Grid */}
-      <div className="posts-likes-content">
-        {(showAllLikes ? paginatedLikes : localLikes) && (showAllLikes ? paginatedLikes : localLikes).length > 0 ? (
-          <div className="posts-likes-grid">
-            {(showAllLikes ? paginatedLikes : localLikes).map((like, index) => (
-              like && like.userName ? (
-                <div key={index} className="posts-like-item">
-                  <a href={`/profile/${like.userName}`} className="posts-like-link">
-                    <div className="posts-like-avatar-container">
-                      <img 
-                        className="posts-like-avatar" 
-                        src={like.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
-                        alt={like.userName}
-                        loading="lazy"
-                      />
-                      <div className="posts-like-avatar-border"></div>
-                    </div>
-                    <div className="posts-like-info">
-                      <span className="posts-like-username">{like.userName}</span>
-                    </div>
-                  </a>
-                </div>
-              ) : null
-            ))}
-          </div>
-        ) : (
-          <div className="posts-no-likes">
-            <div className="posts-no-likes-icon">💔</div>
-            <h4 className="posts-no-likes-title">No likes yet</h4>
-            <p className="posts-no-likes-text">Be the first to show some love!</p>
-          </div>
-        )}
-
-        {/* Load More */}
-        {showAllLikes && hasMore && !loading && (
-          <div className="posts-load-more-section">
-            <button 
-              className="posts-load-more-btn"
-              onClick={loadMoreLikes}
-            >
-              <span className="posts-load-more-icon">➕</span>
-              <span className="posts-load-more-text">Load More</span>
-            </button>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && (
-          <div className="posts-likes-loading">
-            <div className="posts-loading-spinner"></div>
-            <span className="posts-loading-text">Loading likes...</span>
-          </div>
-        )}
-      </div>
+      {loading && (
+        <div className="fm-likes__loading" role="status">
+          <span className="fm-spinner" aria-hidden="true" />
+          Loading likes...
+        </div>
+      )}
     </div>
   );
 }

@@ -19,6 +19,13 @@ const STROKE_ICONS = {
   chevronRight: <path d="M9 6l6 6-6 6" />,
   heart: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
   eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.5" /></>,
+  volume: <><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>,
+  volumeOff: <><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" /><path d="M16 9.5l5 5M21 9.5l-5 5" /></>,
+  download: <><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5" /><path d="M5 19h14" /></>,
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
+  trash: <><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></>,
+  chart: <path d="M5 19V11M12 19V5M19 19v-6" />,
+  chevronLeft: <path d="M15 6l-6 6 6 6" />,
 };
 
 const FILL_ICONS = {

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import api, { getCurrentUser } from "../services/AuthService";
 import { deleteComment } from "../services/PostsService";
+import Icon from "./ui/Icon";
 import "./CommentSection2.css";
 
 function CommentSection2({ 
@@ -28,13 +29,11 @@ function CommentSection2({
   const [replyInput, setReplyInput] = useState("");
   const [commentReactions, setCommentReactions] = useState({});
   const [showReactionPicker, setShowReactionPicker] = useState(null);
-  const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
   
   const pageSize = 10;
   const inputRef = useRef(null);
   const replyInputRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
   // Available reaction emojis
   const reactions = ['❤️', '👍', '😂', '😮', '😢', '🔥', '💯', '👏'];
@@ -51,26 +50,7 @@ function CommentSection2({
     setTotalComments(totalCommentsFromPost);
   }, [totalCommentsFromPost]);
 
-  // Handle typing indicator
-  useEffect(() => {
-    if (commentInput.trim()) {
-      setIsTyping(true);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-      }, 1000);
-    } else {
-      setIsTyping(false);
-    }
 
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, [commentInput]);
 
   // Load paginated comments
   const loadPaginatedComments = async (page = 0, append = false) => {
@@ -123,7 +103,6 @@ function CommentSection2({
       // Optimistic update
       onAddComment(newComment);
       setCommentInput("");
-      setIsTyping(false);
       
       try {
         await api.post(`/posts/add/comment/${postId}`, commentInput, {
@@ -254,7 +233,7 @@ function CommentSection2({
           <a href={`/profile/${comment.userName}`}>
             <img 
               className="cs2-avatar" 
-              src={comment.profilePic || "https://randomuser.me/api/portraits/men/32.jpg"} 
+              src={comment.profilePic || "/dpp.jpg"} 
               alt={comment.userName} 
             />
           </a>
@@ -315,8 +294,9 @@ function CommentSection2({
                   onClick={() => handleDeleteComment(comment)}
                   disabled={deletingComment === comment.id}
                   title={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
+                  aria-label={currentUser.userName === comment.userName ? "Delete your comment" : "Delete comment (as post author)"}
                 >
-                  {deletingComment === comment.id ? '...' : '🗑️'}
+                  {deletingComment === comment.id ? '...' : <Icon name="trash" size={16} />}
                 </button>
               )}
             </div>
@@ -390,7 +370,7 @@ function CommentSection2({
       <div className="cs2-section-header">
         <div className="cs2-header-left">
           <h3 className="cs2-section-title">
-            <span className="cs2-icon">💬</span>
+            <Icon name="message" size={18} className="cs2-icon" />
             Comments
           </h3>
           <span className="cs2-count">{totalComments || comments?.length || 0}</span>
@@ -405,17 +385,6 @@ function CommentSection2({
               {showAllComments ? 'Show Recent' : `View All ${totalComments}`}
             </button>
           )}
-          
-          {isTyping && (
-            <div className="cs2-typing-indicator">
-              <span className="cs2-typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-              </span>
-              <span className="cs2-typing-text">Someone is typing...</span>
-            </div>
-          )}
         </div>
       </div>
       
@@ -427,7 +396,7 @@ function CommentSection2({
             )
           ) : (
             <div className="cs2-no-comments">
-              <div className="cs2-no-comments-icon">💭</div>
+              
               <h4>No comments yet</h4>
               <p>Be the first to share your thoughts!</p>
             </div>
@@ -488,7 +457,7 @@ function CommentSection2({
               className="cs2-send-btn" 
               disabled={!commentInput.trim()}
             >
-              <span className="cs2-send-icon">➤</span>
+              
               Post
             </button>
           </div>
