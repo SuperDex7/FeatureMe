@@ -1,10 +1,14 @@
 package Feat.FeatureMe.config;
 
 import java.security.Principal;
+import java.util.Date;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -16,11 +20,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.server.HandshakeInterceptor;
 
 import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.ChatService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.UserService;
+import jakarta.servlet.http.Cookie;
 
 /**
  * Authenticates STOMP sessions and authorizes chat subscriptions.
@@ -36,9 +43,11 @@ import Feat.FeatureMe.Service.UserService;
  * SEND: requires an authenticated session; the handlers in ChatController enforce membership.
  */
 @Component
-public class WebSocketAuthInterceptor implements ChannelInterceptor {
+public class WebSocketAuthInterceptor implements ChannelInterceptor, HandshakeInterceptor {
 
     static final String USERNAME_ATTR = "ws.userName";
+    /** java.util.Date when the token that authenticated this session expires. */
+    static final String EXPIRES_ATTR = "ws.tokenExpires";
 
     private static final Pattern CHAT_TOPIC = Pattern.compile("^/topic/chat/([^/]+)$");
     private static final String CHAT_DELETIONS_TOPIC = "/topic/chat-deletions";
@@ -69,17 +78,69 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         if (command == StompCommand.CONNECT) {
             authenticate(accessor);
         } else if (command == StompCommand.SUBSCRIBE) {
+            requireUnexpired(accessor);
             authorizeSubscribe(accessor);
         } else if (command == StompCommand.SEND) {
+            requireUnexpired(accessor);
             requireUser(accessor);
         }
         return message;
     }
 
+    // ---- Handshake: remember when the web client's cookie token expires ----
+
+    @Override
+    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                                   WebSocketHandler wsHandler, Map<String, Object> attributes) {
+        if (request instanceof ServletServerHttpRequest servletRequest) {
+            Cookie[] cookies = servletRequest.getServletRequest().getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("sessionToken".equals(cookie.getName())) {
+                        try {
+                            Date expiry = jwtService.extractExpiration(cookie.getValue());
+                            if (expiry != null) {
+                                attributes.put(EXPIRES_ATTR, expiry);
+                            }
+                        } catch (Exception e) {
+                            // Invalid cookie: the JWT filter already rejects these; CONNECT will fail without a user
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                               WebSocketHandler wsHandler, Exception exception) { }
+
+    /**
+     * A STOMP session outlives the token that opened it. Once that token expires, reject
+     * further frames; the server then closes the session and the client must reconnect
+     * with a valid token.
+     */
+    private void requireUnexpired(StompHeaderAccessor accessor) {
+        Map<String, Object> attrs = accessor.getSessionAttributes();
+        Object expires = attrs != null ? attrs.get(EXPIRES_ATTR) : null;
+        if (expires instanceof Date expiry && expiry.before(new Date())) {
+            throw new AccessDeniedException("Session token expired");
+        }
+    }
+
     private void authenticate(StompHeaderAccessor accessor) {
         String authHeader = accessor.getFirstNativeHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            accessor.setUser(authenticateToken(authHeader.substring(7)));
+            String jwt = authHeader.substring(7);
+            accessor.setUser(authenticateToken(jwt));
+            // Session attribute maps are ConcurrentHashMaps on a live server: no null values
+            Date expiry = jwtService.extractExpiration(jwt);
+            Map<String, Object> attrs = accessor.getSessionAttributes();
+            if (attrs != null && expiry != null) {
+                attrs.put(EXPIRES_ATTR, expiry);
+            }
         }
 
         Principal user = accessor.getUser();

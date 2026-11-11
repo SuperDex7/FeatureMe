@@ -36,6 +36,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
        // Native mobile clients send no Origin header and are unaffected.
        registry.addEndpoint("/ws")
        .setAllowedOriginPatterns(SecurityConfig.allowedOrigins().toArray(String[]::new))
+       .addInterceptors(webSocketAuthInterceptor) // records the cookie token's expiry
        .withSockJS();
     }
 

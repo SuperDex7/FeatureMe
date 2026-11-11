@@ -3,11 +3,14 @@ package Feat.FeatureMe.config;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +22,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.messaging.Message;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -33,6 +40,7 @@ import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.ChatService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.UserService;
+import jakarta.servlet.http.Cookie;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -204,6 +212,71 @@ class WebSocketAuthInterceptorTest {
             accessor.setDestination("/topic/chat/room-1");
 
             assertThrows(AccessDeniedException.class, () -> send(accessor));
+        }
+    }
+
+    @Nested
+    @DisplayName("Token expiry")
+    class Expiry {
+
+        private final Date past = new Date(System.currentTimeMillis() - 60_000);
+        private final Date future = new Date(System.currentTimeMillis() + 3_600_000);
+
+        @Test
+        @DisplayName("CONNECT with a Bearer token records when it expires")
+        void connectRecordsExpiry() {
+            when(jwtService.extractExpiration(VALID_JWT)).thenReturn(future);
+            StompHeaderAccessor accessor = frame(StompCommand.CONNECT);
+            accessor.setNativeHeader("Authorization", "Bearer " + VALID_JWT);
+
+            send(accessor);
+
+            assertEquals(future, accessor.getSessionAttributes().get(WebSocketAuthInterceptor.EXPIRES_ATTR));
+        }
+
+        @Test
+        @DisplayName("the handshake records the web cookie token's expiry")
+        void handshakeRecordsCookieExpiry() {
+            when(jwtService.extractExpiration("cookie.jwt")).thenReturn(future);
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/info");
+            request.setCookies(new Cookie("sessionToken", "cookie.jwt"));
+            Map<String, Object> attributes = new HashMap<>();
+
+            boolean proceed = interceptor.beforeHandshake(new ServletServerHttpRequest(request),
+                new ServletServerHttpResponse(new MockHttpServletResponse()), null, attributes);
+
+            assertTrue(proceed);
+            assertEquals(future, attributes.get(WebSocketAuthInterceptor.EXPIRES_ATTR));
+        }
+
+        @Test
+        @DisplayName("SEND after the token expired is rejected")
+        void sendAfterExpiryRejected() {
+            StompHeaderAccessor accessor = connectedFrame(StompCommand.SEND);
+            accessor.setDestination("/app/chat/room-1/send");
+            accessor.getSessionAttributes().put(WebSocketAuthInterceptor.EXPIRES_ATTR, past);
+
+            assertThrows(AccessDeniedException.class, () -> send(accessor));
+        }
+
+        @Test
+        @DisplayName("SUBSCRIBE after the token expired is rejected")
+        void subscribeAfterExpiryRejected() {
+            StompHeaderAccessor accessor = connectedFrame(StompCommand.SUBSCRIBE);
+            accessor.setDestination("/topic/chat/room-1");
+            accessor.getSessionAttributes().put(WebSocketAuthInterceptor.EXPIRES_ATTR, past);
+
+            assertThrows(AccessDeniedException.class, () -> send(accessor));
+        }
+
+        @Test
+        @DisplayName("frames before expiry are allowed")
+        void sendBeforeExpiryAllowed() {
+            StompHeaderAccessor accessor = connectedFrame(StompCommand.SEND);
+            accessor.setDestination("/app/chat/room-1/send");
+            accessor.getSessionAttributes().put(WebSocketAuthInterceptor.EXPIRES_ATTR, future);
+
+            assertDoesNotThrow(() -> send(accessor));
         }
     }
 
