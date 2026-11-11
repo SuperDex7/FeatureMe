@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import Feat.FeatureMe.Dto.LoginDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
+import Feat.FeatureMe.Dto.PublicUserDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Dto.UserSearchDTO;
@@ -361,9 +362,12 @@ public class UserController {
         userService.updateUser(userr.getId(), userUpdateData);
     }
     
+    // Profile lookups return PublicUserDTO: other users' chats, notifications,
+    // liked posts, purchases and comment history are private. The owner gets
+    // the full UserDTO from /me.
     @GetMapping("/get")
-    public List<UserDTO> getAllUsers() {
-        return userService.getAllUsers();
+    public List<PublicUserDTO> getAllUsers() {
+        return userService.getAllUsers().stream().map(PublicUserDTO::from).toList();
     }
     @GetMapping("/get/list/{userName}")
     public PagedModel<UserPostsDTO> getUserByName(@PathVariable String userName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
@@ -377,13 +381,13 @@ public class UserController {
     }
 
     @GetMapping("/get/{userName}")
-    public UserDTO getUserByUserName(@PathVariable String userName) {
-        return userService.getAUser(userName);
+    public PublicUserDTO getUserByUserName(@PathVariable String userName) {
+        return PublicUserDTO.from(userService.getAUser(userName));
     }
     @GetMapping("/get/id/{id}")
-        public UserDTO getUserById(@PathVariable String id){
-            return userService.getUserById(id);
-        }
+    public PublicUserDTO getUserById(@PathVariable String id){
+        return PublicUserDTO.from(userService.getUserById(id));
+    }
     
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id) {
