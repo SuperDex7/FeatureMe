@@ -481,13 +481,6 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to clear notifications");
         }
     }
-    @PostMapping("/follow/{follower}/{following}")
-    public String postMethodName(@PathVariable String follower, @PathVariable String following) {
-        
-        return userService.follow(follower, following);
-        
-    }
-    
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {
