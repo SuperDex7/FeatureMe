@@ -1,0 +1,294 @@
+/* Post card (FeedItem) and post modal. Values from tokens.css; primitives from components.css. */
+
+.fm-post {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-4);
+  padding: var(--fm-space-5);
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border);
+  border-radius: var(--fm-radius-lg);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-base);
+  line-height: 1.5;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.fm-post:hover {
+  border-color: var(--fm-border-strong);
+}
+
+.fm-post a {
+  text-decoration: none;
+}
+
+.fm-post :is(a, button):focus-visible,
+.fm-modal :is(a, button):focus-visible {
+  outline: none;
+  box-shadow: var(--fm-focus-ring);
+  border-radius: var(--fm-radius-sm);
+}
+
+.fm-post__head,
+.fm-modal__head {
+  display: flex;
+  align-items: center;
+  gap: var(--fm-space-3);
+}
+
+.fm-post__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--fm-surface-3);
+}
+
+.fm-post__byline {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.fm-post__author {
+  color: var(--fm-text);
+  font-weight: 600;
+}
+
+.fm-post__author:hover {
+  color: var(--fm-accent-text-hover);
+}
+
+.fm-post__time {
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
+}
+
+.fm-post__title {
+  margin: 0;
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.fm-post__title--lg {
+  font-size: 28px;
+}
+
+.fm-post__title-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fm-post__features {
+  margin: 2px 0 0;
+  color: var(--fm-accent-text);
+  font-size: var(--fm-text-md);
+  font-weight: 500;
+}
+
+.fm-post__features a {
+  color: var(--fm-accent-text);
+}
+
+.fm-post__features a:hover {
+  color: var(--fm-accent-text-hover);
+  text-decoration: underline;
+}
+
+.fm-post__more {
+  color: var(--fm-muted);
+}
+
+.fm-post__description {
+  margin: var(--fm-space-2) 0 0;
+  color: var(--fm-text-2);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.fm-post__description--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Collapsed player row (before the real player opens) */
+.fm-post__play-row {
+  display: flex;
+  align-items: center;
+  gap: var(--fm-space-3);
+  width: 100%;
+  padding: 10px var(--fm-space-3);
+  border: 0;
+  border-radius: var(--fm-radius-md);
+  background: var(--fm-surface-2);
+  color: var(--fm-text-2);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-md);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fm-post__play-row:hover {
+  color: var(--fm-text);
+}
+
+.fm-post__play-btn {
+  flex: none;
+  width: var(--fm-touch);
+  height: var(--fm-touch);
+  border-radius: 50%;
+  background: var(--fm-accent);
+  color: var(--fm-accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fm-post__tags,
+.fm-post__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2);
+}
+
+.fm-post__spacer {
+  flex: 1;
+}
+
+.fm-post__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 var(--fm-space-2);
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.fm-post__stat--btn {
+  border: 0;
+  border-radius: var(--fm-radius-sm);
+  background: transparent;
+  font-family: var(--fm-font-body);
+  cursor: pointer;
+}
+
+.fm-post__stat--btn:hover {
+  background: var(--fm-surface-2);
+  color: var(--fm-text);
+}
+
+/* Modal */
+.fm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--fm-space-10) var(--fm-space-4);
+  overflow-y: auto;
+  background: rgba(8, 9, 12, 0.72);
+  cursor: default;
+}
+
+.fm-modal {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-xl);
+  box-shadow: var(--fm-shadow-pop);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-base);
+  line-height: 1.5;
+}
+
+.fm-modal a {
+  text-decoration: none;
+}
+
+.fm-modal__head {
+  padding: var(--fm-space-5) var(--fm-space-5) 0;
+}
+
+.fm-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-4);
+  padding: var(--fm-space-4) var(--fm-space-5);
+}
+
+.fm-modal__body .fm-post__description {
+  margin: 0;
+}
+
+.fm-modal__tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fm-space-1);
+  padding-top: var(--fm-space-2);
+  border-top: 1px solid var(--fm-border);
+}
+
+.fm-modal__activity {
+  min-height: 80px;
+}
+
+.fm-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2);
+  padding: var(--fm-space-4) var(--fm-space-5) var(--fm-space-5);
+  border-top: 1px solid var(--fm-border);
+}
+
+@media (max-width: 560px) {
+  .fm-post {
+    padding: var(--fm-space-4);
+  }
+
+  .fm-modal-overlay {
+    padding: 0;
+  }
+
+  .fm-modal {
+    min-height: 100%;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .fm-modal__actions .fm-btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-post {
+    transition: none;
+  }
+}

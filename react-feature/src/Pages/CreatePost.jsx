@@ -4,11 +4,8 @@ import Header from "../Components/Header";
 import Footer from "../Components/Footer";
 import { useNavigate } from "react-router-dom";
 import api, { getCurrentUser } from "../services/AuthService";
-import { listUsers } from "../services/UserService";
-const GENRES = [
-  "Song","Beat","Loop", "Sample", "Acapella","Instrument","Open","Free","Paid",'Hip Hop','Underground','Trap','Drill', 'Pop', 'Punk', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
-  'Reggae', 'Metal', 'Country', 'Indie','Folk', 'Blues', 'Afrobeat'
-];
+import { listUsers } from "../services/UserService";
+import { GENRES } from "../constants/genres";
 
 function CreatePost(){
   const [currentStep, setCurrentStep] = useState(1);

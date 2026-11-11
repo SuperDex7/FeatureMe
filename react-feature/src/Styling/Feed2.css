@@ -1,0 +1,199 @@
+/* Feed list (Feed2): toolbar, filters, list, pagination, filter dialog. Values from tokens.css. */
+
+.fm-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-5);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+}
+
+.fm-feed__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fm-space-3);
+}
+
+.fm-feed__search {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--fm-space-2);
+  height: var(--fm-touch);
+  padding: 0 4px 0 var(--fm-space-3);
+  box-sizing: border-box;
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-md);
+  color: var(--fm-muted);
+}
+
+.fm-feed__search:focus-within {
+  border-color: var(--fm-accent);
+}
+
+.fm-feed__search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--fm-text);
+  font: inherit;
+  font-size: var(--fm-text-md);
+}
+
+.fm-feed__search input::placeholder {
+  color: var(--fm-muted);
+}
+
+.fm-feed__search-submit {
+  min-height: 34px;
+  padding: 0 var(--fm-space-3);
+  font-size: var(--fm-text-md);
+}
+
+.fm-feed__active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fm-space-2);
+}
+
+.fm-feed__results-label {
+  margin-right: var(--fm-space-1);
+  color: var(--fm-text-2);
+  font-weight: 500;
+}
+
+.fm-feed__clear {
+  padding: var(--fm-space-2);
+  border: 0;
+  border-radius: var(--fm-radius-sm);
+  background: transparent;
+  color: var(--fm-accent-text);
+  font: inherit;
+  font-size: var(--fm-text-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fm-feed__clear:hover {
+  color: var(--fm-accent-text-hover);
+}
+
+.fm-feed__clear:focus-visible,
+.fm-feed__search input:focus-visible {
+  outline: none;
+  box-shadow: var(--fm-focus-ring);
+}
+
+.fm-feed__search input:focus-visible {
+  box-shadow: none;
+}
+
+.fm-feed__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-4);
+}
+
+.fm-feed__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fm-space-4);
+  flex-wrap: wrap;
+}
+
+.fm-feed__page-info {
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filter dialog */
+.fm-filter-dialog {
+  width: 100%;
+  max-width: 560px;
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-xl);
+  box-shadow: var(--fm-shadow-pop);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+}
+
+.fm-filter-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fm-space-3);
+  padding: var(--fm-space-4) var(--fm-space-4) var(--fm-space-2) var(--fm-space-5);
+}
+
+.fm-filter-dialog__head h2 {
+  margin: 0;
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-xl);
+  font-weight: 600;
+}
+
+.fm-filter-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-5);
+  padding: var(--fm-space-2) var(--fm-space-5) var(--fm-space-5);
+}
+
+.fm-filter-dialog__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fm-filter-dialog__group legend {
+  margin-bottom: var(--fm-space-3);
+  padding: 0;
+  color: var(--fm-muted);
+  font-size: var(--fm-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fm-filter-dialog__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2);
+}
+
+.fm-filter-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2);
+  padding: var(--fm-space-4) var(--fm-space-5);
+  border-top: 1px solid var(--fm-border);
+}
+
+@media (max-width: 560px) {
+  .fm-feed__toolbar > .fm-segmented {
+    flex: 1 1 auto;
+  }
+
+  .fm-feed__toolbar > .fm-segmented .fm-segment {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .fm-filter-dialog {
+    border-radius: var(--fm-radius-lg);
+  }
+
+  .fm-filter-dialog__actions .fm-btn {
+    flex: 1 1 auto;
+  }
+}
