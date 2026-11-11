@@ -13,9 +13,27 @@ env:
   ECR_REPOSITORY_FRONTEND: featureme-frontend
 
 jobs:
-  build-and-deploy:
+  # Pull requests: only check that both images build. No AWS credentials, no image
+  # push and no deploy, so opening a PR can never change production.
+  build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build backend image
+      run: docker build -t featureme-backend:pr FeatureMe
+
+    - name: Build frontend image
+      run: docker build -t featureme-frontend:pr react-feature
+
+  # Pushes to main (merges): build, push to ECR and deploy to EC2.
+  build-and-deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
