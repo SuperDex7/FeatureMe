@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -10,7 +11,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -68,7 +68,7 @@ public class PostsController {
                     
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
 
@@ -107,7 +107,7 @@ public class PostsController {
                             @RequestPart("file") MultipartFile file) throws IOException {
         // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -149,10 +149,6 @@ public class PostsController {
             });
     }
     
-    @PatchMapping("/update/{id}")
-    public Posts updatePost(@PathVariable String id, @RequestBody Posts posts) {
-        return postsService.updatePost(id, posts);
-    }
     @PostMapping("view/{id}")
     public void AddView(@PathVariable String id, @RequestParam(required = false) String userName) {
         String finalUserName;
@@ -163,7 +159,7 @@ public class PostsController {
         } else {
             // Try to get authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 // No auth, treat as unknown user
                 finalUserName = "unknown";
             } else {
@@ -194,7 +190,7 @@ public class PostsController {
         } else {
             // Try to get authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 // No auth, treat as unknown user
                 finalUserName = "unknown";
                 finalUserId = "unknown";
@@ -341,7 +337,7 @@ public class PostsController {
     public void deletePost(@PathVariable String id) {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -397,7 +393,7 @@ public class PostsController {
     public ResponseEntity<String> addLikes(@PathVariable String id){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -413,7 +409,7 @@ public class PostsController {
     public ResponseEntity<String> addComment(@PathVariable String id, @RequestBody String comment){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -429,7 +425,7 @@ public class PostsController {
     public boolean deleteComment(@PathVariable String commentId){
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -444,7 +440,7 @@ public class PostsController {
     public boolean approveFeature(@PathVariable String postId) {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -459,7 +455,7 @@ public class PostsController {
     public boolean rejectFeature(@PathVariable String postId) {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -474,7 +470,7 @@ public class PostsController {
     public List<PostsDTO> getPendingFeatureRequests() {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         

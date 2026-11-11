@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -63,7 +64,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSession() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -131,7 +132,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSessionYearly() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -328,7 +329,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -385,14 +386,15 @@ public class StripeController {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "Stripe cancellation failed");
                 error.put("message", "There was an issue canceling the subscription with Stripe. Please contact support.");
-                error.put("stripe_error", stripeException.getMessage());
                 return error;
             }
             
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to cancel subscription");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -403,7 +405,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -425,7 +427,9 @@ public class StripeController {
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to get subscription status");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -438,7 +442,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
                 error.put("error", "User not authenticated");
@@ -548,7 +552,7 @@ public class StripeController {
             e.printStackTrace();
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
-            error.put("error", "Receipt validation failed: " + e.getMessage());
+            error.put("error", "Receipt validation failed");
             return error;
         }
     }
@@ -683,7 +687,7 @@ public class StripeController {
             System.err.println("Error validating Apple receipt: " + e.getMessage());
             e.printStackTrace();
             result.put("valid", false);
-            result.put("error", "Error validating receipt: " + e.getMessage());
+            result.put("error", "Error validating receipt");
             return result;
         }
     }
@@ -868,7 +872,7 @@ public class StripeController {
             System.err.println("❌ Apple webhook error: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
-            response.put("error", "Error processing notification: " + e.getMessage());
+            response.put("error", "Error processing notification");
             return response;
         }
     }

@@ -1,4 +1,5 @@
 import api from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API base URL for WebSocket
 const API_BASE_URL = __DEV__ 
@@ -81,11 +82,16 @@ export class ChatWebSocketService {
                 const { Client } = require('@stomp/stompjs');
                 const SockJS = require('sockjs-client');
                 
-                // Create SockJS connection
-                const socket = new SockJS(WS_URL);
-                
                 this.stompClient = new Client({
-                    webSocketFactory: () => socket,
+                    // New SockJS socket per attempt so automatic reconnects don't reuse a closed one
+                    webSocketFactory: () => new SockJS(WS_URL),
+                    // The server rejects unauthenticated STOMP connections. SockJS can't send
+                    // HTTP headers, so the JWT goes in the CONNECT frame. Read it before every
+                    // (re)connect so a refreshed token is picked up.
+                    beforeConnect: async () => {
+                        const token = await AsyncStorage.getItem('authToken');
+                        this.stompClient.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+                    },
                     reconnectDelay: 5000,
                     heartbeatIncoming: 4000,
                     heartbeatOutgoing: 4000,

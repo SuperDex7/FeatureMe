@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -63,14 +62,5 @@ public class S3Controller
 		
 		// Upload file asynchronously
 		return s3Service.uploadFileAsync(keyName, fileContent);
-	}
-
-	//Downloads a file from AWS S3 to a specific location on your computer.
-	@GetMapping("/download")
-	public String downloadFile(@RequestParam String keyName,
-			@RequestParam String downloadPath)
-	{
-		s3Service.downloadFile(keyName, downloadPath);
-		return "File downloaded successfully.";
 	}
 }

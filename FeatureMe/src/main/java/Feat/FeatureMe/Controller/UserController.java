@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -8,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import Feat.FeatureMe.Dto.LoginDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
+import Feat.FeatureMe.Dto.PublicUserDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Dto.UserSearchDTO;
@@ -27,8 +29,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,7 +41,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
-import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -174,6 +178,20 @@ public class UserController {
     private static final String DEFAULT_BANNER_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/pb.jpg";
     
     /**
+     * The web client's JWT cookie. HttpOnly so scripts can't read it, Secure so it only
+     * travels over HTTPS, and SameSite=Lax so other sites can't send it with their requests.
+     */
+    static ResponseCookie sessionCookie(String value, Duration maxAge) {
+        return ResponseCookie.from("sessionToken", value)
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(maxAge)
+            .build();
+    }
+
+    /**
      * Helper method to get default profile picture URL, replacing relative paths with S3 URL
      */
     private String getDefaultProfilePicUrl(String profilePic) {
@@ -277,7 +295,7 @@ public class UserController {
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -360,9 +378,12 @@ public class UserController {
         userService.updateUser(userr.getId(), userUpdateData);
     }
     
+    // Profile lookups return PublicUserDTO: other users' chats, notifications,
+    // liked posts, purchases and comment history are private. The owner gets
+    // the full UserDTO from /me.
     @GetMapping("/get")
-    public List<UserDTO> getAllUsers() {
-        return userService.getAllUsers();
+    public List<PublicUserDTO> getAllUsers() {
+        return userService.getAllUsers().stream().map(PublicUserDTO::from).toList();
     }
     @GetMapping("/get/list/{userName}")
     public PagedModel<UserPostsDTO> getUserByName(@PathVariable String userName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
@@ -376,18 +397,18 @@ public class UserController {
     }
 
     @GetMapping("/get/{userName}")
-    public UserDTO getUserByUserName(@PathVariable String userName) {
-        return userService.getAUser(userName);
+    public PublicUserDTO getUserByUserName(@PathVariable String userName) {
+        return PublicUserDTO.from(userService.getAUser(userName));
     }
     @GetMapping("/get/id/{id}")
-        public UserDTO getUserById(@PathVariable String id){
-            return userService.getUserById(id);
-        }
+    public PublicUserDTO getUserById(@PathVariable String id){
+        return PublicUserDTO.from(userService.getUserById(id));
+    }
     
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
         
@@ -406,8 +427,10 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
+            System.err.println("Error deleting user " + id + ": " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error deleting user: " + e.getMessage());
+                .body("Error deleting user. Please try again.");
         }
     }
     @PostMapping("/auth/login")
@@ -423,12 +446,7 @@ public class UserController {
             String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getEmail());
             
             // Create HttpOnly cookie for the JWT token
-            Cookie sessionCookie = new Cookie("sessionToken", token);
-            sessionCookie.setHttpOnly(true);
-            sessionCookie.setSecure(true); // Set to true in production with HTTPS
-            sessionCookie.setPath("/");
-            sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
-            response.addCookie(sessionCookie);
+            response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie(token, Duration.ofHours(24)).toString());
                     
             Map<String, String> responseBody = new HashMap<>();
             responseBody.put("message", "Login successful");
@@ -438,21 +456,36 @@ public class UserController {
             
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            // Same message for unknown user and wrong password
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
         
     }
 
     @GetMapping("/get/notifications/{userName}")
-    public List<NotificationsDTO> getMethodName(@PathVariable String userName) {
-        return userService.getNoti(userName);
+    public ResponseEntity<?> getMyNotifications(@PathVariable String userName) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        User currentUser = userService.findByUsernameOrEmail(authentication.getName())
+            .orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        // Path kept for client compatibility, but you can only read your own notifications
+        if (!currentUser.getUserName().equals(userName)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only view your own notifications");
+        }
+        List<NotificationsDTO> notifications = userService.getNoti(currentUser.getUserName());
+        return ResponseEntity.ok(notifications);
     }
 
     @PostMapping("/notifications/clear")
     public ResponseEntity<?> clearMyNotifications() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
 
@@ -466,18 +499,11 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to clear notifications");
         }
     }
-    @PostMapping("/follow/{follower}/{following}")
-    public String postMethodName(@PathVariable String follower, @PathVariable String following) {
-        
-        return userService.follow(follower, following);
-        
-    }
-    
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
             
@@ -492,7 +518,9 @@ public class UserController {
             UserDTO userDTO = userService.getAUser(user.getUserName());
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info: " + e.getMessage());
+            System.err.println("Error retrieving current user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info");
         }
     }
     
@@ -504,7 +532,7 @@ public class UserController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "User not authenticated"));
             }
@@ -537,20 +565,18 @@ public class UserController {
                     .body(Map.of("error", "Current password is incorrect"));
             }
         } catch (Exception e) {
+            System.err.println("Error changing password: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to change password: " + e.getMessage()));
+                .body(Map.of("error", "Failed to change password. Please try again."));
         }
     }
 
     @PostMapping("/auth/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
-        // Create an empty cookie to clear the session token
-        Cookie sessionCookie = new Cookie("sessionToken", "");
-        sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(true); // Set to true in production with HTTPS
-        sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(0); // Expire immediately
-        response.addCookie(sessionCookie);
+        // Overwrite the session cookie with an empty one that expires immediately
+        // (attributes must match the login cookie for the browser to replace it)
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie("", Duration.ZERO).toString());
         
         Map<String, String> responseBody = new HashMap<>();
         responseBody.put("message", "Logout successful");

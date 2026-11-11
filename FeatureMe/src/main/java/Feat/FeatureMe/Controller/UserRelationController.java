@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import Feat.FeatureMe.Dto.UserRelationDTO;
 import Feat.FeatureMe.Dto.UserRelationSummaryDTO;
 import Feat.FeatureMe.Entity.User;
@@ -32,7 +33,7 @@ public class UserRelationController {
     public ResponseEntity<String> followUser(@PathVariable String targetUserName) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
             
@@ -43,8 +44,13 @@ public class UserRelationController {
             String result = userRelationService.toggleFollow(currentUser.getUserName(), targetUserName);
             return ResponseEntity.ok(result);
             
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            // Validation messages meant for users, e.g. "Users cannot follow themselves"
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error toggling follow: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error: could not update follow. Please try again.");
         }
     }
     
@@ -55,7 +61,7 @@ public class UserRelationController {
     public ResponseEntity<Boolean> isFollowing(@PathVariable String targetUserName) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(401).body(false);
             }
             
@@ -112,7 +118,7 @@ public class UserRelationController {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String currentUserName = null;
             
-            if (authentication != null && authentication.isAuthenticated()) {
+            if (AuthUtils.isLoggedIn(authentication)) {
                 String email = authentication.getName();
                 User currentUser = userService.findByUsernameOrEmail(email).orElse(null);
                 if (currentUser != null) {
@@ -136,7 +142,7 @@ public class UserRelationController {
             @RequestParam(defaultValue = "10") int limit) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(401).build();
             }
             

@@ -156,11 +156,7 @@ const MessagesPage = () => {
   const loadConversations = async () => {
     try {
       const response = await ChatService.getChats(0, 50);
-      console.log('Full response from getChats:', response);
-      console.log('Response data:', response.data);
       const chatData = response.data.content || response.data;
-      console.log('Chat data:', chatData);
-      console.log('First conversation:', chatData[0]);
       setConversations(chatData);
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -224,8 +220,6 @@ const MessagesPage = () => {
   const loadMessages = async (conversation) => {
     try {
       const chatRoomId = conversation.ChatId || conversation.chatRoomId;
-      console.log('Loading messages for conversation:', conversation);
-      console.log('ChatRoomId:', chatRoomId);
       // reset paging
       setPage(0);
       setHasMore(true);
@@ -237,9 +231,6 @@ const MessagesPage = () => {
       // Subscribe to real-time updates for this chat
       if (chatWebSocketService.isWebSocketConnected()) {
         chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
-          console.log('New message received:', newMessage);
-          console.log('Message type:', newMessage.type);
-          console.log('Message content:', newMessage.message);
           setMessages(prevMessages => [...prevMessages, newMessage]);
           // Update the conversation's last message
           setConversations(prevConversations => 
@@ -261,10 +252,6 @@ const MessagesPage = () => {
 
   // Handle conversation selection
   const handleConversationSelect = (conversation) => {
-    console.log('Conversation selected:', conversation);
-    console.log('ChatId:', conversation.ChatId);
-    console.log('Message:', conversation.message);
-    console.log('Users:', conversation.users);
     setSelectedConversation(conversation);
     loadMessages(conversation);
     setError(null); // Clear any previous errors
@@ -712,7 +699,6 @@ const MessagesPage = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      console.log('File download started:', fileName);
     } catch (error) {
       console.error('Error downloading file:', error);
       alert('Failed to download file. Please try again.');

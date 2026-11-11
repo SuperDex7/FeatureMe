@@ -17,6 +17,7 @@ import Feat.FeatureMe.Service.CachedUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -36,11 +37,18 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(registry ->{
+                // Spring's error dispatch must stay reachable, otherwise every error becomes a 401
+                registry.requestMatchers("/error").permitAll();
+                registry.requestMatchers("/actuator/health").permitAll();
+
+                // Signup, login, password reset, availability checks
                 registry.requestMatchers("/api/user/auth/**").permitAll();
-                registry.requestMatchers("/api/user/me").authenticated();
-                registry.requestMatchers("/api/user/**").authenticated();
-                
-                // SPECIFIC posts endpoints that should be public (must come BEFORE general rule)
+
+                // Payment provider callbacks (no user session; Stripe verifies its signature)
+                registry.requestMatchers(HttpMethod.POST, "/api/payment/webhook").permitAll();
+                registry.requestMatchers(HttpMethod.POST, "/api/payment/apple-webhook").permitAll();
+
+                // Public post pages (shared /post/:id links work while logged out)
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/get/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/views/**").permitAll();
                 registry.requestMatchers(HttpMethod.POST, "/api/posts/view/**").permitAll();
@@ -48,13 +56,12 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
                 registry.requestMatchers(HttpMethod.POST, "/api/posts/download/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/comments/**").permitAll();
                 registry.requestMatchers(HttpMethod.GET, "/api/posts/likes/**").permitAll();
-                
-                // All other posts endpoints require authentication
-                registry.requestMatchers("/api/posts/**").permitAll();
-                
-                //registry.requestMatchers("/api/chats/**").authenticated();
-                registry.requestMatchers("/ws/**").permitAll(); // Allow WebSocket connections
-                registry.anyRequest().permitAll();
+
+                // SockJS/STOMP handshake
+                registry.requestMatchers("/ws/**").permitAll();
+
+                // Everything else (posts writes, chats, demos, s3, payments, users, relations) needs a valid JWT
+                registry.anyRequest().authenticated();
             })
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(optimizedJwtAuthenticationFilter(cachedUserDetailsService), UsernamePasswordAuthenticationFilter.class)
@@ -76,30 +83,36 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
         .build();
     }
 
+    /**
+     * Origins allowed for REST CORS and the WebSocket handshake.
+     * Production sets ALLOWED_ORIGINS (comma-separated); otherwise local dev origins.
+     */
+    static List<String> allowedOrigins() {
+        String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            return Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+        }
+        return List.of(
+            "http://localhost:3000",  // React frontend (HTTP setup)
+            "http://localhost:5173",  // Vite dev server
+            "https://localhost",      // HTTPS setup with nginx
+            "http://localhost",       // HTTP setup with nginx
+            "http://10.0.2.2:8080",  // Android emulator backend
+            "http://10.0.0.200:8080", // Your computer's IP for backend
+            "http://10.0.2.2:3000",  // Android emulator React dev
+            "exp://10.0.0.200:8081", // Expo development server
+            "exp://localhost:8081"    // Expo local development
+        );
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Get allowed origins from environment or use defaults
-        String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            // Production: use environment variable
-            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        } else {
-            // Development: use localhost origins
-            configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",  // React frontend (HTTP setup)
-                "http://localhost:5173",  // Vite dev server
-                "https://localhost",      // HTTPS setup with nginx
-                "http://localhost",       // HTTP setup with nginx
-                "http://10.0.2.2:8080",  // Android emulator backend
-                "http://10.0.0.200:8080", // Your computer's IP for backend
-                "http://10.0.2.2:3000",  // Android emulator React dev
-                "exp://10.0.0.200:8081", // Expo development server
-                "exp://localhost:8081"    // Expo local development
-            ));
-        }
-        
+        configuration.setAllowedOrigins(allowedOrigins());
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
