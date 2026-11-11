@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Date;
@@ -36,7 +38,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import Feat.FeatureMe.Entity.User;
-import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.ChatService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.UserService;
@@ -52,7 +53,6 @@ class WebSocketAuthInterceptorTest {
     private static final String VALID_JWT = "valid.jwt.token";
 
     @Mock private JwtService jwtService;
-    @Mock private CachedUserDetailsService userDetailsService;
     @Mock private UserService userService;
     @Mock private ChatService chatService;
 
@@ -60,18 +60,17 @@ class WebSocketAuthInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new WebSocketAuthInterceptor(jwtService, userDetailsService, userService, chatService);
+        interceptor = new WebSocketAuthInterceptor(jwtService, userService, chatService);
 
         User user = new User();
         user.setUserName(USERNAME);
+        user.setRole("USER");
         user.setEmail(EMAIL);
         when(userService.findByUsernameOrEmail(EMAIL)).thenReturn(Optional.of(user));
 
         when(jwtService.extractUsername(VALID_JWT)).thenReturn(EMAIL);
         when(jwtService.validateToken(VALID_JWT, EMAIL)).thenReturn(true);
         when(jwtService.extractUsername("bad.token")).thenThrow(new RuntimeException("bad signature"));
-        when(userDetailsService.loadUserByUsername(EMAIL)).thenReturn(
-            org.springframework.security.core.userdetails.User.withUsername(EMAIL).password("").authorities("USER").build());
 
         when(chatService.isUserInChat(anyString(), anyString())).thenReturn(false);
         when(chatService.isUserInChat("room-1", USERNAME)).thenReturn(true);
@@ -143,6 +142,31 @@ class WebSocketAuthInterceptorTest {
 
             assertEquals(EMAIL, accessor.getUser().getName());
             assertEquals(USERNAME, accessor.getSessionAttributes().get(WebSocketAuthInterceptor.USERNAME_ATTR));
+        }
+
+        @Test
+        @DisplayName("the token's subject is an email: the user is found by email, not only by username")
+        void bearerTokenLooksUpUserByEmail() {
+            StompHeaderAccessor accessor = frame(StompCommand.CONNECT);
+            accessor.setNativeHeader("Authorization", "Bearer " + VALID_JWT);
+
+            send(accessor);
+
+            verify(userService, atLeastOnce()).findByUsernameOrEmail(EMAIL);
+            assertEquals(List.of(new SimpleGrantedAuthority("USER")),
+                List.copyOf(((UsernamePasswordAuthenticationToken) accessor.getUser()).getAuthorities()));
+        }
+
+        @Test
+        @DisplayName("rejects a validly signed token for a user that no longer exists")
+        void rejectsTokenForDeletedUser() {
+            when(jwtService.extractUsername("deleted.jwt")).thenReturn("gone@example.com");
+            when(jwtService.validateToken("deleted.jwt", "gone@example.com")).thenReturn(true);
+            when(userService.findByUsernameOrEmail("gone@example.com")).thenReturn(Optional.empty());
+            StompHeaderAccessor accessor = frame(StompCommand.CONNECT);
+            accessor.setNativeHeader("Authorization", "Bearer deleted.jwt");
+
+            assertThrows(AccessDeniedException.class, () -> send(accessor));
         }
 
         @Test

@@ -49,7 +49,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import Feat.FeatureMe.Controller.ChatController;
 import Feat.FeatureMe.Entity.ChatMessage;
 import Feat.FeatureMe.Entity.User;
-import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.ChatService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.UserService;
@@ -84,7 +83,6 @@ class WebSocketAuthIntegrationTest {
     @LocalServerPort private int port;
 
     @MockitoBean private JwtService jwtService;
-    @MockitoBean private CachedUserDetailsService userDetailsService;
     @MockitoBean private UserService userService;
     @MockitoBean private ChatService chatService;
 
@@ -95,13 +93,11 @@ class WebSocketAuthIntegrationTest {
         User alice = new User();
         alice.setUserName("alice");
         alice.setEmail("alice@example.com");
+        alice.setRole("USER");
         when(userService.findByUsernameOrEmail("alice@example.com")).thenReturn(Optional.of(alice));
 
         when(jwtService.extractUsername(TOKEN)).thenReturn("alice@example.com");
         when(jwtService.validateToken(TOKEN, "alice@example.com")).thenReturn(true);
-        when(userDetailsService.loadUserByUsername("alice@example.com")).thenReturn(
-            org.springframework.security.core.userdetails.User.withUsername("alice@example.com")
-                .password("").authorities("USER").build());
 
         when(chatService.isUserInChat(anyString(), anyString())).thenReturn(false);
         when(chatService.isUserInChat(ROOM, "alice")).thenReturn(true);

@@ -2,6 +2,7 @@ package Feat.FeatureMe.config;
 
 import java.security.Principal;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,12 +19,12 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
-import Feat.FeatureMe.Service.CachedUserDetailsService;
+import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.ChatService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.UserService;
@@ -53,16 +54,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor, HandshakeIn
     private static final String CHAT_DELETIONS_TOPIC = "/topic/chat-deletions";
 
     private final JwtService jwtService;
-    private final CachedUserDetailsService userDetailsService;
     private final UserService userService;
     private final ChatService chatService;
 
     public WebSocketAuthInterceptor(JwtService jwtService,
-                                    CachedUserDetailsService userDetailsService,
                                     UserService userService,
                                     ChatService chatService) {
         this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
         this.userService = userService;
         this.chatService = chatService;
     }
@@ -158,14 +156,24 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor, HandshakeIn
         }
     }
 
+    /**
+     * Validates a JWT sent in the CONNECT frame. The token's subject is the user's email
+     * (see UserController login), so the user is looked up by email or username via
+     * UserService, the same way the REST layer resolves the logged-in user.
+     */
     private Authentication authenticateToken(String jwt) {
         try {
-            String subject = jwtService.extractUsername(jwt);
-            UserDetails details = userDetailsService.loadUserByUsername(subject);
-            if (!jwtService.validateToken(jwt, details.getUsername())) {
+            String subject = jwtService.extractUsername(jwt); // verifies the signature
+            if (subject == null || !jwtService.validateToken(jwt, subject)) {
                 throw new AccessDeniedException("Invalid or expired token");
             }
-            return new UsernamePasswordAuthenticationToken(details.getUsername(), null, details.getAuthorities());
+            User user = userService.findByUsernameOrEmail(subject)
+                .orElseThrow(() -> new AccessDeniedException("User not found"));
+            List<SimpleGrantedAuthority> authorities = user.getRole() != null
+                ? List.of(new SimpleGrantedAuthority(user.getRole()))
+                : List.of();
+            // Principal name = token subject (email), matching the REST filter and the web handshake
+            return new UsernamePasswordAuthenticationToken(subject, null, authorities);
         } catch (AccessDeniedException e) {
             throw e;
         } catch (Exception e) {
