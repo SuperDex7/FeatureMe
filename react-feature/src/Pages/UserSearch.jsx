@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/AuthService";
 import DemoService from "../services/DemoService";
 import AudioPlayer2 from "../Components/AudioPlayer2";
@@ -9,7 +9,11 @@ import "./UserSearch.css";
 
 function UserSearch() {
     const navigate = useNavigate();
-    const [searchTerm, setSearchTerm] = useState("");
+    const location = useLocation();
+    // The header's search box links here with ?q=<term>
+    const [searchTerm, setSearchTerm] = useState(
+        () => new URLSearchParams(location.search).get("q") || ""
+    );
     const [users, setUsers] = useState([]);
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(5);
@@ -125,6 +129,12 @@ function UserSearch() {
     useEffect(() => {
         debouncedSearch(searchTerm);
     }, [searchTerm, debouncedSearch]);
+
+    // Searching again from the header while already on this page
+    useEffect(() => {
+        const q = new URLSearchParams(location.search).get("q");
+        if (q !== null) setSearchTerm(q);
+    }, [location.search]);
 
     const handleFollowToggle = async (targetUserName) => {
         if (!currentUser) return;

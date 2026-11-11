@@ -1,5 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './Styling/tokens.css'
+import './Styling/utilities.css'
 import './index.css'
 import App from './App.jsx'
 import Feed from './Pages/Feed.jsx'
