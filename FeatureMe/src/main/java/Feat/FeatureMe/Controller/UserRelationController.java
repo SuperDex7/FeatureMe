@@ -44,8 +44,13 @@ public class UserRelationController {
             String result = userRelationService.toggleFollow(currentUser.getUserName(), targetUserName);
             return ResponseEntity.ok(result);
             
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            // Validation messages meant for users, e.g. "Users cannot follow themselves"
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error toggling follow: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error: could not update follow. Please try again.");
         }
     }
     

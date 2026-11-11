@@ -411,8 +411,10 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
+            System.err.println("Error deleting user " + id + ": " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error deleting user: " + e.getMessage());
+                .body("Error deleting user. Please try again.");
         }
     }
     @PostMapping("/auth/login")
@@ -504,7 +506,9 @@ public class UserController {
             UserDTO userDTO = userService.getAUser(user.getUserName());
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info: " + e.getMessage());
+            System.err.println("Error retrieving current user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info");
         }
     }
     
@@ -549,8 +553,10 @@ public class UserController {
                     .body(Map.of("error", "Current password is incorrect"));
             }
         } catch (Exception e) {
+            System.err.println("Error changing password: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to change password: " + e.getMessage()));
+                .body(Map.of("error", "Failed to change password. Please try again."));
         }
     }
 

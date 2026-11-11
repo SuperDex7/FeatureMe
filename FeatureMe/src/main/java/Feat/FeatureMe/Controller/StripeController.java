@@ -386,14 +386,15 @@ public class StripeController {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "Stripe cancellation failed");
                 error.put("message", "There was an issue canceling the subscription with Stripe. Please contact support.");
-                error.put("stripe_error", stripeException.getMessage());
                 return error;
             }
             
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to cancel subscription");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -426,7 +427,9 @@ public class StripeController {
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to get subscription status");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -549,7 +552,7 @@ public class StripeController {
             e.printStackTrace();
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
-            error.put("error", "Receipt validation failed: " + e.getMessage());
+            error.put("error", "Receipt validation failed");
             return error;
         }
     }
@@ -684,7 +687,7 @@ public class StripeController {
             System.err.println("Error validating Apple receipt: " + e.getMessage());
             e.printStackTrace();
             result.put("valid", false);
-            result.put("error", "Error validating receipt: " + e.getMessage());
+            result.put("error", "Error validating receipt");
             return result;
         }
     }
@@ -869,7 +872,7 @@ public class StripeController {
             System.err.println("❌ Apple webhook error: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
-            response.put("error", "Error processing notification: " + e.getMessage());
+            response.put("error", "Error processing notification");
             return response;
         }
     }
