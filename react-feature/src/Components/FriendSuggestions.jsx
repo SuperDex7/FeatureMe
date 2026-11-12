@@ -1,90 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { UserRelationsService } from '../services/UserService';
 import './FriendSuggestions.css';
 
+const DEFAULT_AVATAR = '/dpp.jpg';
+
+// "Artists to follow" card on the home page. Hidden when there's nothing to suggest.
 function FriendSuggestions({ limit = 5 }) {
-    const navigate = useNavigate();
-    const [suggestions, setSuggestions] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(null);
 
-    useEffect(() => {
-        loadSuggestions();
-    }, []);
+  useEffect(() => {
+    let cancelled = false;
+    UserRelationsService.getFriendSuggestions(limit)
+      .then((response) => { if (!cancelled) setSuggestions(response.data || []); })
+      .catch((err) => console.error('Error loading friend suggestions:', err))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [limit]);
 
-    const loadSuggestions = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await UserRelationsService.getFriendSuggestions(limit);
-            setSuggestions(response.data);
-        } catch (err) {
-            console.error('Error loading friend suggestions:', err);
-            setError('Failed to load suggestions');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUserClick = (userName) => {
-        navigate(`/profile/${userName}`);
-    };
-
-    const handleFollowUser = async (userName) => {
-        try {
-            await UserRelationsService.toggleFollow(userName);
-            // Remove the user from suggestions after following
-            setSuggestions(prev => prev.filter(user => user.userName !== userName));
-        } catch (err) {
-            console.error('Error following user:', err);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="friend-suggestions">
-                <h3 className="suggestions-title">Suggested for You</h3>
-                <div className="suggestions-loading">Loading suggestions...</div>
-            </div>
-        );
+  const follow = async (userName) => {
+    setPending(userName);
+    try {
+      await UserRelationsService.toggleFollow(userName);
+      setSuggestions((prev) => prev.filter((user) => user.userName !== userName));
+    } catch (err) {
+      console.error('Error following user:', err);
+    } finally {
+      setPending(null);
     }
+  };
 
-    if (error || suggestions.length === 0) {
-        return null; // Don't show the component if there are no suggestions
-    }
+  if (!loading && suggestions.length === 0) return null;
 
-    return (
-        <div className="friend-suggestions">
-            <h3 className="suggestions-title">Suggested for You</h3>
-            <div className="suggestions-list">
-                {suggestions.map((user) => (
-                    <div key={user.id} className="suggestion-item">
-                        <div className="suggestion-user-info" onClick={() => handleUserClick(user.userName)}>
-                            <img 
-                                src={user.profilePic || '/dpp.jpg'} 
-                                alt={user.userName}
-                                className="suggestion-avatar"
-                                onError={(e) => {
-                                    e.target.src = '/dpp.jpg'
-                                }}
-                            />
-                            <div className="suggestion-details">
-                                <span className="suggestion-username">{user.userName}</span>
-                                <span className="suggestion-reason">Suggested for you</span>
-                            </div>
-                        </div>
-                        <button 
-                            className="suggestion-follow-btn"
-                            onClick={() => handleFollowUser(user.userName)}
-                        >
-                            Follow
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+  return (
+    <section className="fm-card fm-suggestions" aria-labelledby="fm-suggestions-title">
+      <h2 id="fm-suggestions-title" className="fm-suggestions__title">Artists to follow</h2>
+      {loading ? (
+        <p className="fm-suggestions__muted" role="status">Loading suggestions…</p>
+      ) : (
+        <ul className="fm-suggestions__list">
+          {suggestions.map((user) => (
+            <li key={user.id || user.userName} className="fm-suggestions__row">
+              <a href={`/profile/${user.userName}`} className="fm-suggestions__user">
+                <img
+                  src={user.profilePic || DEFAULT_AVATAR}
+                  alt=""
+                  onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                />
+                <span>{user.userName}</span>
+              </a>
+              <button
+                type="button"
+                className="fm-btn fm-btn--secondary fm-suggestions__follow"
+                onClick={() => follow(user.userName)}
+                disabled={pending === user.userName}
+                aria-label={`Follow ${user.userName}`}
+              >
+                Follow
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 export default FriendSuggestions;

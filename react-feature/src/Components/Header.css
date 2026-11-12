@@ -289,55 +289,6 @@
   font-size: var(--fm-text-md);
 }
 
-/* Restyle the shared Notifications list inside the header panel */
-.fm-header__noti-list.notifications-list {
-  gap: 2px;
-}
-
-.fm-header__noti-list .notification-item {
-  padding: 10px var(--fm-space-3);
-  border: 0;
-  border-radius: var(--fm-radius-sm);
-  background: transparent;
-  color: var(--fm-text-2);
-  font-size: var(--fm-text-md);
-  gap: var(--fm-space-3);
-}
-
-.fm-header__noti-list .notification-item:hover {
-  background: var(--fm-surface-2);
-}
-
-.fm-header__noti-list .chat-notification {
-  border-left: 0;
-  background: transparent;
-}
-
-.fm-header__noti-list .notification-text a {
-  color: var(--fm-text-2);
-}
-
-.fm-header__noti-list .notification-text a:hover {
-  color: var(--fm-text);
-}
-
-.fm-header__noti-list .notification-user,
-.fm-header__noti-list .notification-user strong {
-  color: var(--fm-text);
-  font-weight: 600;
-}
-
-.fm-header__noti-list .chat-notification-text {
-  color: var(--fm-text-2);
-  font-weight: 400;
-}
-
-.fm-header__noti-list .notification-time {
-  flex: none;
-  color: var(--fm-muted);
-  font-size: var(--fm-text-xs);
-}
-
 /* Account menu */
 .fm-header__account {
   display: flex;
