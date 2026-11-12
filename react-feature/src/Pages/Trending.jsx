@@ -164,11 +164,20 @@ function SectionHead({ id, title, text }) {
   );
 }
 
+// The artist's banner shows through the logo gradient; without one, just the gradient
+function featuredBackground(author) {
+  if (!author?.banner) return undefined;
+  const banner = String(author.banner).replace(/"/g, '\\"');
+  return {
+    backgroundImage: `linear-gradient(120deg, rgba(151, 77, 158, 0.9) 0%, rgba(111, 99, 196, 0.78) 48%, rgba(84, 145, 205, 0.62) 100%), url("${banner}")`,
+  };
+}
+
 function FeaturedTrack({ post, isPlaying, onPlay }) {
   const { author = {} } = post;
   const genres = Array.isArray(post.genre) ? post.genre : [];
   return (
-    <section className="fm-featured" aria-labelledby="fm-featured-title">
+    <section className="fm-featured" style={featuredBackground(author)} aria-labelledby="fm-featured-title">
       <div className="fm-featured__text">
         <span className="fm-featured__eyebrow">
           <Icon name="trending" size={16} strokeWidth={2.2} />

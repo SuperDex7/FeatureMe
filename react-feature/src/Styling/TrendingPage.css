@@ -73,7 +73,10 @@
   gap: var(--fm-space-8);
   padding: var(--fm-space-10);
   border-radius: var(--fm-radius-xl);
-  background: var(--fm-logo-gradient);
+  background-color: #6f63c4;
+  background-image: var(--fm-logo-gradient);
+  background-size: cover;
+  background-position: center;
   color: #fff;
   overflow: hidden;
   isolation: isolate;
