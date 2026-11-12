@@ -25,6 +25,7 @@ const STROKE_ICONS = {
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   trash: <><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></>,
   chart: <path d="M5 19V11M12 19V5M19 19v-6" />,
+  trending: <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />,
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   pin: <><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" /><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></>,

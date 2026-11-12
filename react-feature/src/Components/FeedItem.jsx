@@ -5,29 +5,13 @@ import LikesSection2 from "./LikesSection";
 import ViewsAnalytics from "./ViewsAnalytics";
 import Icon from "./ui/Icon";
 import PlusBadge from "./ui/PlusBadge";
-import { deletePost, addView } from "../services/PostsService";
+import { deletePost } from "../services/PostsService";
+import { recordView } from "../utils/views";
 import { getCurrentUser } from "../services/AuthService";
 import { bannerStyle } from "../utils/banner";
 import "../Styling/FeedItem.css";
 
 const DEFAULT_AVATAR = "/dpp.jpg";
-const VIEW_COOLDOWN_MS = 15 * 1000;
-
-// Records a play as a view, at most once per 15 seconds per user and post.
-async function recordView(postId, currentUser) {
-  if (!currentUser) return;
-  const cooldownKey = `view_${postId}_${currentUser.userName}`;
-  const lastViewTime = Number(localStorage.getItem(cooldownKey) || 0);
-  const now = Date.now();
-  if (now - lastViewTime < VIEW_COOLDOWN_MS) return;
-  try {
-    await addView(postId);
-    localStorage.setItem(cooldownKey, String(now));
-  } catch (error) {
-    console.error("Error adding view:", error);
-  }
-}
-
 function formatRelativeTime(timestamp) {
   const date = new Date(timestamp);
   const diffInHours = Math.floor((Date.now() - date) / (1000 * 60 * 60));

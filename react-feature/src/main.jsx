@@ -15,6 +15,7 @@ import SignupPage from './Pages/SignupPage.jsx'
 import LoginPage from './Pages/LoginPage.jsx'
 import ForgotPasswordPage from './Pages/ForgotPasswordPage.jsx'
 import ProtectedRoute from './Components/ProtectedRoute.jsx'
+import Trending from './Pages/Trending.jsx'
 import Post from './Pages/Post.jsx'
 import PendingFeatures from './Components/PendingFeatures.jsx'
 import MessagesPage from './Pages/MessagesPage.jsx'
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
   {path: '/', element: <App />},
   {path: 'home', element: <ProtectedRoute><Homepage2 /></ProtectedRoute>},
   {path: 'feed', element: <ProtectedRoute><Feed /></ProtectedRoute>},
+  {path: 'trending', element: <ProtectedRoute><Trending /></ProtectedRoute>},
  {path: "/profile/:username", element: <ProtectedRoute><Profile/></ProtectedRoute>},
   {path: 'signup', element: <SignupPage />},
   {path: 'login', element: <LoginPage />},

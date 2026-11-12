@@ -89,7 +89,11 @@ function Feed2() {
 
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
-  const [selectedGenres, setSelectedGenres] = useState([]);
+  // Genre tiles on the Trending page link here with ?genre=
+  const [selectedGenres, setSelectedGenres] = useState(() => {
+    const genre = new URLSearchParams(window.location.search).get("genre");
+    return genre && [...POST_TYPES, ...MUSIC_GENRES].includes(genre) ? [genre] : [];
+  });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchPosts, setSearchPosts] = useState([]);
   const [searchPage, setSearchPage] = useState(0);

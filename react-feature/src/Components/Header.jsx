@@ -9,6 +9,7 @@ import { clearMyNotifications } from "../services/UserService";
 const NAV_LINKS = [
   { href: "/home", label: "Home", icon: "home" },
   { href: "/feed", label: "Feed", icon: "feed" },
+  { href: "/trending", label: "Trending", icon: "trending" },
   { href: "/messages", label: "Messages", icon: "message" },
   { href: "/pending-features", label: "Requests", icon: "music" },
 ];

@@ -2,7 +2,6 @@ import { useState } from "react";
 import Header from "../Components/Header";
 import Feed2 from "../Components/Feed2";
 import Footer from "../Components/Footer";
-import Spotlight from "../Components/Spotlight";
 import LikedPosts from "../Components/LikedPosts";
 import MyPosts from "../Components/MyPosts";
 import Icon from "../Components/ui/Icon";
@@ -14,13 +13,14 @@ import "../Styling/Feeds2.css";
 
 const TABS = [
   { id: "feed", label: "Feed", title: "Your feed", subtitle: "New tracks and feature requests from the community." },
-  { id: "spotlight", label: "Spotlight", title: "Spotlight", subtitle: "Featured tracks from Plus creators." },
   { id: "liked", label: "Liked", title: "Liked posts", subtitle: "Tracks you've liked." },
   { id: "myPosts", label: "My posts", title: "Your posts", subtitle: "Everything you've shared." },
 ];
 
 function initialTab() {
   const requested = new URLSearchParams(window.location.search).get("tab");
+  // Spotlight moved to the Trending page
+  if (requested === "spotlight") window.location.replace("/trending");
   return TABS.some((tab) => tab.id === requested) ? requested : "feed";
 }
 
@@ -39,8 +39,6 @@ function Feed() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case "spotlight":
-        return <Spotlight />;
       case "liked":
         return <LikedPosts />;
       case "myPosts":
@@ -95,15 +93,13 @@ function Feed() {
               </a>
             </section>
 
-            {activeTab !== "spotlight" && (
-              <button type="button" className="fm-card fm-feed-page__teaser" onClick={() => selectTab("spotlight")}>
-                <span>
-                  <span className="fm-feed-page__rail-title">Spotlight</span>
-                  <span className="fm-feed-page__rail-text">Featured tracks from Plus creators</span>
-                </span>
-                <Icon name="chevronRight" />
-              </button>
-            )}
+            <a href="/trending" className="fm-card fm-feed-page__teaser">
+              <span>
+                <span className="fm-feed-page__rail-title">Trending</span>
+                <span className="fm-feed-page__rail-text">Top tracks, Plus creators and artists to know</span>
+              </span>
+              <Icon name="chevronRight" />
+            </a>
 
             <a href="/pending-features" className="fm-card fm-feed-page__teaser">
               <span>
