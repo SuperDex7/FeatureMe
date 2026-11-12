@@ -95,8 +95,8 @@
 }
 
 .fm-feed__list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: var(--fm-space-4);
 }
 

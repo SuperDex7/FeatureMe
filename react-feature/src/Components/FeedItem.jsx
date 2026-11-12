@@ -11,6 +11,29 @@ import "../Styling/FeedItem.css";
 const DEFAULT_AVATAR = "/dpp.jpg";
 const VIEW_COOLDOWN_MS = 15 * 1000;
 
+// Author banner as a CSS background. A gradient picked from the username sits
+// underneath, so artists without a banner (or with a banner that fails to load)
+// still get a consistent color.
+const FALLBACK_BANNERS = [
+  "linear-gradient(135deg, #974d9e, #5491cd)",
+  "linear-gradient(135deg, #6a5fb4, #3fb8a6)",
+  "linear-gradient(135deg, #e0884f, #974d9e)",
+  "linear-gradient(135deg, #5491cd, #3fb8a6)",
+  "linear-gradient(135deg, #974d9e, #e0884f)",
+  "linear-gradient(135deg, #3f4a8a, #8f7ef5)",
+];
+
+function bannerStyle(author) {
+  const name = author?.userName || "";
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  const fallback = FALLBACK_BANNERS[hash % FALLBACK_BANNERS.length];
+  const banner = author?.banner;
+  return {
+    backgroundImage: banner ? `url("${String(banner).replace(/"/g, '\\"')}"), ${fallback}` : fallback,
+  };
+}
+
 // Records a play as a view, at most once per 15 seconds per user and post.
 async function recordView(postId, currentUser) {
   if (!currentUser) return;
@@ -124,6 +147,16 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
         aria-labelledby={`fm-post-modal-title-${id}`}
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="fm-modal__hero" style={bannerStyle(author)}>
+          <button ref={closeRef} type="button" className="fm-modal__close" onClick={onClose} aria-label="Close">
+            <Icon name="close" />
+          </button>
+          <div className="fm-modal__hero-text">
+            <h2 id={`fm-post-modal-title-${id}`} className="fm-modal__title">{title}</h2>
+            <p className="fm-modal__by">by {userName}</p>
+          </div>
+        </div>
+
         <div className="fm-modal__head">
           <img className="fm-post__avatar" src={profilePic || DEFAULT_AVATAR} alt="" />
           <div className="fm-post__byline">
@@ -132,16 +165,10 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
             {role === "USERPLUS" && <span className="fm-pill fm-pill--plus">Plus</span>}
             {freeDownload && <span className="fm-pill fm-pill--accent">Free download</span>}
           </div>
-          <button ref={closeRef} type="button" className="fm-icon-btn" onClick={onClose} aria-label="Close">
-            <Icon name="close" />
-          </button>
         </div>
 
         <div className="fm-modal__body">
-          <div>
-            <h2 id={`fm-post-modal-title-${id}`} className="fm-post__title fm-post__title--lg">{title}</h2>
-            <FeaturedArtists features={features} />
-          </div>
+          <FeaturedArtists features={features} />
           {description && description.trim() && <p className="fm-post__description">{description}</p>}
 
           {Array.isArray(genre) && genre.length > 0 && (
@@ -284,63 +311,71 @@ function FeedItem({ id, author, description, time, title, features, genre, music
 
   return (
     <>
-      <article className="fm-post" onClick={openModal}>
-        <div className="fm-post__head">
-          <img className="fm-post__avatar" src={profilePic || DEFAULT_AVATAR} alt="" />
-          <div className="fm-post__byline">
-            <a href={`/profile/${userName}`} className="fm-post__author" onClick={(e) => e.stopPropagation()}>{userName}</a>
-            <span className="fm-post__time">{formatRelativeTime(time)}</span>
-            {role === "USERPLUS" && <span className="fm-pill fm-pill--plus">Plus</span>}
-            {freeDownload && <span className="fm-pill fm-pill--accent">Free download</span>}
+      <article className="fm-post-card" onClick={openModal}>
+        <div className="fm-post-card__banner" style={bannerStyle(author)}>
+          <div className="fm-post-card__badges">
+            {role === "USERPLUS" && <span className="fm-pill fm-pill--plus fm-pill--on-media">Plus</span>}
+            {freeDownload && <span className="fm-pill fm-pill--accent fm-pill--on-media">Free download</span>}
           </div>
-        </div>
-
-        <div>
-          <h3 className="fm-post__title">
-            <button type="button" className="fm-post__title-btn" onClick={(e) => { e.stopPropagation(); openModal(); }}>
-              {title}
+          <span className="fm-post-card__time">{formatRelativeTime(time)}</span>
+          {!showAudioPlayer && (
+            <button type="button" className="fm-post-card__play" onClick={openAudioPlayer} aria-label={`Play ${title}`}>
+              <Icon name="play" size={22} />
             </button>
-          </h3>
-          <FeaturedArtists features={features} limit={2} />
-          {description && description.trim() && <p className="fm-post__description fm-post__description--clamp">{description}</p>}
+          )}
         </div>
 
-        {showAudioPlayer ? (
-          <AudioPlayer2
-            src={music}
-            onClose={() => setShowAudioPlayer(false)}
-            title={title}
-            postId={id}
-            freeDownload={freeDownload}
-          />
-        ) : (
-          <button type="button" className="fm-post__play-row" onClick={openAudioPlayer} aria-label={`Play ${title}`}>
-            <span className="fm-post__play-btn" aria-hidden="true"><Icon name="play" size={18} /></span>
-            <span aria-hidden="true">Play track</span>
-          </button>
-        )}
+        <div className="fm-post-card__body">
+          <div className="fm-post-card__author">
+            <img className="fm-post-card__avatar" src={profilePic || DEFAULT_AVATAR} alt="" />
+            <a href={`/profile/${userName}`} className="fm-post__author" onClick={(e) => e.stopPropagation()}>{userName}</a>
+          </div>
 
-        <div className="fm-post__foot">
-          {genres.slice(0, 3).map((genreItem) => <span key={genreItem} className="fm-tag">{genreItem}</span>)}
-          {genres.length > 3 && <span className="fm-tag">+{genres.length - 3}</span>}
-          <span className="fm-post__spacer" />
-          <span className="fm-post__stat" aria-label={`${likes.length} likes`}>
-            <Icon name="heart" size={18} />
-            {likes.length}
-          </span>
-          <button
-            type="button"
-            className="fm-post__stat fm-post__stat--btn"
-            onClick={(e) => { e.stopPropagation(); openModal(); }}
-            aria-label={`${totalComments || 0} comments, open post`}
-          >
-            <Icon name="message" size={18} />
-            {totalComments || 0}
-          </button>
-          <span className="fm-post__stat" aria-label={`${totalViews || 0} views`}>
-            <Icon name="eye" size={18} />
-            {totalViews || 0}
-          </span>
+          <div>
+            <h3 className="fm-post__title fm-post-card__title">
+              <button type="button" className="fm-post__title-btn" onClick={(e) => { e.stopPropagation(); openModal(); }}>
+                {title}
+              </button>
+            </h3>
+            <FeaturedArtists features={features} limit={2} />
+            {description && description.trim() && <p className="fm-post__description fm-post-card__description">{description}</p>}
+          </div>
+
+          {showAudioPlayer && (
+            <AudioPlayer2
+              src={music}
+              onClose={() => setShowAudioPlayer(false)}
+              title={title}
+              postId={id}
+              freeDownload={freeDownload}
+            />
+          )}
+
+          <div className="fm-post-card__foot">
+            <div className="fm-post-card__tags">
+              {genres.slice(0, 2).map((genreItem) => <span key={genreItem} className="fm-tag">{genreItem}</span>)}
+              {genres.length > 2 && <span className="fm-tag">+{genres.length - 2}</span>}
+            </div>
+            <div className="fm-post-card__stats">
+              <span className="fm-post__stat" aria-label={`${likes.length} likes`}>
+                <Icon name="heart" size={16} />
+                {likes.length}
+              </span>
+              <button
+                type="button"
+                className="fm-post__stat fm-post__stat--btn"
+                onClick={(e) => { e.stopPropagation(); openModal(); }}
+                aria-label={`${totalComments || 0} comments, open post`}
+              >
+                <Icon name="message" size={16} />
+                {totalComments || 0}
+              </button>
+              <span className="fm-post__stat" aria-label={`${totalViews || 0} views`}>
+                <Icon name="eye" size={16} />
+                {totalViews || 0}
+              </span>
+            </div>
+          </div>
         </div>
       </article>
 

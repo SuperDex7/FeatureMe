@@ -1,10 +1,12 @@
 /* Post card (FeedItem) and post modal. Values from tokens.css; primitives from components.css. */
 
-.fm-post {
+/* ---------- Card: banner on top, author, title, details, stats ---------- */
+
+.fm-post-card {
   display: flex;
   flex-direction: column;
-  gap: var(--fm-space-4);
-  padding: var(--fm-space-5);
+  min-width: 0;
+  overflow: hidden;
   background: var(--fm-surface);
   border: 1px solid var(--fm-border);
   border-radius: var(--fm-radius-lg);
@@ -13,30 +15,201 @@
   font-size: var(--fm-text-base);
   line-height: 1.5;
   cursor: pointer;
-  transition: border-color 0.15s;
+  container-type: inline-size;
+  transition: border-color 0.15s, transform 0.15s;
 }
 
-.fm-post:hover {
+.fm-post-card:hover {
   border-color: var(--fm-border-strong);
+  transform: translateY(-2px);
 }
 
-.fm-post a {
+.fm-post-card a,
+.fm-modal a {
   text-decoration: none;
 }
 
-.fm-post :is(a, button):focus-visible,
+.fm-post-card :is(a, button):focus-visible,
 .fm-modal :is(a, button):focus-visible {
   outline: none;
   box-shadow: var(--fm-focus-ring);
   border-radius: var(--fm-radius-sm);
 }
 
-.fm-post__head,
-.fm-modal__head {
+.fm-post-card__banner {
+  position: relative;
+  height: 150px;
+  background-color: var(--fm-surface-3);
+  background-size: cover;
+  background-position: center;
+}
+
+/* Darken top and bottom so labels and the play button read on any banner */
+.fm-post-card__banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 9, 12, 0.45) 0%, rgba(8, 9, 12, 0) 40%, rgba(8, 9, 12, 0.35) 100%);
+}
+
+.fm-post-card__badges {
+  position: absolute;
+  top: var(--fm-space-3);
+  left: var(--fm-space-3);
+  right: 90px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fm-post-card__time {
+  position: absolute;
+  top: var(--fm-space-3);
+  right: var(--fm-space-3);
+  padding: 3px 10px;
+  border-radius: var(--fm-radius-pill);
+  background: rgba(8, 9, 12, 0.6);
+  color: var(--fm-text);
+  font-size: var(--fm-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fm-post-card__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 50%;
+  background: var(--fm-accent);
+  color: var(--fm-accent-ink);
   display: flex;
   align-items: center;
-  gap: var(--fm-space-3);
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s;
 }
+
+.fm-post-card__play:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.fm-post-card .fm-post-card__play:focus-visible {
+  border-radius: 50%;
+}
+
+.fm-post-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-3);
+  padding: 0 var(--fm-space-4) var(--fm-space-4);
+}
+
+/* Avatar overlaps the bottom edge of the banner */
+.fm-post-card__author {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--fm-space-2);
+  margin-top: -22px;
+}
+
+.fm-post-card__avatar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--fm-surface);
+  object-fit: cover;
+  background: var(--fm-surface-3);
+}
+
+.fm-post-card__author .fm-post__author {
+  min-width: 0;
+  padding-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fm-post-card__title {
+  font-size: var(--fm-text-lg);
+}
+
+.fm-post-card__description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--fm-text-md);
+}
+
+.fm-post-card__foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-2);
+}
+
+.fm-post-card__tags {
+  display: flex;
+  gap: 6px;
+  min-height: 28px;
+  overflow: hidden;
+}
+
+.fm-post-card__stats {
+  display: flex;
+  align-items: center;
+  gap: var(--fm-space-1);
+  margin: 0 -6px -6px;
+  padding-top: var(--fm-space-2);
+  border-top: 1px solid var(--fm-border);
+}
+
+.fm-post-card__stats .fm-post__stat {
+  padding: 0 6px;
+  font-size: var(--fm-text-sm);
+}
+
+/* The inline player is tighter inside a narrow card */
+@container (max-width: 420px) {
+  /* Two rows: controls on top, full-width seek bar below */
+  .fm-player {
+    flex-wrap: wrap;
+    gap: var(--fm-space-2);
+    padding: var(--fm-space-2) var(--fm-space-3) var(--fm-space-3);
+  }
+
+  .fm-player__volume {
+    margin-left: auto;
+  }
+
+  .fm-player__volume-slider {
+    display: none;
+  }
+
+  .fm-player__track {
+    order: 5;
+    flex-basis: 100%;
+  }
+}
+
+/* Labels placed on banners/images */
+.fm-pill--on-media.fm-pill--plus {
+  background: rgba(20, 16, 10, 0.72);
+}
+
+.fm-pill--on-media.fm-pill--accent {
+  background: rgba(14, 12, 30, 0.72);
+}
+
+/* ---------- Shared post text pieces (card and modal) ---------- */
 
 .fm-post__avatar {
   flex: none;
@@ -79,10 +252,6 @@
   line-height: 1.25;
 }
 
-.fm-post__title--lg {
-  font-size: 28px;
-}
-
 .fm-post__title-btn {
   padding: 0;
   border: 0;
@@ -115,20 +284,13 @@
 }
 
 .fm-post__description {
-  margin: var(--fm-space-2) 0 0;
+  margin: var(--fm-space-1) 0 0;
   color: var(--fm-text-2);
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
-.fm-post__description--clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Collapsed player row (before the real player opens) */
+/* "Play track" row in the modal (before the player opens) */
 .fm-post__play-row {
   display: flex;
   align-items: center;
@@ -198,7 +360,8 @@
   color: var(--fm-text);
 }
 
-/* Modal */
+/* ---------- Modal ---------- */
+
 .fm-modal-overlay {
   position: fixed;
   inset: 0;
@@ -227,12 +390,78 @@
   line-height: 1.5;
 }
 
-.fm-modal a {
-  text-decoration: none;
+/* Banner header with the title over it */
+.fm-modal__hero {
+  position: relative;
+  height: 200px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: var(--fm-radius-xl) var(--fm-radius-xl) 0 0;
+  background-color: var(--fm-surface-3);
+  background-size: cover;
+  background-position: center;
+}
+
+.fm-modal__hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 9, 12, 0.2) 0%, rgba(8, 9, 12, 0.15) 40%, rgba(22, 24, 32, 0.95) 100%);
+}
+
+.fm-modal__hero-text {
+  position: relative;
+  min-width: 0;
+  padding: 0 var(--fm-space-5) var(--fm-space-4);
+}
+
+.fm-modal__title {
+  margin: 0;
+  font-family: var(--fm-font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.fm-modal__by {
+  margin: 2px 0 0;
+  color: var(--fm-text-2);
+  font-weight: 500;
+}
+
+.fm-modal__close {
+  position: absolute;
+  top: var(--fm-space-3);
+  right: var(--fm-space-3);
+  z-index: 1;
+  width: var(--fm-touch);
+  height: var(--fm-touch);
+  border: 0;
+  border-radius: 50%;
+  background: rgba(8, 9, 12, 0.6);
+  color: var(--fm-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fm-modal__close:hover {
+  background: rgba(8, 9, 12, 0.8);
+}
+
+.fm-modal .fm-modal__close:focus-visible {
+  border-radius: 50%;
 }
 
 .fm-modal__head {
-  padding: var(--fm-space-5) var(--fm-space-5) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--fm-space-3);
+  padding: var(--fm-space-4) var(--fm-space-5) 0;
 }
 
 .fm-modal__body {
@@ -242,6 +471,7 @@
   padding: var(--fm-space-4) var(--fm-space-5);
 }
 
+.fm-modal__body .fm-post__features,
 .fm-modal__body .fm-post__description {
   margin: 0;
 }
@@ -268,18 +498,19 @@
 }
 
 @media (max-width: 560px) {
-  .fm-post {
-    padding: var(--fm-space-4);
-  }
-
   .fm-modal-overlay {
     padding: 0;
   }
 
   .fm-modal {
     min-height: 100%;
-    border-radius: 0;
     border: 0;
+    border-radius: 0;
+  }
+
+  .fm-modal__hero {
+    height: 170px;
+    border-radius: 0;
   }
 
   .fm-modal__actions .fm-btn {
@@ -288,7 +519,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fm-post {
+  .fm-post-card,
+  .fm-post-card__play {
     transition: none;
+  }
+
+  .fm-post-card:hover {
+    transform: none;
   }
 }
