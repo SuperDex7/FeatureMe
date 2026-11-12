@@ -1,5 +1,17 @@
 /* Shared UI primitives for the redesigned pages. Values from tokens.css. */
 
+/* Page shell for redesigned pages. The header is fixed, so content starts below it. */
+.fm-page {
+  min-height: 100vh;
+  background: var(--fm-bg);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+}
+
+.fm-page__main {
+  padding-top: var(--fm-header-height);
+}
+
 /* Buttons */
 .fm-btn {
   display: inline-flex;
@@ -221,6 +233,162 @@
 
 .fm-state p {
   margin: 0;
+}
+
+/* Pagination */
+.fm-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--fm-space-4);
+}
+
+.fm-pagination__info {
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form fields */
+.fm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fm-field__label {
+  color: var(--fm-text-2);
+  font-size: var(--fm-text-md);
+  font-weight: 500;
+}
+
+.fm-field__hint {
+  color: var(--fm-muted);
+  font-size: var(--fm-text-sm);
+}
+
+.fm-field__error {
+  color: var(--fm-danger);
+  font-size: var(--fm-text-sm);
+}
+
+.fm-input {
+  width: 100%;
+  min-height: var(--fm-touch);
+  padding: 10px var(--fm-space-3);
+  box-sizing: border-box;
+  background: var(--fm-surface-2);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-md);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-base);
+  outline: none;
+}
+
+textarea.fm-input {
+  min-height: 112px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.fm-input::placeholder {
+  color: var(--fm-muted);
+}
+
+.fm-input:focus {
+  border-color: var(--fm-accent);
+  box-shadow: var(--fm-focus-ring);
+}
+
+.fm-input:disabled {
+  opacity: 0.6;
+}
+
+/* Dialog (Components/ui/Dialog.jsx) */
+.fm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--fm-space-12) var(--fm-space-4);
+  overflow-y: auto;
+  background: rgba(8, 9, 12, 0.72);
+}
+
+.fm-dialog {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-xl);
+  box-shadow: var(--fm-shadow-pop);
+  color: var(--fm-text);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-base);
+  line-height: 1.5;
+}
+
+.fm-dialog--sm { max-width: 440px; }
+.fm-dialog--md { max-width: 560px; }
+.fm-dialog--lg { max-width: 680px; }
+
+.fm-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fm-space-3);
+  padding: var(--fm-space-4) var(--fm-space-4) var(--fm-space-2) var(--fm-space-5);
+}
+
+.fm-dialog__head h2 {
+  margin: 0;
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-xl);
+  font-weight: 600;
+}
+
+.fm-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-4);
+  padding: var(--fm-space-2) var(--fm-space-5) var(--fm-space-5);
+}
+
+.fm-dialog__body p {
+  margin: 0;
+  color: var(--fm-text-2);
+}
+
+.fm-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2);
+  padding: var(--fm-space-4) var(--fm-space-5);
+  border-top: 1px solid var(--fm-border);
+}
+
+@media (max-width: 560px) {
+  .fm-dialog-overlay {
+    padding: 0;
+  }
+
+  .fm-dialog {
+    min-height: 100%;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .fm-dialog__foot .fm-btn {
+    flex: 1 1 auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

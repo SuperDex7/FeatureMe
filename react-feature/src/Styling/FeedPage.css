@@ -1,17 +1,5 @@
 /* Feed page layout. Values from tokens.css. */
 
-.fm-page {
-  min-height: 100vh;
-  background: var(--fm-bg);
-  color: var(--fm-text);
-  font-family: var(--fm-font-body);
-}
-
-/* The header is fixed, so content starts below it */
-.fm-page__main {
-  padding-top: var(--fm-header-height);
-}
-
 .fm-feed-page {
   max-width: var(--fm-content-max);
   margin: 0 auto;

@@ -100,20 +100,6 @@
   gap: var(--fm-space-4);
 }
 
-.fm-feed__pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--fm-space-4);
-  flex-wrap: wrap;
-}
-
-.fm-feed__page-info {
-  color: var(--fm-muted);
-  font-size: var(--fm-text-md);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Filter dialog */
 .fm-filter-dialog {
   width: 100%;

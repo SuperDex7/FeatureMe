@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import FeedItem from "./FeedItem";
 import Icon from "./ui/Icon";
+import Pagination from "./ui/Pagination";
 import api, { getCurrentUser } from "../services/AuthService";
 import { POST_TYPES, MUSIC_GENRES } from "../constants/genres";
 import "../Styling/Feed2.css";
@@ -75,23 +76,6 @@ function GenreFilterDialog({ isOpen, onClose, selectedGenres, onGenreToggle, onC
         </div>
       </div>
     </div>
-  );
-}
-
-function Pagination({ page, totalPages, onChange, label }) {
-  if (totalPages <= 1) return null;
-  return (
-    <nav className="fm-feed__pagination" aria-label={label}>
-      <button type="button" className="fm-btn fm-btn--secondary" onClick={() => onChange(page - 1)} disabled={page === 0}>
-        <Icon name="chevronLeft" size={18} />
-        Previous
-      </button>
-      <span className="fm-feed__page-info">Page {page + 1} of {totalPages}</span>
-      <button type="button" className="fm-btn fm-btn--secondary" onClick={() => onChange(page + 1)} disabled={page >= totalPages - 1}>
-        Next
-        <Icon name="chevronRight" size={18} />
-      </button>
-    </nav>
   );
 }
 
