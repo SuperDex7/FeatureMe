@@ -398,3 +398,15 @@ textarea.fm-input {
     animation-duration: 2s;
   }
 }
+
+/* Plus member badge (Components/ui/PlusBadge.jsx) */
+.fm-plus-badge {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.fm-plus-badge--on-media {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+}

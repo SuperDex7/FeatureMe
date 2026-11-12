@@ -4,6 +4,7 @@ import CommentSection2 from "./CommentSection2";
 import LikesSection2 from "./LikesSection";
 import ViewsAnalytics from "./ViewsAnalytics";
 import Icon from "./ui/Icon";
+import PlusBadge from "./ui/PlusBadge";
 import { deletePost, addView } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
 import { bannerStyle } from "../utils/banner";
@@ -140,7 +141,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
           <div className="fm-post__byline">
             <a href={`/profile/${userName}`} className="fm-post__author">{userName}</a>
             <span className="fm-post__time">{new Date(time).toLocaleDateString()}</span>
-            {role === "USERPLUS" && <span className="fm-pill fm-pill--plus">Plus</span>}
+            {role === "USERPLUS" && <PlusBadge size={18} />}
             {freeDownload && <span className="fm-pill fm-pill--accent">Free download</span>}
           </div>
         </div>
@@ -292,7 +293,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
       <article className="fm-post-card" onClick={openModal}>
         <div className="fm-post-card__banner" style={bannerStyle(author)}>
           <div className="fm-post-card__badges">
-            {role === "USERPLUS" && <span className="fm-pill fm-pill--plus fm-pill--on-media">Plus</span>}
+            {role === "USERPLUS" && <PlusBadge size={24} className="fm-plus-badge--on-media" />}
             {freeDownload && <span className="fm-pill fm-pill--accent fm-pill--on-media">Free download</span>}
           </div>
           <span className="fm-post-card__time">{formatRelativeTime(time)}</span>

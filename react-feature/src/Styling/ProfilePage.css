@@ -162,6 +162,15 @@ button.fm-profile-stats__item:focus-visible {
   font-size: var(--fm-text-sm);
 }
 
+/* Plus members get the logo-colored gradient behind their profile header */
+.fm-profile-hero--plus {
+  padding-bottom: var(--fm-space-6);
+  background:
+    linear-gradient(135deg, rgba(151, 77, 158, 0.22), rgba(84, 145, 205, 0.16)),
+    var(--fm-bg);
+  border-bottom: 1px solid rgba(143, 126, 245, 0.28);
+}
+
 /* ---------- Body: about column + tabbed content ---------- */
 
 .fm-profile {

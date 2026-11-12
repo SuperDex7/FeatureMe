@@ -15,6 +15,7 @@ import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import BadgeService from '../services/BadgeService';
 import Icon from '../Components/ui/Icon';
+import PlusBadge from '../Components/ui/PlusBadge';
 import Dialog from '../Components/ui/Dialog';
 import Pagination from '../Components/ui/Pagination';
 import { bannerStyle } from '../utils/banner';
@@ -432,7 +433,7 @@ export default function Profile() {
     <div className="fm-page">
       <Header />
       <main className="fm-page__main">
-        <section className="fm-profile-hero" aria-label={`${user.userName}'s profile`}>
+        <section className={`fm-profile-hero${user.role === 'USERPLUS' ? ' fm-profile-hero--plus' : ''}`} aria-label={`${user.userName}'s profile`}>
           <div className="fm-profile-hero__banner" style={bannerStyle(user)} />
           <div className="fm-profile-hero__inner">
             <img className="fm-profile-hero__avatar" src={user.profilePic || '/dpp.jpg'} alt="" />
@@ -440,7 +441,7 @@ export default function Profile() {
             <div className="fm-profile-hero__identity">
               <div className="fm-profile-hero__name-row">
                 <h1 className="fm-profile-hero__name">{user.userName}</h1>
-                {user.role === 'USERPLUS' && <span className="fm-pill fm-pill--plus">Plus</span>}
+                {user.role === 'USERPLUS' && <PlusBadge size={30} />}
               </div>
               {user.location && (
                 <p className="fm-profile-hero__location">
