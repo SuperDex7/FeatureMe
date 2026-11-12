@@ -84,15 +84,16 @@ function ShowFollow({ userName, isOpen, onClose, type }) {
     
     return (
         <div className="follow-popup-overlay" onClick={onClose}>
-            <div className="follow-popup-content" onClick={(e) => e.stopPropagation()}>
+            <div className="follow-popup-content" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
                 <div className="follow-popup-header">
                     <h3>{title}</h3>
-                    <button className="follow-popup-close" onClick={onClose}>×</button>
+                    <button type="button" className="follow-popup-close" onClick={onClose} aria-label="Close">×</button>
                 </div>
                 
                 <div className="follow-popup-search">
                     <input
-                        type="text"
+                        type="search"
+                        aria-label={`Search ${title.toLowerCase()}`}
                         placeholder={`Search ${title.toLowerCase()}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -107,15 +108,16 @@ function ShowFollow({ userName, isOpen, onClose, type }) {
                         <>
                             <ul className="follow-list">
                                 {filteredUsers.map((user) => (
-                                    <li 
-                                        key={user.id} 
-                                        className="follow-item"
-                                        onClick={() => handleUserClick(user.userName)}
-                                    >
+                                    <li key={user.id}>
+                                        <button
+                                            type="button"
+                                            className="follow-item"
+                                            onClick={() => handleUserClick(user.userName)}
+                                        >
                                         <div className="follow-user-info">
                                             <img 
                                                 src={user.profilePic || '/dpp.jpg'} 
-                                                alt={user.userName}
+                                                alt=""
                                                 className="follow-user-avatar"
                                                 onError={(e) => {
                                                     e.target.src = '/dpp.jpg'
@@ -128,6 +130,7 @@ function ShowFollow({ userName, isOpen, onClose, type }) {
                                                 </span>
                                             </div>
                                         </div>
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
