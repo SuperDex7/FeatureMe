@@ -1,1204 +1,1016 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Components/Header';
-import Footer from '../Components/Footer';
+import Dialog from '../Components/ui/Dialog';
+import Icon from '../Components/ui/Icon';
 import { ChatService, chatWebSocketService } from '../services/ChatService';
-import { getCurrentUser } from '../services/AuthService';
-import { listUsers } from '../services/UserService';
-import api from '../services/AuthService';
+import api, { getCurrentUser } from '../services/AuthService';
 import { validateChatFile, validateChatPhoto, getFileRestrictionsMessage } from '../utils/fileValidation';
-import '../Styling/Messages.css';
+import '../Styling/MessagesPage.css';
 
-const MessagesPage = () => {
+const DEFAULT_AVATAR = '/dpp.jpg';
+const PAGE_SIZE = 15;
+const SYSTEM_TYPES = ['JOIN', 'LEAVE', 'CREATE'];
+
+// The chat list and the chat itself use different id field names
+const chatIdOf = (chat) => chat?.ChatId || chat?.chatRoomId;
+
+const showDefaultAvatar = (event) => {
+  if (!event.currentTarget.src.endsWith(DEFAULT_AVATAR)) event.currentTarget.src = DEFAULT_AVATAR;
+};
+
+// ---------- Message text helpers ----------
+
+// Files and chat photo changes arrive as text with "| FILE_URL:" style markers
+function parseMessage(message) {
+  const text = message.message || '';
+  if (text.includes('| PHOTO_URL:')) {
+    const url = text.match(/\| PHOTO_URL:([^|]+)/)?.[1]?.trim() || null;
+    return { kind: 'system', text: text.split('|')[0].trim(), photo: url };
+  }
+  if (message.type === 'FILE' || text.includes('| FILE_URL:')) {
+    const url = text.match(/\| FILE_URL:([^|]+)/)?.[1]?.trim() || null;
+    const size = Number(text.match(/\| FILE_SIZE:(\d+)/)?.[1] || 0);
+    const name = text.match(/sent a file: ([^|]+)/)?.[1]?.trim() || 'File';
+    const target = url || name;
+    let fileKind = 'other';
+    if (/\.(jpe?g|png|gif|webp)(\?|$)/i.test(target)) fileKind = 'image';
+    else if (/\.(mp3|wav|ogg|m4a)(\?|$)/i.test(target)) fileKind = 'audio';
+    else if (/\.(mp4|mov|webm)(\?|$)/i.test(target)) fileKind = 'video';
+    return { kind: 'file', fileKind, url, size, name };
+  }
+  if (SYSTEM_TYPES.includes(message.type)) return { kind: 'system', text };
+  return { kind: 'text', text };
+}
+
+function previewText(text) {
+  if (!text) return 'No messages yet';
+  return text.split(/\s*\|\s*(?:PHOTO_URL|FILE_URL):/)[0];
+}
+
+function formatListTime(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const hours = (Date.now() - date) / 36e5;
+  if (hours < 24) return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (hours < 24 * 7) return date.toLocaleDateString([], { weekday: 'short' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function formatClock(timestamp) {
+  return timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+}
+
+function dayLabel(timestamp) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString([], {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric',
+  });
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  const units = ['bytes', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${parseFloat((bytes / 1024 ** i).toFixed(1))} ${units[i]}`;
+}
+
+async function downloadFile(url, name) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    console.error('Download failed, opening the file instead', err);
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+// ---------- Page ----------
+
+function MessagesPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messageText, setMessageText] = useState('');
+
+  const [me, setMe] = useState(null);
+  const [status, setStatus] = useState('loading');
+  const [retryKey, setRetryKey] = useState(0);
   const [conversations, setConversations] = useState([]);
+  const [query, setQuery] = useState('');
+
+  const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showCreateChat, setShowCreateChat] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [fetchingOlder, setFetchingOlder] = useState(false);
+
+  const [draft, setDraft] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  const [dialog, setDialog] = useState(null); // 'new' | 'add' | 'details' | 'leave' | null
+  const [newChatUsers, setNewChatUsers] = useState([]);
   const [newChatName, setNewChatName] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [searchedUsers, setSearchedUsers] = useState([]);
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [addUserSearchTerm, setAddUserSearchTerm] = useState('');
-  const [addUserSearchResults, setAddUserSearchResults] = useState([]);
-  const [addingUser, setAddingUser] = useState(false);
+  const [newChatError, setNewChatError] = useState(null);
+  const [creating, setCreating] = useState(false);
+
+  const threadRef = useRef(null);
+  const composerRef = useRef(null);
   const fileInputRef = useRef(null);
-  const chatPhotoInputRef = useRef(null);
-  const messagesContainerRef = useRef(null);
+  const photoInputRef = useRef(null);
+  // Read inside WebSocket callbacks, which outlive the render they were made in
+  const activeIdRef = useRef(null);
+  const meRef = useRef(null);
+  // What the next message update should do to the scroll position
+  const scrollIntent = useRef({ type: 'none' });
+  // Whether the reader is at the bottom of the thread (so new messages keep it there)
+  const pinnedRef = useRef(true);
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    (() => {
-      let timeoutId;
-      return (term) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          searchUsers(term);
-        }, 300);
-      };
-    })(),
-    [currentUser, selectedUsers]
-  );
+  const active = conversations.find((chat) => chatIdOf(chat) === activeId) || null;
 
-  // Debounced search function for adding users
-  const debouncedAddUserSearch = useCallback(
-    (() => {
-      let timeoutId;
-      return (term) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          searchUsersForAdd(term);
-        }, 300);
-      };
-    })(),
-    [currentUser, selectedConversation]
-  );
+  // ---------- Opening chats ----------
 
-  // Initialize the component
+  const loadFirstPage = async (chatId) => {
+    setLoadingMessages(true);
+    try {
+      const { data } = await ChatService.getChatMessagesPaged(chatId, 0, PAGE_SIZE);
+      if (activeIdRef.current !== chatId) return;
+      const list = Array.isArray(data) ? data : [];
+      const ids = new Set(list.map((m) => m.id));
+      scrollIntent.current = { type: 'bottom' };
+      // Keep anything that arrived over the socket while the page was loading
+      setMessages((prev) => [...list, ...prev.filter((m) => !m.id || !ids.has(m.id))]);
+      setPage(0);
+      setHasMore(list.length === PAGE_SIZE);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      if (activeIdRef.current === chatId) setNotice("Couldn't load this conversation.");
+    } finally {
+      if (activeIdRef.current === chatId) setLoadingMessages(false);
+    }
+  };
+
+  const subscribe = (chatId) => {
+    if (!chatWebSocketService.isWebSocketConnected()) return;
+    // Subscribing twice to the same chat would show every message twice
+    chatWebSocketService.unsubscribeFromChat(chatId);
+    chatWebSocketService.subscribeToChat(chatId, (incoming) => {
+      if (activeIdRef.current === chatId) {
+        const mine = incoming.sender === meRef.current?.userName;
+        scrollIntent.current = { type: pinnedRef.current || mine ? 'bottom' : 'none' };
+        setMessages((prev) => [...prev, incoming]);
+      }
+      setConversations((prev) => prev.map((chat) => (
+        chatIdOf(chat) === chatId ? { ...chat, message: incoming.message, time: incoming.time } : chat
+      )));
+    });
+  };
+
+  const openChat = (chatId) => {
+    if (!chatId) return;
+    const previous = activeIdRef.current;
+    // Only listen to the open chat, so other chats' messages don't land in it
+    if (previous && previous !== chatId) chatWebSocketService.unsubscribeFromChat(previous);
+    activeIdRef.current = chatId;
+    setActiveId(chatId);
+    setMessages([]);
+    setHasMore(false);
+    setNotice(null);
+    subscribe(chatId);
+    loadFirstPage(chatId);
+  };
+
+  const closeChat = () => {
+    if (activeIdRef.current) chatWebSocketService.unsubscribeFromChat(activeIdRef.current);
+    activeIdRef.current = null;
+    setActiveId(null);
+    setMessages([]);
+  };
+
+  // ---------- Startup ----------
+
+  // The chat fills the screen, so drop the old global body margin while it's open
   useEffect(() => {
-    initializeChat();
+    document.body.classList.add('fm-body-fill');
+    return () => document.body.classList.remove('fm-body-fill');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      setStatus('loading');
+      try {
+        const user = await getCurrentUser();
+        if (!user) throw new Error('Not logged in');
+        await chatWebSocketService.connect();
+        const { data } = await ChatService.getChats(0, 50);
+        if (cancelled) return;
+        const chats = data?.content || (Array.isArray(data) ? data : []);
+        meRef.current = user;
+        setMe(user);
+        setConversations(chats);
+        setStatus('ready');
+
+        // "Message" on a profile links here with ?createChat=true&user=name
+        const target = searchParams.get('user');
+        if (searchParams.get('createChat') === 'true' && target && target !== user.userName) {
+          navigate('/messages', { replace: true });
+          const existing = chats.find((chat) => {
+            const users = chat.users || [];
+            return users.length === 2 && users.includes(target) && users.includes(user.userName);
+          });
+          if (existing) {
+            openChat(chatIdOf(existing));
+            return;
+          }
+          try {
+            const { data: found } = await api.get(`/user/get/search/${encodeURIComponent(target)}?page=0&size=20`);
+            const match = (found.content || []).find((u) => u.userName === target);
+            if (!cancelled && match) setNewChatUsers([match]);
+          } catch (err) {
+            console.error('Error looking up user to message:', err);
+          }
+          if (!cancelled) setDialog('new');
+        }
+      } catch (err) {
+        console.error('Error initializing chat:', err);
+        if (!cancelled) setStatus('error');
+      }
+    };
+    init();
     return () => {
+      cancelled = true;
       chatWebSocketService.disconnect();
     };
-  }, []);
+    // Runs once per (re)try; the URL params are only read on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryKey]);
 
-  // Detect mobile viewport
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // ---------- Scrolling ----------
 
-  // Handle user search
-  useEffect(() => {
-    debouncedSearch(userSearchTerm);
-  }, [userSearchTerm, debouncedSearch]);
-
-  // Handle add user search
-  useEffect(() => {
-    debouncedAddUserSearch(addUserSearchTerm);
-  }, [addUserSearchTerm, debouncedAddUserSearch]);
-
-  // Auto-select user when coming from profile page
-  useEffect(() => {
-    const createChatUser = searchParams.get('user');
-    const shouldCreateChat = searchParams.get('createChat') === 'true';
-    
-    if (shouldCreateChat && createChatUser && searchedUsers.length > 0) {
-      const userToSelect = searchedUsers.find(user => user.userName === createChatUser);
-      if (userToSelect && !selectedUsers.some(selectedUser => selectedUser.userName === userToSelect.userName)) {
-        setSelectedUsers([userToSelect]);
-        setUserSearchTerm(''); // Clear search term after selection
-        // Clear URL params only after successful auto-selection
-        navigate('/messages', { replace: true });
-      }
+  useLayoutEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const intent = scrollIntent.current;
+    if (intent.type === 'bottom') {
+      el.scrollTop = el.scrollHeight;
+      pinnedRef.current = true;
+    } else if (intent.type === 'keep') {
+      el.scrollTop = el.scrollHeight - intent.fromBottom;
     }
-  }, [searchedUsers, searchParams, selectedUsers, navigate]);
-
-  // Initialize chat functionality
-  const initializeChat = async () => {
-    try {
-      setLoading(true);
-      
-      // Get current user
-      const user = await getCurrentUser();
-      if (!user) {
-        setError('Please log in to access messages');
-        return;
-      }
-      setCurrentUser(user);
-
-      // Connect to WebSocket
-      await chatWebSocketService.connect();
-
-      // Load conversations
-      await loadConversations();
-
-      // Handle URL parameters for creating chat with specific user
-      const createChatUser = searchParams.get('user');
-      const shouldCreateChat = searchParams.get('createChat') === 'true';
-      
-      if (shouldCreateChat && createChatUser && createChatUser !== user.userName) {
-        // Open create chat modal without setting search term
-        setShowCreateChat(true);
-        // Small delay to ensure WebSocket is fully ready, then search for the user
-        setTimeout(async () => {
-          try {
-            await searchUsers(createChatUser);
-          } catch (error) {
-            console.error('Error searching for user after delay:', error);
-          }
-        }, 100);
-        // Do not clear params here; wait until the user is selected from results
-      }
-
-    } catch (error) {
-      console.error('Error initializing chat:', error);
-      setError('Failed to initialize chat. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load conversations from backend
-  const loadConversations = async () => {
-    try {
-      const response = await ChatService.getChats(0, 50);
-      const chatData = response.data.content || response.data;
-      setConversations(chatData);
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-      setError('Failed to load conversations');
-    }
-  };
-
-
-  // Search for users by username
-  const searchUsers = async (searchTerm) => {
-    if (!searchTerm.trim()) {
-      setSearchedUsers([]);
-      return;
-    }
-
-    setSearchingUsers(true);
-    try {
-      const response = await api.get(`/user/get/search/${searchTerm}?page=0&size=20`);
-      const users = response.data.content || [];
-      // Filter out current user and already selected users
-      const filteredUsers = users.filter(user => 
-        user.userName !== currentUser?.userName && 
-        !selectedUsers.some(selectedUser => selectedUser.userName === user.userName)
-      );
-      setSearchedUsers(filteredUsers);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setSearchedUsers([]);
-    } finally {
-      setSearchingUsers(false);
-    }
-  };
-
-  // Search for users to add to chat
-  const searchUsersForAdd = async (searchTerm) => {
-    if (!searchTerm.trim()) {
-      setAddUserSearchResults([]);
-      return;
-    }
-
-    setAddingUser(true);
-    try {
-      const response = await api.get(`/user/get/search/${searchTerm}?page=0&size=20`);
-      const users = response.data.content || [];
-      // Filter out current user and users already in the chat
-      const chatUserNames = selectedConversation?.users || [];
-      const filteredUsers = users.filter(user => 
-        user.userName !== currentUser?.userName && 
-        !chatUserNames.includes(user.userName)
-      );
-      setAddUserSearchResults(filteredUsers);
-    } catch (error) {
-      console.error('Error searching users for add:', error);
-      setAddUserSearchResults([]);
-    } finally {
-      setAddingUser(false);
-    }
-  };
-
-  // Load messages for selected conversation
-  const loadMessages = async (conversation) => {
-    try {
-      const chatRoomId = conversation.ChatId || conversation.chatRoomId;
-      // reset paging
-      setPage(0);
-      setHasMore(true);
-      const response = await ChatService.getChatMessagesPaged(chatRoomId, 0, 15);
-      const pageData = response.data || [];
-      setMessages(pageData);
-      setHasMore(pageData.length === 15);
-      
-      // Subscribe to real-time updates for this chat
-      if (chatWebSocketService.isWebSocketConnected()) {
-        chatWebSocketService.subscribeToChat(chatRoomId, (newMessage) => {
-          setMessages(prevMessages => [...prevMessages, newMessage]);
-          // Update the conversation's last message
-          setConversations(prevConversations => 
-            prevConversations.map(conv => 
-              (conv.ChatId === chatRoomId || conv.chatRoomId === chatRoomId)
-                ? { ...conv, message: newMessage.message, time: newMessage.time }
-                : conv
-            )
-          );
-        });
-      } else {
-        console.warn('WebSocket not connected, skipping subscription');
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      setError('Failed to load messages');
-    }
-  };
-
-  // Handle conversation selection
-  const handleConversationSelect = (conversation) => {
-    setSelectedConversation(conversation);
-    loadMessages(conversation);
-    setError(null); // Clear any previous errors
-  };
-
-  // Handle scroll to load older messages
-  const handleScroll = (e) => {
-    const { scrollTop } = e.target;
-    if (scrollTop === 0 && hasMore && !isFetchingMore) {
-      loadOlderMessages();
-    }
-  };
-
-  // Load older messages for pagination
-  const loadOlderMessages = async () => {
-    if (!selectedConversation || !hasMore || isFetchingMore) return;
-
-    try {
-      setIsFetchingMore(true);
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      const nextPage = page + 1;
-      
-      const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
-      const olderMessages = response.data || [];
-      
-      if (olderMessages.length > 0) {
-        setMessages(prevMessages => [...olderMessages, ...prevMessages]);
-        setPage(nextPage);
-        setHasMore(olderMessages.length === 15);
-        
-        // Maintain scroll position
-        requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            const newHeight = messagesContainerRef.current.scrollHeight;
-            messagesContainerRef.current.scrollTop = newHeight - messagesContainerRef.current.scrollHeight;
-          }
-        });
-      } else {
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.error('Error loading older messages:', error);
-      setError('Failed to load older messages');
-    } finally {
-      setIsFetchingMore(false);
-    }
-  };
-
-  // Load older messages manually (for mobile)
-  const loadOlderManually = async () => {
-    if (!selectedConversation || !hasMore || isFetchingMore) return;
-
-    try {
-      setIsFetchingMore(true);
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      const nextPage = page + 1;
-      
-      const response = await ChatService.getChatMessagesPaged(chatRoomId, nextPage, 15);
-      const olderMessages = response.data || [];
-      
-      if (olderMessages.length > 0) {
-        setMessages(prevMessages => [...olderMessages, ...prevMessages]);
-        setPage(nextPage);
-        setHasMore(olderMessages.length === 15);
-      } else {
-        setHasMore(false);
-      }
-    } catch (error) {
-      console.error('Error loading older messages (manual)', error);
-      setError('Failed to load older messages');
-    } finally {
-      setIsFetchingMore(false);
-    }
-  };
-
-  // Send a message
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedConversation || !currentUser) return;
-
-    try {
-      // Send message via WebSocket
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      
-      if (chatWebSocketService.isWebSocketConnected()) {
-        chatWebSocketService.sendMessage(
-          chatRoomId, 
-          messageText, 
-          currentUser.userName
-        );
-        
-        // Clear the input
-        setMessageText('');
-      } else {
-        console.error('WebSocket not connected, cannot send message');
-        setError('Connection lost. Please refresh the page.');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setError('Failed to send message');
-    }
-  };
-
-  // Handle file upload
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file || !selectedConversation || !currentUser) return;
-
-    // Validate file based on user role
-    const validation = validateChatFile(file, currentUser.role);
-    if (!validation.isValid) {
-      setError(validation.error);
-      // Clear the file input
-      event.target.value = '';
-      return;
-    }
-
-    try {
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      await ChatService.uploadFileToChat(chatRoomId, file);
-      // File upload success - the message will be added via WebSocket
-      // Clear any previous errors
-      setError(null);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setError('Failed to upload file');
-    }
-  };
-
-  // Handle chat photo upload
-  const handleChatPhotoUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file || !selectedConversation || !currentUser) return;
-
-    // Validate file based on user role (only images allowed for chat photos)
-    const validation = validateChatPhoto(file, currentUser.role);
-    if (!validation.isValid) {
-      setError(validation.error);
-      // Clear the file input
-      event.target.value = '';
-      return;
-    }
-
-    try {
-      const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-      
-      if (!chatRoomId) {
-        throw new Error('Chat Room ID is undefined');
-      }
-      
-      // Upload file directly to S3 without creating a file message
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const uploadResponse = await api.post(`/s3/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      // Extract the S3 URL from the response
-      const fileUrl = uploadResponse.data;
-      
-      // Update the chat photo with the URL
-      await ChatService.updateChatPhoto(chatRoomId, fileUrl);
-      
-      // Update the selected conversation with the new photo
-      const updatedConversation = {
-        ...selectedConversation,
-        chatPhoto: fileUrl
-      };
-      setSelectedConversation(updatedConversation);
-      
-      // Update the conversations list
-      setConversations(prev => prev.map(conv => 
-        conv.ChatId === chatRoomId || conv.chatRoomId === chatRoomId
-          ? { ...conv, chatPhoto: fileUrl }
-          : conv
-      ));
-      
-      // Reload messages to show the "changed chat photo" message
-      await loadMessages(updatedConversation);
-      
-      // Clear any previous errors
-      setError(null);
-      
-    } catch (error) {
-      console.error('Error uploading chat photo:', error);
-      setError('Failed to upload chat photo');
-    }
-  };
-
-  // Create a new chat
-  const handleCreateChat = async () => {
-    if (!newChatName.trim() || selectedUsers.length === 0) return;
-
-    try {
-      // Extract usernames from user objects
-      const usernames = selectedUsers.map(user => user.userName);
-      const response = await ChatService.createChat(usernames, newChatName);
-      const newChat = response.data;
-      
-      // Clear modal first
-      clearModalState();
-      
-      // Update local state instead of full page reload
-      setConversations(prev => [newChat, ...prev]);
-      setSelectedConversation(newChat);
-      await loadMessages(newChat);
-      
-      // Remove any query params so page refresh doesn't auto-fill again
-      navigate('/messages', { replace: true });
-    } catch (error) {
-      console.error('Error creating chat:', error);
-      setError('Failed to create chat');
-    }
-  };
-
-  // Handle leaving a chat
-  const handleLeaveChat = async (conversation) => {
-    if (!conversation || !currentUser) return;
-    
-    const chatRoomId = conversation.ChatId || conversation.chatRoomId;
-    if (!chatRoomId) return;
-
-    // Show confirmation dialog
-    const chatName = conversation.chatName || 'this chat';
-    const confirmed = window.confirm(
-      `Are you sure you want to leave "${chatName}"?\n\nYou will no longer receive messages from this chat and won't be able to rejoin unless someone adds you back.`
-    );
-
-    if (!confirmed) {
-      return; // User cancelled
-    }
-
-    try {
-      // Use WebSocket for instant delivery
-      if (chatWebSocketService.isWebSocketConnected()) {
-        chatWebSocketService.leaveChat(chatRoomId, currentUser.userName);
-      } else {
-        console.warn('WebSocket not connected, leaving chat without real-time notification');
-      }
-      
-      // Remove from conversations list immediately for instant UI feedback
-      setConversations(prev => 
-        prev.filter(conv => 
-          conv.ChatId !== chatRoomId && conv.chatRoomId !== chatRoomId
-        )
-      );
-      
-      // Clear selected conversation if it's the one being left
-      if (selectedConversation && 
-          (selectedConversation.ChatId === chatRoomId || selectedConversation.chatRoomId === chatRoomId)) {
-        setSelectedConversation(null);
-        setMessages([]);
-      }
-      
-    } catch (error) {
-      console.error('Error leaving chat:', error);
-      setError('Failed to leave chat');
-    }
-  };
-
-  // Add user to selected users for new chat
-  const toggleUserSelection = (user) => {
-    setSelectedUsers(prev => 
-      prev.some(selectedUser => selectedUser.userName === user.userName) 
-        ? prev.filter(selectedUser => selectedUser.userName !== user.userName)
-        : [...prev, user]
-    );
-  };
-
-  // Add user to existing chat
-  const handleAddUserToChat = async (user) => {
-    if (!selectedConversation || !currentUser) return;
-    
-    const chatRoomId = selectedConversation.ChatId || selectedConversation.chatRoomId;
-    if (!chatRoomId) return;
-
-    try {
-      // Use WebSocket for instant delivery
-      if (chatWebSocketService.isWebSocketConnected()) {
-        chatWebSocketService.addUserToChat(chatRoomId, user.userName, currentUser.userName);
-      } else {
-        console.warn('WebSocket not connected, adding user without real-time notification');
-      }
-      
-      // Update the conversation's user list immediately for instant UI feedback
-      setConversations(prev => 
-        prev.map(conv => 
-          (conv.ChatId === chatRoomId || conv.chatRoomId === chatRoomId)
-            ? { ...conv, users: [...(conv.users || []), user.userName] }
-            : conv
-        )
-      );
-      
-      // Update selected conversation if it's the current one
-      if (selectedConversation.ChatId === chatRoomId || selectedConversation.chatRoomId === chatRoomId) {
-        setSelectedConversation(prev => ({
-          ...prev,
-          users: [...(prev.users || []), user.userName]
-        }));
-      }
-      
-      // Clear search and close modal
-      setAddUserSearchTerm('');
-      setAddUserSearchResults([]);
-      setShowAddUser(false);
-      
-    } catch (error) {
-      console.error('Error adding user to chat:', error);
-      setError('Failed to add user to chat');
-    }
-  };
-
-  // Clear modal state
-  const clearModalState = () => {
-    setNewChatName('');
-    setSelectedUsers([]);
-    setUserSearchTerm('');
-    setSearchedUsers([]);
-    setShowCreateChat(false);
-  };
-
-  // Format timestamp
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 24 * 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // Render different types of message content
-  const renderMessageContent = (message) => {
-    // Check if it's a chat photo change message
-    if (message.message.includes('changed the chat photo') && message.message.includes('| PHOTO_URL:')) {
-      const photoUrlMatch = message.message.match(/\| PHOTO_URL:([^|]+)/);
-      const photoUrl = photoUrlMatch ? photoUrlMatch[1].trim() : null;
-      
-      return (
-        <div className="messaging-photo-change-message">
-          <p className="messaging-photo-change-text">{message.message.split(' | PHOTO_URL:')[0]}</p>
-          {photoUrl && (
-            <div className="messaging-photo-change-preview">
-              <img src={photoUrl} alt="New chat photo" className="messaging-photo-change-image" />
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    // Check if it's a file message
-    if (message.type === 'FILE' || message.message.includes('| FILE_URL:')) {
-      const fileUrlMatch = message.message.match(/\| FILE_URL:([^|]+)/);
-      const fileSizeMatch = message.message.match(/\| FILE_SIZE:(\d+)/);
-      const fileNameMatch = message.message.match(/sent a file: ([^|]+)/);
-      
-      const fileUrl = fileUrlMatch ? fileUrlMatch[1].trim() : null;
-      const fileSize = fileSizeMatch ? parseInt(fileSizeMatch[1]) : 0;
-      const fileName = fileNameMatch ? fileNameMatch[1].trim() : 'Unknown file';
-      
-      // Determine file type from URL or filename
-      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl || fileName);
-      const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(fileUrl || fileName);
-      const isVideo = /\.(mp4|avi|mov|wmv)$/i.test(fileUrl || fileName);
-      
-      return (
-        <div className="messaging-file-message">
-          <div className="messaging-file-info">
-            <span className="messaging-file-icon">
-              {isImage ? '🖼️' : isAudio ? '🎵' : isVideo ? '🎥' : '📎'}
-            </span>
-            <div className="messaging-file-details">
-              <div className="messaging-file-name">{fileName}</div>
-              <div className="messaging-file-size">{formatFileSize(fileSize)}</div>
-            </div>
-          </div>
-          {fileUrl && (
-            <div className="messaging-file-preview">
-              {isImage ? (
-                <img src={fileUrl} alt={fileName} className="messaging-file-image" />
-              ) : isAudio ? (
-                <audio controls className="messaging-file-audio">
-                  <source src={fileUrl} type="audio/mpeg" />
-                  Your browser does not support the audio element.
-                </audio>
-              ) : isVideo ? (
-                <video controls className="messaging-file-video">
-                  <source src={fileUrl} type="video/mp4" />
-                  Your browser does not support the video element.
-                </video>
-              ) : (
-                <button 
-                  onClick={() => handleFileDownload(fileUrl, fileName)} 
-                  className="messaging-file-download"
-                >
-                  Download File
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    // Regular text message
-    return <p>{message.message}</p>;
-  };
-
-  // Handle file download
-  const handleFileDownload = async (fileUrl, fileName) => {
-    try {
-      // Fetch the file as a blob to force download
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error('Failed to fetch file');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create a temporary link element to trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
-    }
-  };
-
-  // Format file size
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // Auto-scroll to bottom of messages
-  const scrollToBottom = () => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  };
-
-  // Auto-scroll when messages change
-  useEffect(() => {
-    scrollToBottom();
+    scrollIntent.current = { type: 'none' };
   }, [messages]);
 
-  // Auto-scroll when a new conversation is selected
-  useEffect(() => {
-    if (selectedConversation) {
-      scrollToBottom();
-    }
-  }, [selectedConversation]);
+  // Images and players change height after they load; stay at the bottom if we were there
+  const keepPinned = () => {
+    const el = threadRef.current;
+    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
+  };
 
-  // Show loading state
-  if (loading) {
+  const loadOlder = async () => {
+    const chatId = activeIdRef.current;
+    if (!chatId || !hasMore || fetchingOlder) return;
+    setFetchingOlder(true);
+    try {
+      const next = page + 1;
+      const { data } = await ChatService.getChatMessagesPaged(chatId, next, PAGE_SIZE);
+      if (activeIdRef.current !== chatId) return;
+      const older = Array.isArray(data) ? data : [];
+      const el = threadRef.current;
+      scrollIntent.current = { type: 'keep', fromBottom: el ? el.scrollHeight - el.scrollTop : 0 };
+      setMessages((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        return [...older.filter((m) => !m.id || !ids.has(m.id)), ...prev];
+      });
+      setPage(next);
+      setHasMore(older.length === PAGE_SIZE);
+    } catch (err) {
+      console.error('Error loading older messages:', err);
+      setNotice("Couldn't load earlier messages.");
+    } finally {
+      setFetchingOlder(false);
+    }
+  };
+
+  const handleThreadScroll = (event) => {
+    const el = event.currentTarget;
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (el.scrollTop < 40) loadOlder();
+  };
+
+  // ---------- Composer ----------
+
+  // Grow the box with its text, up to about six lines
+  useLayoutEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [draft, activeId]);
+
+  const send = () => {
+    const text = draft.trim();
+    const chatId = activeIdRef.current;
+    if (!text || !chatId) return;
+    if (!chatWebSocketService.isWebSocketConnected()) {
+      setNotice('Connection lost. Refresh the page to reconnect.');
+      return;
+    }
+    chatWebSocketService.sendMessage(chatId, text, me.userName);
+    setDraft('');
+  };
+
+  const handleComposerKey = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      send();
+    }
+  };
+
+  const handleFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    const chatId = activeIdRef.current;
+    if (!file || !chatId) return;
+    const validation = validateChatFile(file, me.role);
+    if (!validation.isValid) {
+      setNotice(validation.error);
+      return;
+    }
+    setUploading(true);
+    setNotice(null);
+    try {
+      // The file message comes back over the socket
+      await ChatService.uploadFileToChat(chatId, file);
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      setNotice("Couldn't send that file. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ---------- Chat settings ----------
+
+  const handlePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    const chatId = activeIdRef.current;
+    if (!file || !chatId) return;
+    const validation = validateChatPhoto(file, me.role);
+    if (!validation.isValid) {
+      setNotice(validation.error);
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data: url } = await api.post('/s3/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await ChatService.updateChatPhoto(chatId, url);
+      setConversations((prev) => prev.map((chat) => (
+        chatIdOf(chat) === chatId
+          ? { ...chat, chatPhoto: url, message: `${me.userName} changed the chat photo`, time: new Date().toISOString() }
+          : chat
+      )));
+      // The "changed the chat photo" message isn't sent over the socket, so reload to show it
+      if (activeIdRef.current === chatId) loadFirstPage(chatId);
+    } catch (err) {
+      console.error('Error uploading chat photo:', err);
+      setNotice("Couldn't change the photo. Try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const addPerson = (user) => {
+    const chatId = activeIdRef.current;
+    if (!chatId) return;
+    if (!chatWebSocketService.isWebSocketConnected()) {
+      setNotice('Connection lost. Refresh the page to reconnect.');
+      return;
+    }
+    chatWebSocketService.addUserToChat(chatId, user.userName, me.userName);
+    setConversations((prev) => prev.map((chat) => (
+      chatIdOf(chat) === chatId ? { ...chat, users: [...(chat.users || []), user.userName] } : chat
+    )));
+    setDialog(null);
+  };
+
+  const leaveChat = () => {
+    const chatId = activeIdRef.current;
+    if (!chatId) return;
+    if (!chatWebSocketService.isWebSocketConnected()) {
+      setNotice('Connection lost. Refresh the page to reconnect.');
+      setDialog(null);
+      return;
+    }
+    chatWebSocketService.leaveChat(chatId, me.userName);
+    closeChat();
+    setConversations((prev) => prev.filter((chat) => chatIdOf(chat) !== chatId));
+    setDialog(null);
+  };
+
+  // ---------- New conversation ----------
+
+  const openNewChat = () => {
+    setNewChatError(null);
+    setDialog('new');
+  };
+
+  const closeNewChat = () => {
+    setDialog(null);
+    setNewChatUsers([]);
+    setNewChatName('');
+    setNewChatError(null);
+  };
+
+  const toggleNewChatUser = (user) => {
+    setNewChatUsers((prev) => (
+      prev.some((u) => u.userName === user.userName)
+        ? prev.filter((u) => u.userName !== user.userName)
+        : [...prev, user]
+    ));
+  };
+
+  const defaultChatName = me ? [me.userName, ...newChatUsers.map((u) => u.userName)].join(', ') : '';
+
+  const createChat = async () => {
+    if (newChatUsers.length === 0 || creating) return;
+    setCreating(true);
+    setNewChatError(null);
+    try {
+      const { data: chat } = await ChatService.createChat(
+        newChatUsers.map((u) => u.userName),
+        newChatName.trim() || defaultChatName,
+      );
+      setConversations((prev) => [chat, ...prev.filter((c) => chatIdOf(c) !== chatIdOf(chat))]);
+      closeNewChat();
+      openChat(chatIdOf(chat));
+    } catch (err) {
+      console.error('Error creating chat:', err);
+      setNewChatError("Couldn't start the conversation. Try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // ---------- Render ----------
+
+  if (status !== 'ready') {
     return (
-      <div className="messaging-page">
+      <div className="fm-page">
         <Header />
-        <div className="messaging-container">
-          <div className="messaging-loading-state">
-            <div className="messaging-loading-spinner"></div>
-            <p>Loading messages...</p>
-          </div>
-        </div>
-        <Footer />
+        <main className="fm-page__main">
+          {status === 'loading' ? (
+            <div className="fm-state" role="status">
+              <div className="fm-spinner" />
+              <p>Loading your messages…</p>
+            </div>
+          ) : (
+            <div className="fm-state" role="alert">
+              <h3>Couldn&apos;t connect to messages</h3>
+              <p>Check your connection and try again.</p>
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setRetryKey((k) => k + 1)}>Retry</button>
+            </div>
+          )}
+        </main>
       </div>
     );
   }
 
-  // Show error state
-  if (error) {
-    return (
-      <div className="messaging-page">
-        <Header />
-        <div className="messaging-container">
-          <div className="messaging-error-state">
-            <div className="messaging-error-icon">⚠️</div>
-            <h3>Error</h3>
-            <p>{error}</p>
-            <button onClick={initializeChat} className="messaging-retry-btn">Try Again</button>
-          </div>
+  const term = query.trim().toLowerCase();
+  const visibleChats = term
+    ? conversations.filter((chat) => (
+      (chat.chatName || '').toLowerCase().includes(term)
+      || (chat.users || []).some((name) => name.toLowerCase().includes(term))
+    ))
+    : conversations;
+
+  const members = active?.users || [];
+  const others = members.filter((name) => name !== me.userName);
+  const memberSummary = others.length === 0
+    ? 'Just you'
+    : others.length <= 3
+      ? `You, ${others.join(', ')}`
+      : `You, ${others.slice(0, 2).join(', ')} and ${others.length - 2} more`;
+
+  return (
+    <div className="fm-page">
+      <Header />
+
+      <main className="fm-page__main">
+        <div className={`fm-msg${active ? ' has-active' : ''}`}>
+          {/* Conversation list */}
+          <aside className="fm-msg__list" aria-label="Conversations">
+            <div className="fm-msg__list-head">
+              <h1 className="fm-msg__title">Messages</h1>
+              <button type="button" className="fm-icon-btn" onClick={openNewChat} aria-label="New conversation" title="New conversation">
+                <Icon name="edit" />
+              </button>
+            </div>
+
+            {conversations.length > 0 && (
+              <div className="fm-msg-search">
+                <Icon name="search" size={18} />
+                <input
+                  type="search"
+                  className="fm-input"
+                  placeholder="Search conversations"
+                  aria-label="Search conversations"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+            )}
+
+            {conversations.length === 0 ? (
+              <div className="fm-msg__list-empty">
+                <p>No conversations yet.</p>
+                <button type="button" className="fm-btn fm-btn--secondary" onClick={openNewChat}>Start one</button>
+              </div>
+            ) : visibleChats.length === 0 ? (
+              <p className="fm-msg__muted fm-msg__list-empty">No conversations match &ldquo;{query.trim()}&rdquo;.</p>
+            ) : (
+              <ul className="fm-msg__convos">
+                {visibleChats.map((chat) => {
+                  const id = chatIdOf(chat);
+                  const isActive = id === activeId;
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        className={`fm-msg-convo${isActive ? ' is-active' : ''}`}
+                        aria-current={isActive ? 'true' : undefined}
+                        onClick={() => openChat(id)}
+                      >
+                        <img className="fm-msg-convo__avatar" src={chat.chatPhoto || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
+                        <span className="fm-msg-convo__body">
+                          <span className="fm-msg-convo__top">
+                            <span className="fm-msg-convo__name">{chat.chatName || 'Untitled conversation'}</span>
+                            <span className="fm-msg-convo__time">{formatListTime(chat.time)}</span>
+                          </span>
+                          <span className="fm-msg-convo__preview">{previewText(chat.message)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </aside>
+
+          {/* Open conversation */}
+          <section className="fm-msg__chat" aria-label={active ? active.chatName || 'Conversation' : 'Conversation'}>
+            {active ? (
+              <>
+                <header className="fm-msg__chat-head">
+                  <button type="button" className="fm-icon-btn fm-msg__back" onClick={closeChat} aria-label="Back to conversations">
+                    <Icon name="chevronLeft" />
+                  </button>
+                  <button type="button" className="fm-msg__chat-id" onClick={() => setDialog('details')}>
+                    <img src={active.chatPhoto || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
+                    <span className="fm-msg__chat-text">
+                      <span className="fm-msg__chat-name">{active.chatName || 'Untitled conversation'}</span>
+                      <span className="fm-msg__chat-members">{memberSummary}</span>
+                    </span>
+                  </button>
+                  <div className="fm-msg__chat-actions">
+                    <button type="button" className="fm-icon-btn" onClick={() => setDialog('add')} aria-label="Add people" title="Add people">
+                      <Icon name="userPlus" />
+                    </button>
+                    <button type="button" className="fm-icon-btn" onClick={() => setDialog('details')} aria-label="Conversation details" title="Details">
+                      <Icon name="info" />
+                    </button>
+                  </div>
+                </header>
+
+                <div
+                  className="fm-msg__thread"
+                  ref={threadRef}
+                  onScroll={handleThreadScroll}
+                  role="log"
+                  aria-label="Messages"
+                >
+                  {hasMore && (
+                    <div className="fm-msg__older">
+                      <button type="button" className="fm-btn fm-btn--secondary" onClick={loadOlder} disabled={fetchingOlder}>
+                        {fetchingOlder ? 'Loading…' : 'Load earlier messages'}
+                      </button>
+                    </div>
+                  )}
+                  {loadingMessages && messages.length === 0 ? (
+                    <div className="fm-state" role="status">
+                      <div className="fm-spinner" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="fm-msg__thread-empty">
+                      <p>No messages yet. Say hello and share what you&apos;re working on.</p>
+                    </div>
+                  ) : (
+                    <MessageList messages={messages} me={me.userName} onMediaLoad={keepPinned} />
+                  )}
+                </div>
+
+                <form className="fm-msg__composer" onSubmit={(e) => { e.preventDefault(); send(); }}>
+                  <button
+                    type="button"
+                    className="fm-icon-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    aria-label={uploading ? 'Sending file' : 'Attach a file'}
+                    title={getFileRestrictionsMessage(me.role)}
+                  >
+                    {uploading ? <span className="fm-msg__mini-spinner" /> : <Icon name="paperclip" />}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleFile}
+                    accept={me.role === 'USERPLUS'
+                      ? 'image/jpeg,image/jpg,image/png,image/gif,audio/mp3,audio/mpeg,audio/wav'
+                      : 'image/jpeg,image/jpg,image/png,audio/mp3,audio/mpeg'}
+                  />
+                  <textarea
+                    ref={composerRef}
+                    className="fm-msg__input"
+                    rows={1}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={handleComposerKey}
+                    placeholder="Write a message…"
+                    aria-label="Message"
+                  />
+                  <button type="submit" className="fm-msg__send" disabled={!draft.trim()} aria-label="Send">
+                    <Icon name="send" size={18} />
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="fm-state fm-msg__placeholder">
+                <span className="fm-msg__placeholder-icon"><Icon name="message" size={28} /></span>
+                <h2>Your messages</h2>
+                <p>Pick a conversation, or start one with an artist you want to work with.</p>
+                <button type="button" className="fm-btn fm-btn--primary" onClick={openNewChat}>
+                  <Icon name="edit" size={18} />
+                  New conversation
+                </button>
+              </div>
+            )}
+          </section>
         </div>
-        <Footer />
+
+        {notice && (
+          <div className="fm-msg__notice" role="alert">
+            <span>{notice}</span>
+            <button type="button" className="fm-icon-btn" onClick={() => setNotice(null)} aria-label="Dismiss">
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* New conversation */}
+      <Dialog
+        open={dialog === 'new'}
+        onClose={closeNewChat}
+        title="New conversation"
+        footer={(
+          <>
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={closeNewChat}>Cancel</button>
+            <button type="button" className="fm-btn fm-btn--primary" onClick={createChat} disabled={newChatUsers.length === 0 || creating}>
+              {creating ? 'Starting…' : 'Start conversation'}
+            </button>
+          </>
+        )}
+      >
+        <div className="fm-msg-form">
+          <UserPicker
+            label="Who do you want to message?"
+            exclude={[me.userName]}
+            selected={newChatUsers.map((u) => u.userName)}
+            onPick={toggleNewChatUser}
+          />
+          {newChatUsers.length > 0 && (
+            <ul className="fm-msg-chips" aria-label="Selected">
+              {newChatUsers.map((user) => (
+                <li key={user.userName} className="fm-msg-chip">
+                  <img src={user.profilePic || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
+                  {user.userName}
+                  <button type="button" onClick={() => toggleNewChatUser(user)} aria-label={`Remove ${user.userName}`}>
+                    <Icon name="close" size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-msg-chat-name">Conversation name</label>
+            <input
+              id="fm-msg-chat-name"
+              className="fm-input"
+              value={newChatName}
+              onChange={(e) => setNewChatName(e.target.value)}
+              placeholder={defaultChatName || 'Optional'}
+              maxLength={80}
+            />
+            <span className="fm-field__hint">Optional. Leave it blank to use everyone&apos;s names.</span>
+          </div>
+          {newChatError && <p className="fm-field__error" role="alert">{newChatError}</p>}
+        </div>
+      </Dialog>
+
+      {/* Add people */}
+      {active && (
+        <Dialog open={dialog === 'add'} onClose={() => setDialog(null)} title="Add people" size="sm">
+          <UserPicker
+            label={`Add someone to ${active.chatName || 'this conversation'}`}
+            exclude={[me.userName, ...members]}
+            onPick={addPerson}
+            actionLabel="Add"
+          />
+        </Dialog>
+      )}
+
+      {/* Details */}
+      {active && (
+        <Dialog open={dialog === 'details'} onClose={() => setDialog(null)} title="Conversation details" size="sm">
+          <div className="fm-msg-details">
+            <div className="fm-msg-details__photo">
+              <img src={active.chatPhoto || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
+              <button
+                type="button"
+                className="fm-btn fm-btn--secondary"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+              >
+                <Icon name="camera" size={18} />
+                {uploadingPhoto ? 'Uploading…' : 'Change photo'}
+              </button>
+              <span className="fm-field__hint">{me.role === 'USERPLUS' ? 'JPG, PNG or GIF' : 'JPG or PNG'}</span>
+              <input
+                ref={photoInputRef}
+                type="file"
+                hidden
+                onChange={handlePhoto}
+                accept={me.role === 'USERPLUS' ? 'image/jpeg,image/jpg,image/png,image/gif' : 'image/jpeg,image/jpg,image/png'}
+              />
+            </div>
+
+            <div>
+              <h3 className="fm-msg-details__heading">{members.length} {members.length === 1 ? 'member' : 'members'}</h3>
+              <ul className="fm-msg-members">
+                {members.map((name) => (
+                  <li key={name}>
+                    <a href={`/profile/${name}`} className="fm-msg-member">
+                      <span className="fm-msg-member__initial" aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
+                      {name}
+                      {name === me.userName && <span className="fm-msg__muted">(you)</span>}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="fm-msg-details__actions">
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setDialog('add')}>
+                <Icon name="userPlus" size={18} />
+                Add people
+              </button>
+              <button type="button" className="fm-btn fm-btn--danger" onClick={() => setDialog('leave')}>
+                <Icon name="logout" size={18} />
+                Leave conversation
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Leave confirmation */}
+      {active && (
+        <Dialog
+          open={dialog === 'leave'}
+          onClose={() => setDialog(null)}
+          title="Leave this conversation?"
+          size="sm"
+          footer={(
+            <>
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setDialog(null)}>Cancel</button>
+              <button type="button" className="fm-btn fm-btn--danger" onClick={leaveChat}>Leave</button>
+            </>
+          )}
+        >
+          <p className="fm-msg-dialog-text">
+            You&apos;ll stop getting messages from <strong>{active.chatName || 'this conversation'}</strong>.
+            Someone in it will need to add you back if you want to return.
+          </p>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
+// ---------- Thread ----------
+
+function MessageList({ messages, me, onMediaLoad }) {
+  const items = [];
+  let lastDay = null;
+  let lastSender = null;
+
+  messages.forEach((message, index) => {
+    const key = message.id || message.messageId || `${message.time}-${index}`;
+    const day = message.time ? new Date(message.time).toDateString() : lastDay;
+    if (day && day !== lastDay) {
+      items.push(<li key={`day-${day}`} className="fm-msg-day"><span>{dayLabel(message.time)}</span></li>);
+      lastDay = day;
+      lastSender = null;
+    }
+
+    const parsed = parseMessage(message);
+    if (parsed.kind === 'system') {
+      items.push(
+        <li key={key} className="fm-msg-system">
+          <span>{parsed.text}</span>
+          {parsed.photo && <img src={parsed.photo} alt="New conversation photo" onLoad={onMediaLoad} />}
+        </li>,
+      );
+      lastSender = null;
+      return;
+    }
+
+    const mine = message.sender === me;
+    const first = message.sender !== lastSender;
+    lastSender = message.sender;
+
+    items.push(
+      <li key={key} className={`fm-msg-row ${mine ? 'is-mine' : 'is-theirs'}${first ? ' is-first' : ''}`}>
+        {!mine && first && (
+          <a href={`/profile/${message.sender}`} className="fm-msg-row__sender">{message.sender}</a>
+        )}
+        <div className={`fm-msg-bubble${parsed.kind === 'file' && parsed.fileKind === 'image' ? ' fm-msg-bubble--media' : ''}`}>
+          {parsed.kind === 'file' ? <FileContent file={parsed} onMediaLoad={onMediaLoad} /> : (
+            <p className="fm-msg-bubble__text">{parsed.text}</p>
+          )}
+          <time className="fm-msg-bubble__time" dateTime={message.time}>{formatClock(message.time)}</time>
+        </div>
+      </li>,
+    );
+  });
+
+  return <ol className="fm-msg-thread">{items}</ol>;
+}
+
+function FileContent({ file, onMediaLoad }) {
+  if (!file.url) return <p className="fm-msg-bubble__text">{file.name}</p>;
+
+  if (file.fileKind === 'image') {
+    return (
+      <a href={file.url} target="_blank" rel="noopener noreferrer" className="fm-msg-image">
+        <img src={file.url} alt={file.name} onLoad={onMediaLoad} />
+      </a>
+    );
+  }
+
+  const meta = (
+    <span className="fm-msg-file__meta">
+      <span className="fm-msg-file__name">{file.name}</span>
+      {file.size > 0 && <span className="fm-msg-file__size">{formatFileSize(file.size)}</span>}
+    </span>
+  );
+
+  if (file.fileKind === 'audio' || file.fileKind === 'video') {
+    return (
+      <div className="fm-msg-file fm-msg-file--player">
+        <span className="fm-msg-file__head">
+          <Icon name={file.fileKind === 'audio' ? 'music' : 'play'} size={18} />
+          {meta}
+        </span>
+        {file.fileKind === 'audio'
+          ? <audio controls preload="metadata" src={file.url} onLoadedMetadata={onMediaLoad} />
+          : <video controls preload="metadata" src={file.url} onLoadedMetadata={onMediaLoad} />}
       </div>
     );
   }
 
   return (
-    <div className="messaging-page">
-      <Header />
-      
-      <div className="messaging-container">
-        {/* Conversations Sidebar */}
-        <div className="messaging-conversations-sidebar">
-          <div className="messaging-sidebar-header">
-            <h2>Messages</h2>
-            <button 
-              className="messaging-new-message-btn"
-              onClick={() => setShowCreateChat(true)}
-            >
-              <span className="messaging-icon">✏️</span>
-            </button>
-          </div>
-          
-          <div className="messaging-search-bar">
-            <span className="messaging-search-icon">🔍</span>
-            <input type="text" placeholder="Search conversations..." />
-          </div>
-
-          <div className="messaging-conversations-list">
-            {conversations.map((conversation) => (
-              <div
-                key={conversation.ChatId || conversation.chatRoomId}
-                className={`messaging-conversation-item ${selectedConversation?.ChatId === conversation.ChatId || selectedConversation?.chatRoomId === conversation.chatRoomId ? 'active' : ''}`}
-                onClick={() => handleConversationSelect(conversation)}
-              >
-                <div className="messaging-conversation-avatar">
-                  <img 
-                    src={conversation.chatPhoto || "/dpp.jpg"} 
-                    alt={conversation.chatName}
-                    onError={(e) => {
-                      e.target.src = "/dpp.jpg";
-                    }}
-                  />
-                </div>
-                
-                <div className="messaging-conversation-content">
-                  <div className="messaging-conversation-header">
-                    <h3 className="messaging-conversation-name">{conversation.chatName}</h3>
-                    <span className="messaging-conversation-time">{formatTimestamp(conversation.time)}</span>
-                  </div>
-                  <p className="messaging-conversation-preview">
-                    {conversation.message || 'No messages yet'}
-                  </p>
-                  <div className="messaging-conversation-meta">
-                    <span className="messaging-conversation-users">
-                      {conversation.users?.length || 0} members
-                    </span>
-                    {conversation.time && (
-                      <span className="messaging-conversation-last-active">
-                        Last active: {formatTimestamp(conversation.time)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Area */}
-        <div className="messaging-chat-area">
-          {selectedConversation ? (
-            <>
-              {/* Chat Header */}
-              <div className="messaging-chat-header">
-                <div className="messaging-chat-user-info">
-                  <div className="messaging-chat-avatar">
-                    <img 
-                      src={selectedConversation.chatPhoto || "/dpp.jpg"} 
-                      alt={selectedConversation.chatName}
-                      onError={(e) => {
-                        e.target.src = "/dpp.jpg";
-                      }}
-                    />
-                    <button 
-                      className="messaging-chat-photo-upload-btn"
-                      onClick={() => chatPhotoInputRef.current?.click()}
-                      title={currentUser ? `Change chat photo - ${getFileRestrictionsMessage(currentUser.role)}` : 'Change chat photo'}
-                    >
-                      📷
-                    </button>
-                    <input
-                      ref={chatPhotoInputRef}
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={handleChatPhotoUpload}
-                      accept={currentUser?.role === 'USERPLUS' 
-                        ? "image/jpeg,image/jpg,image/png,image/gif" 
-                        : "image/jpeg,image/jpg,image/png"
-                      }
-                    />
-                  </div>
-                  <div className="messaging-chat-user-details">
-                    <h3>{selectedConversation.chatName}</h3>
-                    <span className="messaging-user-status">
-                      {selectedConversation.users?.length || 0} members
-                      {selectedConversation.users && selectedConversation.users.length > 0 && (
-                        <span className="messaging-user-names">
-                          : {selectedConversation.users.map((username, index) => (
-                            <React.Fragment key={username}>
-                              <Link 
-                                to={`/profile/${username}`} 
-                                className={`messaging-user-link ${username === currentUser?.userName ? 'current-user' : ''}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {username}
-                              </Link>
-                              {index < selectedConversation.users.length - 1 && ', '}
-                            </React.Fragment>
-                          ))}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="messaging-chat-actions">
-                  <button 
-                    className="messaging-chat-action-btn"
-                    title="Add User"
-                    onClick={() => setShowAddUser(true)}
-                  >
-                    ➕
-                  </button>
-                  <button 
-                    className="messaging-chat-action-btn leave-btn"
-                    title="Leave Chat"
-                    onClick={() => handleLeaveChat(selectedConversation)}
-                  >
-                    🚪
-                  </button>
-                  <button className="messaging-chat-action-btn" title="Chat Info">ℹ️</button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              {isMobile && hasMore && (
-                <div className="messaging-load-earlier-container">
-                  <button className="messaging-load-earlier-btn" onClick={loadOlderManually} disabled={isFetchingMore}>
-                    {isFetchingMore ? 'Loading…' : 'Load earlier'}
-                  </button>
-                </div>
-              )}
-              <div className="messaging-messages-area" ref={messagesContainerRef} onScroll={!isMobile ? handleScroll : undefined}>
-                {isFetchingMore && (
-                  <div className="messaging-loading-older">Loading older messages...</div>
-                )}
-                {messages.map((message) => (
-                  <div
-                    key={message.messageId || message.id || Math.random()}
-                    className={`messaging-message ${message.sender === currentUser?.userName ? 'messaging-message-sent' : 'messaging-message-received'}`}
-                  >
-                    <div className="messaging-message-bubble">
-                      {message.sender !== currentUser?.userName && (
-                        <div className="messaging-message-sender">{message.sender}</div>
-                      )}
-                      {renderMessageContent(message)}
-                      <span className="messaging-message-time">{formatTimestamp(message.time)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Message Input */}
-              <div className="messaging-message-input-area">
-                <div className="messaging-message-input-container">
-                  <button 
-                    className="messaging-attach-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    title={currentUser ? getFileRestrictionsMessage(currentUser.role) : 'File upload not available'}
-                  >
-                    📎
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    style={{ display: 'none' }}
-                    onChange={handleFileUpload}
-                    accept={currentUser?.role === 'USERPLUS' 
-                      ? "image/jpeg,image/jpg,image/png,image/gif,audio/mp3,audio/wav" 
-                      : "image/jpeg,image/jpg,image/png,audio/mp3"
-                    }
-                  />
-                  <div className="messaging-input-wrapper">
-                    <textarea
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="Type a message..."
-                      rows="1"
-                    />
-                  </div>
-                  <button 
-                    className="messaging-send-btn"
-                    onClick={handleSendMessage}
-                    disabled={!messageText.trim()}
-                  >
-                    <span className="messaging-send-icon">➤</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            /* No conversation selected */
-            <div className="messaging-no-conversation">
-              <div className="messaging-no-conversation-content">
-                <div className="messaging-no-conversation-icon">💬</div>
-                <h3>Select a conversation</h3>
-                <p>Choose from your existing conversations or start a new one</p>
-                <button 
-                  className="messaging-start-conversation-btn"
-                  onClick={() => setShowCreateChat(true)}
-                >
-                  Start New Conversation
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Create Chat Modal */}
-      {showCreateChat && (
-        <div className="messaging-modal-overlay">
-          <div className="messaging-modal-content">
-            <div className="messaging-modal-header">
-              <h3>Create New Chat</h3>
-              <button 
-                className="messaging-close-btn"
-                onClick={() => setShowCreateChat(false)}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="messaging-modal-body">
-              <div className="messaging-form-group">
-                <label htmlFor="chatName">Chat Name</label>
-                <input
-                  id="chatName"
-                  type="text"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder="Enter chat name..."
-                />
-              </div>
-              
-              <div className="messaging-form-group">
-                <label>Search and Select Users</label>
-                <div className="messaging-user-search-container">
-                  <input
-                    type="text"
-                    value={userSearchTerm}
-                    onChange={(e) => setUserSearchTerm(e.target.value)}
-                    placeholder="Search by username..."
-                    className="messaging-user-search-input"
-                  />
-                  {searchingUsers && (
-                    <div className="messaging-search-loading">
-                      <div className="messaging-search-spinner"></div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Selected Users */}
-                {selectedUsers.length > 0 && (
-                  <div className="messaging-selected-users-section">
-                    <label className="messaging-selected-users-label">Selected Users ({selectedUsers.length})</label>
-                    <div className="messaging-selected-users-list">
-                      {selectedUsers.map((user) => (
-                        <div key={user.userName} className="messaging-selected-user-item">
-                          <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
-                          <span>{user.userName}</span>
-                          <button 
-                            className="messaging-remove-user-btn"
-                            onClick={() => toggleUserSelection(user)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Search Results */}
-                {userSearchTerm && (
-                  <div className="messaging-search-results-section">
-                    <label className="messaging-search-results-label">Search Results</label>
-                    <div className="messaging-users-list">
-                      {searchedUsers.length > 0 ? (
-                        searchedUsers.map((user) => (
-                          <div
-                            key={user.userName}
-                            className={`messaging-user-item ${selectedUsers.some(selectedUser => selectedUser.userName === user.userName) ? 'selected' : ''}`}
-                            onClick={() => toggleUserSelection(user)}
-                          >
-                            <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
-                            <div className="messaging-user-info">
-                              <span className="messaging-user-name">{user.userName}</span>
-                              {user.bio && <span className="messaging-user-bio">{user.bio}</span>}
-                            </div>
-                            {selectedUsers.some(selectedUser => selectedUser.userName === user.userName) && <span className="messaging-check">✓</span>}
-                          </div>
-                        ))
-                      ) : !searchingUsers ? (
-                        <div className="messaging-no-search-results">
-                          <span>No users found for "{userSearchTerm}"</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Search Hint when no search term */}
-                {!userSearchTerm && (
-                  <div className="messaging-search-hint">
-                    <span>💡 Start typing a username to search for users to add to your chat</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="messaging-modal-footer">
-              <button 
-                className="messaging-cancel-btn"
-                onClick={clearModalState}
-              >
-                Cancel
-              </button>
-              <button 
-                className="messaging-create-btn"
-                onClick={handleCreateChat}
-                disabled={!newChatName.trim() || selectedUsers.length === 0}
-              >
-                Create Chat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add User Modal */}
-      {showAddUser && selectedConversation && (
-        <div className="messaging-modal-overlay">
-          <div className="messaging-modal-content">
-            <div className="messaging-modal-header">
-              <h3>Add User to "{selectedConversation.chatName}"</h3>
-              <button 
-                className="messaging-close-btn"
-                onClick={() => {
-                  setShowAddUser(false);
-                  setAddUserSearchTerm('');
-                  setAddUserSearchResults([]);
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="messaging-modal-body">
-              <div className="messaging-form-group">
-                <label>Search Users to Add</label>
-                <div className="messaging-user-search-container">
-                  <input
-                    type="text"
-                    value={addUserSearchTerm}
-                    onChange={(e) => setAddUserSearchTerm(e.target.value)}
-                    placeholder="Search by username..."
-                    className="messaging-user-search-input"
-                  />
-                  {addingUser && (
-                    <div className="messaging-search-loading">
-                      <div className="messaging-search-spinner"></div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Search Results */}
-                {addUserSearchTerm && (
-                  <div className="messaging-search-results-section">
-                    <label className="messaging-search-results-label">Search Results</label>
-                    <div className="messaging-users-list">
-                      {addUserSearchResults.length > 0 ? (
-                        addUserSearchResults.map((user) => (
-                          <div
-                            key={user.userName}
-                            className="messaging-user-item"
-                            onClick={() => handleAddUserToChat(user)}
-                          >
-                            <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
-                            <div className="messaging-user-info">
-                              <span className="messaging-user-name">{user.userName}</span>
-                              {user.bio && <span className="messaging-user-bio">{user.bio}</span>}
-                            </div>
-                            <span className="messaging-check">➕</span>
-                          </div>
-                        ))
-                      ) : !addingUser ? (
-                        <div className="messaging-no-search-results">
-                          <span>No users found for "{addUserSearchTerm}"</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="messaging-modal-footer">
-              <button 
-                className="messaging-cancel-btn"
-                onClick={() => {
-                  setShowAddUser(false);
-                  setAddUserSearchTerm('');
-                  setAddUserSearchResults([]);
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Footer />
+    <div className="fm-msg-file">
+      <span className="fm-msg-file__head">
+        <Icon name="file" size={18} />
+        {meta}
+      </span>
+      <button type="button" className="fm-icon-btn" onClick={() => downloadFile(file.url, file.name)} aria-label={`Download ${file.name}`}>
+        <Icon name="download" size={18} />
+      </button>
     </div>
   );
-};
+}
+
+// ---------- People search (new conversation / add people) ----------
+
+function UserPicker({ label, exclude, selected, onPick, actionLabel }) {
+  const inputId = useId();
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const q = term.trim();
+    if (!q) {
+      setResults([]);
+      setSearching(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await api.get(`/user/get/search/${encodeURIComponent(q)}?page=0&size=20`);
+        if (!cancelled) setResults(data.content || []);
+      } catch (err) {
+        console.error('Error searching users:', err);
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [term]);
+
+  const visible = results.filter((user) => !exclude.includes(user.userName));
+
+  return (
+    <div className="fm-field">
+      <label className="fm-field__label" htmlFor={inputId}>{label}</label>
+      <div className="fm-msg-search">
+        <Icon name="search" size={18} />
+        <input
+          id={inputId}
+          type="search"
+          className="fm-input"
+          placeholder="Search by username"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          autoComplete="off"
+          data-autofocus
+        />
+        {searching && <span className="fm-msg__mini-spinner fm-msg-search__spinner" aria-label="Searching" />}
+      </div>
+      {term.trim() && !searching && visible.length === 0 && (
+        <p className="fm-field__hint">No artists found for &ldquo;{term.trim()}&rdquo;.</p>
+      )}
+      {visible.length > 0 && (
+        <ul className="fm-msg-people">
+          {visible.map((user) => {
+            const isSelected = selected?.includes(user.userName);
+            return (
+              <li key={user.userName}>
+                <button
+                  type="button"
+                  className={`fm-msg-person${isSelected ? ' is-selected' : ''}`}
+                  onClick={() => onPick(user)}
+                  aria-pressed={selected ? isSelected : undefined}
+                >
+                  <img src={user.profilePic || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
+                  <span className="fm-msg-person__text">
+                    <span className="fm-msg-person__name">{user.userName}</span>
+                    {user.bio && <span className="fm-msg-person__bio">{user.bio}</span>}
+                  </span>
+                  <span className="fm-msg-person__action" aria-hidden="true">
+                    {selected
+                      ? (isSelected ? <Icon name="check" size={18} strokeWidth={2.4} /> : <Icon name="plus" size={18} />)
+                      : actionLabel}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default MessagesPage;

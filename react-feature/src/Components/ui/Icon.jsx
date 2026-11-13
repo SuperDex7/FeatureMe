@@ -29,6 +29,14 @@ const STROKE_ICONS = {
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   pin: <><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" /><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></>,
+  send: <path d="M4 12l16-8-6 16-2.5-6.5z" />,
+  paperclip: <path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7" />,
+  camera: <><path d="M4 8h3l2-2.5h6L17 8h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
+  userPlus: <><circle cx="10" cy="8" r="4" /><path d="M3 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5M19 8v6M16 11h6" /></>,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.5v.5" /></>,
+  edit: <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></>,
+  file: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7" />,
 };
 
 const FILL_ICONS = {
