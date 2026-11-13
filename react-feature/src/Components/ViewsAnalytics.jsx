@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../services/AuthService";
 import Dialog from "./ui/Dialog";
 import Icon from "./ui/Icon";
@@ -41,8 +41,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
   const [summary, setSummary] = useState({ plays: totalViews, listeners: null, likes: null, downloads: totalDownloads, comments: totalComments });
   const [tab, setTab] = useState("views");
   const [page, setPage] = useState(0);
-  const [list, setList] = useState({ items: [], totalPages: 0, totalElements: 0, status: "loading" });
-  const [likers, setLikers] = useState(new Set());
+  const [list, setList] = useState({ items: [], likers: new Set(), totalPages: 0, totalElements: 0, tab: "views", status: "loading" });
   const [deletingId, setDeletingId] = useState(null);
 
   // Totals for the stat tiles
@@ -73,40 +72,82 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, postId]);
 
+  // Pages already loaded for this post, keyed "tab:page", so switching tabs
+  // or going back a page is instant. Cleared when the post changes.
+  const cacheRef = useRef(new Map());
+  const pendingRef = useRef(new Map());
+  useEffect(() => {
+    cacheRef.current = new Map();
+    pendingRef.current = new Map();
+  }, [postId]);
+
+  // Fetch one page (or reuse it); listeners pages also get their "Liked" marks
+  const loadPage = useCallback((tabKey, pageNum) => {
+    const key = `${tabKey}:${pageNum}`;
+    if (cacheRef.current.has(key)) return Promise.resolve(cacheRef.current.get(key));
+    if (pendingRef.current.has(key)) return pendingRef.current.get(key);
+    const cache = cacheRef.current;
+    const tabDef = TABS.find((t) => t.key === tabKey);
+    const request = api.get(tabDef.url(postId), { params: { page: pageNum, size: PAGE_SIZE } })
+      .then(async ({ data }) => {
+        const items = data?.content || [];
+        const entry = {
+          items,
+          totalPages: data?.page?.totalPages || 0,
+          totalElements: data?.page?.totalElements || 0,
+          likers: new Set(),
+        };
+        if (tabKey === "views") {
+          const names = items.map((v) => v.userName).filter((n) => !isGuest(n));
+          if (names.length > 0) {
+            try {
+              const res = await api.get(`/posts/likes/${postId}/liked-by`, { params: { userNames: names.join(",") } });
+              entry.likers = new Set(res.data || []);
+            } catch {
+              // Badges are a nice-to-have; show the list without them
+            }
+          }
+        }
+        cache.set(key, entry);
+        return entry;
+      })
+      .finally(() => pendingRef.current.delete(key));
+    pendingRef.current.set(key, request);
+    return request;
+  }, [postId]);
+
   // The open tab's page of people
   useEffect(() => {
     if (!isOpen || !postId) return undefined;
     let cancelled = false;
-    const current = TABS.find((t) => t.key === tab);
-    setList((prev) => ({ ...prev, status: "loading" }));
-    api.get(current.url(postId), { params: { page, size: PAGE_SIZE } })
-      .then(({ data }) => {
+    const cached = cacheRef.current.get(`${tab}:${page}`);
+    if (cached) {
+      setList({ ...cached, tab, status: "ready" });
+    } else {
+      // Never show the previous tab's people while this one loads
+      setList((prev) => ({ items: [], likers: new Set(), totalPages: prev.tab === tab ? prev.totalPages : 0, totalElements: 0, tab, status: "loading" }));
+    }
+    loadPage(tab, page)
+      .then((entry) => {
         if (cancelled) return;
-        const items = data?.content || [];
-        setList({
-          items,
-          totalPages: data?.page?.totalPages || 0,
-          totalElements: data?.page?.totalElements || 0,
-          status: "ready",
-        });
-        // Mark listeners on this page who also liked the post
-        if (tab === "views") {
-          const names = items.map((v) => v.userName).filter((n) => !isGuest(n));
-          setLikers(new Set());
-          if (names.length > 0) {
-            api.get(`/posts/likes/${postId}/liked-by`, { params: { userNames: names.join(",") } })
-              .then((res) => { if (!cancelled) setLikers(new Set(res.data || [])); })
-              .catch(() => {});
-          }
-        }
+        setList({ ...entry, tab, status: "ready" });
+        // Get the next page ready too
+        if (page + 1 < entry.totalPages) loadPage(tab, page + 1).catch(() => {});
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(`Error loading ${tab}:`, err);
         const code = err.response?.status;
-        if (!cancelled) setList({ items: [], totalPages: 0, totalElements: 0, status: code === 401 ? "signedout" : code === 403 ? "forbidden" : "error" });
+        setList({ items: [], likers: new Set(), totalPages: 0, totalElements: 0, tab, status: code === 401 ? "signedout" : code === 403 ? "forbidden" : "error" });
       });
     return () => { cancelled = true; };
-  }, [isOpen, postId, tab, page]);
+  }, [isOpen, postId, tab, page, loadPage]);
+
+  // Load the first page of the other tabs in the background
+  useEffect(() => {
+    if (!isOpen || !postId) return;
+    TABS.filter((t) => t.key !== "views").forEach((t) => loadPage(t.key, 0).catch(() => {}));
+  }, [isOpen, postId, loadPage]);
 
   const switchTab = (key) => {
     setTab(key);
@@ -117,7 +158,16 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     setDeletingId(commentId);
     try {
       await api.delete(`/posts/delete/comment/${commentId}`);
-      setList((prev) => ({ ...prev, items: prev.items.filter((c) => c.id !== commentId), totalElements: Math.max(0, prev.totalElements - 1) }));
+      const key = `comments:${page}`;
+      const updated = {
+        ...list,
+        items: list.items.filter((c) => c.id !== commentId),
+        totalElements: Math.max(0, list.totalElements - 1),
+      };
+      // Later comment pages shift by one, so drop them and keep this one
+      [...cacheRef.current.keys()].filter((k) => k.startsWith("comments:")).forEach((k) => cacheRef.current.delete(k));
+      cacheRef.current.set(key, { items: updated.items, totalPages: updated.totalPages, totalElements: updated.totalElements, likers: new Set() });
+      setList(updated);
       setSummary((prev) => ({ ...prev, comments: Math.max(0, prev.comments - 1) }));
     } catch (err) {
       console.error("Error deleting comment:", err);
@@ -192,7 +242,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
                     <div className="fm-stats__person-body">
                       <div className="fm-stats__person-top">
                         {guest ? <span className="fm-stats__name is-guest">{name}</span> : <a href={`/profile/${item.userName}`} className="fm-stats__name">{name}</a>}
-                        {tab === "views" && !guest && likers.has(item.userName) && (
+                        {tab === "views" && !guest && list.likers?.has(item.userName) && (
                           <span className="fm-stats__liked" title="Also liked this"><Icon name="heart" size={12} />Liked</span>
                         )}
                         <span className="fm-stats__meta">{meta}</span>
