@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { checkLogin, consumeSessionExpired } from '../services/AuthService';
+import { checkLogin, consumeSessionExpired, knownLoggedIn } from '../services/AuthService';
 
 const ProtectedRoute = ({ children }) => {
-  const [status, setStatus] = useState('loading'); // loading | in | out | error
+  // Moving between pages in the app: skip the loading screen when we already know
+  const [status, setStatus] = useState(() => (knownLoggedIn() ? 'in' : 'loading')); // loading | in | out | error
   const [notice, setNotice] = useState();
   const location = useLocation();
 
   const check = useCallback(async () => {
-    setStatus('loading');
     const result = await checkLogin();
     if (result === 'out' && consumeSessionExpired()) {
       setNotice("Your session expired. Log in again to continue.");
@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
         <div className="fm-state" role="alert">
           <h3>Can&apos;t reach FeatureMe</h3>
           <p>Check your connection and try again.</p>
-          <button type="button" className="fm-btn fm-btn--primary" onClick={check}>Try again</button>
+          <button type="button" className="fm-btn fm-btn--primary" onClick={() => { setStatus('loading'); check(); }}>Try again</button>
         </div>
       </div>
     );

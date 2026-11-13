@@ -90,6 +90,9 @@ export const checkLogin = async () => {
   }
 };
 
+/** True when a recent /user/me answer says you're logged in (no request needed) */
+export const knownLoggedIn = () => Boolean(meCache && Date.now() - meCache.at < ME_MAX_AGE);
+
 export const isAuthenticated = async () => (await checkLogin()) === 'in';
 
 export const logout = async () => {
