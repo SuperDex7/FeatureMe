@@ -1022,10 +1022,11 @@ public class PostsService {
         // Use the new PostViewService to handle view tracking
         postViewService.addView(id, userName);
         
-        // Update the cached totalViews count in the Posts entity
-        long newTotalViews = postViewService.getTotalViews(id);
-        post.setTotalViews((int) newTotalViews);
-        postsRepository.save(post); // Save the updated view count
+        // Count the play on the post. Incremented rather than recalculated from
+        // post_views, whose older records were auto-deleted by a since-removed
+        // TTL index; recalculating would shrink long-running play counts.
+        post.setTotalViews(post.getTotalViews() + 1);
+        postsRepository.save(post);
     }
     
     public List<ViewsDTO> getPostViews(String postId) {
@@ -1038,8 +1039,13 @@ public class PostsService {
     
     // New methods for the separate views system
     public PostViewService.PostViewSummary getPostViewSummary(String postId) {
-        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        return postViewService.getViewSummary(postId);
+        Posts post = postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        PostViewService.PostViewSummary fromRecords = postViewService.getViewSummary(postId);
+        // Some per-listener records were deleted by an old TTL index, so the
+        // post's own play counter can be higher; never report fewer plays than it
+        long totalViews = Math.max(fromRecords.getTotalViews(), post.getTotalViews());
+        long listeners = fromRecords.getUniqueViewers();
+        return new PostViewService.PostViewSummary(totalViews, listeners, listeners > 0 ? (double) totalViews / listeners : 0);
     }
     
     public PagedModel<ViewsDTO> getPostViewsPaginated(String postId, int page, int size) {

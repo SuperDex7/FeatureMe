@@ -38,7 +38,7 @@ const isGuest = (name) => !name || name === "unknown";
 // dashboard's analytics dialog and wrapped in a dialog by ViewsAnalytics.
 export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads = 0, totalViews = 0, totalComments = 0 }) {
   const isOpen = Boolean(postId);
-  const [summary, setSummary] = useState({ plays: totalViews, listeners: 0, likes: 0, downloads: totalDownloads, comments: totalComments });
+  const [summary, setSummary] = useState({ plays: totalViews, listeners: null, likes: null, downloads: totalDownloads, comments: totalComments });
   const [tab, setTab] = useState("views");
   const [page, setPage] = useState(0);
   const [list, setList] = useState({ items: [], totalPages: 0, totalElements: 0, status: "loading" });
@@ -51,7 +51,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     let cancelled = false;
     setTab("views");
     setPage(0);
-    setSummary({ plays: totalViews, listeners: 0, likes: 0, downloads: totalDownloads, comments: totalComments });
+    setSummary({ plays: totalViews, listeners: null, likes: null, downloads: totalDownloads, comments: totalComments });
     const total = (res) => res.value?.data?.page?.totalElements;
     Promise.allSettled([
       api.get(`/posts/views/${postId}/summary`),
@@ -126,14 +126,13 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     }
   };
 
-  const perListener = summary.listeners > 0 ? (summary.plays / summary.listeners).toFixed(1) : "0";
   const downloadRate = summary.plays > 0 ? `${((summary.downloads / summary.plays) * 100).toFixed(1)}%` : "0%";
   const canModerate = currentUser && postAuthor && currentUser.userName === postAuthor.userName;
 
   const tiles = [
     { icon: "play", label: "Plays", value: compact(summary.plays) },
-    { icon: "user", label: "Listeners", value: compact(summary.listeners), hint: `${perListener} plays each` },
-    { icon: "heart", label: "Likes", value: compact(summary.likes) },
+    { icon: "user", label: "Listeners", value: summary.listeners == null ? "–" : compact(summary.listeners) },
+    { icon: "heart", label: "Likes", value: summary.likes == null ? "–" : compact(summary.likes) },
     { icon: "message", label: "Comments", value: compact(summary.comments) },
     { icon: "download", label: "Downloads", value: compact(summary.downloads), hint: `${downloadRate} of plays` },
   ];
@@ -161,7 +160,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
               className={`fm-segment${tab === t.key ? " is-active" : ""}`}
               onClick={() => switchTab(t.key)}
             >
-              {t.label} <span className="fm-stats__count">{compact(counts[t.key])}</span>
+              {t.label} {counts[t.key] != null && <span className="fm-stats__count">{compact(counts[t.key])}</span>}
             </button>
           ))}
         </div>

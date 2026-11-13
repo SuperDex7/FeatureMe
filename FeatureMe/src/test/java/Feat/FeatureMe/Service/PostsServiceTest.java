@@ -246,5 +246,32 @@ class PostsServiceTest {
         assertTrue(result.getContent().isEmpty(), "Should return empty page");
         verify(postsRepository, times(1)).findByStatusOrderByTimeDesc(eq("PUBLISHED"), any(Pageable.class));
     }
-}
 
+    @Test
+    @DisplayName("a play adds one to the post's counter instead of recounting expired view records")
+    void addViewIncrementsCounter() {
+        mockPost.setTotalViews(500);
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+
+        postsService.addView("post123", "listener");
+
+        verify(postViewService).addView("post123", "listener");
+        assertEquals(501, mockPost.getTotalViews());
+        verify(postsRepository).save(mockPost);
+        verify(postViewService, never()).getTotalViews(anyString());
+    }
+
+    @Test
+    @DisplayName("the view summary never reports fewer plays than the post's counter")
+    void summaryUsesCounterWhenRecordsAreMissing() {
+        mockPost.setTotalViews(500);
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+        when(postViewService.getViewSummary("post123")).thenReturn(new PostViewService.PostViewSummary(3, 2, 1.5));
+
+        PostViewService.PostViewSummary summary = postsService.getPostViewSummary("post123");
+
+        assertEquals(500, summary.getTotalViews());
+        assertEquals(2, summary.getUniqueViewers());
+        assertEquals(250.0, summary.getAvgViewsPerUser());
+    }
+}
