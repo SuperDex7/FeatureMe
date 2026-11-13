@@ -1,588 +1,315 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import api from "../services/AuthService";
-import DemoService from "../services/DemoService";
-import AudioPlayer2 from "../Components/AudioPlayer2";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
-import "./UserSearch.css";
+import AudioPlayer2 from "../Components/AudioPlayer2";
+import Icon from "../Components/ui/Icon";
+import Pagination from "../Components/ui/Pagination";
+import PlusBadge from "../Components/ui/PlusBadge";
+import api, { getCurrentUser } from "../services/AuthService";
+import { UserRelationsService } from "../services/UserService";
+import DemoService from "../services/DemoService";
+import { bannerStyle } from "../utils/banner";
+import "../Styling/SearchPage.css";
 
+const DEFAULT_AVATAR = "/dpp.jpg";
+const PAGE_SIZE = 12;
+
+const countLabel = (n, word) => `${n ?? 0} ${n === 1 ? word : `${word}s`}`;
+
+// Find artists by username. The header's search box links here with ?q=term.
 function UserSearch() {
-    const navigate = useNavigate();
-    const location = useLocation();
-    // The header's search box links here with ?q=<term>
-    const [searchTerm, setSearchTerm] = useState(
-        () => new URLSearchParams(location.search).get("q") || ""
-    );
-    const [users, setUsers] = useState([]);
-    const [page, setPage] = useState(0);
-    const [size, setSize] = useState(5);
-    const [totalPages, setTotalPages] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [followingStatus, setFollowingStatus] = useState({});
-    const [currentUser, setCurrentUser] = useState(null);
-    const [playingDemo, setPlayingDemo] = useState(null);
-    const [loadedDemos, setLoadedDemos] = useState({});
-    const [loadingDemos, setLoadingDemos] = useState({});
-    const pendingFollowUpdates = useRef(new Set());
+  const navigate = useNavigate();
+  const location = useLocation();
+  const urlTerm = new URLSearchParams(location.search).get("q") || "";
 
-    // Debounced search function
-    const debouncedSearch = useCallback(
-        (() => {
-            let timeoutId;
-            return (term) => {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => {
-                    if (term.trim()) {
-                        setPage(0);
-                        fetchUsers(term, 0);
-                    } else {
-                        setUsers([]);
-                        setTotalPages(0);
-                        setHasMore(false);
-                    }
-                }, 300);
-            };
-        })(),
-        []
-    );
+  const [term, setTerm] = useState(urlTerm);
+  const [query, setQuery] = useState(urlTerm.trim()); // what the results are for
+  const [page, setPage] = useState(0);
+  const [results, setResults] = useState([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalResults, setTotalResults] = useState(0);
+  const [status, setStatus] = useState(urlTerm.trim() ? "loading" : "idle"); // idle | loading | ready | error
+  const [suggestions, setSuggestions] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [following, setFollowing] = useState({});
+  const [pendingFollow, setPendingFollow] = useState(null);
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [loadingDemo, setLoadingDemo] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const requestRef = useRef(0);
 
-    const fetchUsers = async (term, pageNum) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await api.get(`/user/get/search/${term}?page=${pageNum}&size=${size}`);
-            const data = response.data;
-            const usersData = data.content || [];
-            setUsers(usersData);
-            setTotalPages(data.page?.totalPages || 0);
-            setHasMore((data.page?.totalPages || 0) > pageNum);
-            
-            // Check following status for each user
-            if (currentUser) {
-                const followingChecks = usersData.map(user => 
-                    api.get(`/user-relations/is-following/${user.userName}`)
-                        .then(res => ({ userName: user.userName, isFollowing: res.data }))
-                        .catch(() => ({ userName: user.userName, isFollowing: false }))
-                );
-                
-                const results = await Promise.all(followingChecks);
-                const statusMap = {};
-                results.forEach(result => {
-                    statusMap[result.userName] = result.isFollowing;
-                });
-                setFollowingStatus(prev => ({ ...prev, ...statusMap }));
-            }
-        } catch (err) {
-            setError("Failed to fetch users. Please try again.");
-            console.error("Error fetching users:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+  useEffect(() => {
+    getCurrentUser().then(setCurrentUser);
+    UserRelationsService.getFriendSuggestions(8)
+      .then((res) => setSuggestions(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setSuggestions([]));
+  }, []);
 
-    // Get current user on component mount
-    useEffect(() => {
-        const getCurrentUser = async () => {
-            try {
-                const response = await api.get('/user/me');
-                setCurrentUser(response.data);
-            } catch (err) {
-                console.error("Error fetching current user:", err);
-            }
-        };
-        getCurrentUser();
-    }, []);
+  // Searching again from the header while already on this page
+  useEffect(() => {
+    // Keep what's typed (e.g. a trailing space mid-word) if it already matches
+    setTerm((prev) => (prev.trim() === urlTerm.trim() ? prev : urlTerm));
+    setQuery(urlTerm.trim());
+    setPage(0);
+  }, [urlTerm]);
 
-    // Check following status when currentUser becomes available and we have users
-    useEffect(() => {
-        const checkFollowingStatus = async () => {
-            if (!currentUser || users.length === 0) return;
-            
-            // Skip checking users that have pending updates
-            const usersToCheck = users.filter(user => !pendingFollowUpdates.current.has(user.userName));
-            if (usersToCheck.length === 0) return;
-            
-            try {
-                const followingChecks = usersToCheck.map(user => 
-                    api.get(`/user-relations/is-following/${user.userName}`)
-                        .then(res => ({ userName: user.userName, isFollowing: res.data }))
-                        .catch(() => ({ userName: user.userName, isFollowing: false }))
-                );
-                
-                const results = await Promise.all(followingChecks);
-                const statusMap = {};
-                results.forEach(result => {
-                    statusMap[result.userName] = result.isFollowing;
-                });
-                setFollowingStatus(prev => ({ ...prev, ...statusMap }));
-            } catch (err) {
-                console.error("Error checking following status:", err);
-            }
-        };
-        
-        checkFollowingStatus();
-    }, [currentUser, users]);
+  // Wait for a pause in typing, then search and keep the URL in sync
+  useEffect(() => {
+    const next = term.trim();
+    if (next === query) return undefined;
+    const timer = setTimeout(() => {
+      setQuery(next);
+      setPage(0);
+      navigate(next ? `/user-search?q=${encodeURIComponent(next)}` : "/user-search", { replace: true });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [term, query, navigate]);
 
-    useEffect(() => {
-        debouncedSearch(searchTerm);
-    }, [searchTerm, debouncedSearch]);
+  useEffect(() => {
+    if (!query) {
+      setResults([]);
+      setStatus("idle");
+      return;
+    }
+    const requestId = ++requestRef.current;
+    setStatus("loading");
+    api.get(`/user/get/search/${encodeURIComponent(query)}?page=${page}&size=${PAGE_SIZE}`)
+      .then(({ data }) => {
+        // Ignore answers to searches the user has already typed past
+        if (requestId !== requestRef.current) return;
+        setResults(data.content || []);
+        setTotalPages(data.page?.totalPages || 0);
+        setTotalResults(data.page?.totalElements ?? (data.content || []).length);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (requestId !== requestRef.current) return;
+        console.error("Error searching users:", err);
+        setStatus("error");
+      });
+  }, [query, page, retryKey]);
 
-    // Searching again from the header while already on this page
-    useEffect(() => {
-        const q = new URLSearchParams(location.search).get("q");
-        if (q !== null) setSearchTerm(q);
-    }, [location.search]);
+  // Who on screen you already follow
+  useEffect(() => {
+    if (!currentUser) return;
+    const people = [...results, ...suggestions].filter((u) => u.userName !== currentUser.userName && following[u.userName] === undefined);
+    if (people.length === 0) return;
+    Promise.all(people.map((u) => UserRelationsService.isFollowing(u.userName)
+      .then((res) => [u.userName, res.data === true])
+      .catch(() => [u.userName, false])))
+      .then((pairs) => setFollowing((prev) => ({ ...prev, ...Object.fromEntries(pairs) })));
+    // following is read only to skip names already checked
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, results, suggestions]);
 
-    const handleFollowToggle = async (targetUserName) => {
-        if (!currentUser) return;
-        
-        // Prevent multiple simultaneous updates for the same user
-        if (pendingFollowUpdates.current.has(targetUserName)) {
-            return;
-        }
-        
-        try {
-            // Mark this user as having a pending update
-            pendingFollowUpdates.current.add(targetUserName);
-            
-            // Optimistically update the UI immediately
-            const wasFollowing = followingStatus[targetUserName] ?? false;
-            const newFollowingStatus = !wasFollowing;
-            
-            // Update following status immediately
-            setFollowingStatus(prev => ({
-                ...prev,
-                [targetUserName]: newFollowingStatus
-            }));
-            
-            // Update counts immediately
-            setUsers(prevUsers => 
-                prevUsers.map(user => {
-                    if (user.userName === targetUserName) {
-                        return {
-                            ...user,
-                            followersCount: newFollowingStatus 
-                                ? (user.followersCount || 0) + 1 
-                                : Math.max(0, (user.followersCount || 0) - 1)
-                        };
-                    }
-                    return user;
-                })
-            );
-            
-            // Update current user's following count
-            setCurrentUser(prev => prev ? {
-                ...prev,
-                followingCount: newFollowingStatus
-                    ? (prev.followingCount || 0) + 1
-                    : Math.max(0, (prev.followingCount || 0) - 1)
-            } : null);
-            
-            // Make the API call
-            const response = await api.post(`/user-relations/follow/${targetUserName}`);
-            
-            // Verify the response matches our optimistic update
-            const responseText = response.data.toString();
-            const isFollowing = responseText === "Followed";
-            
-            if (isFollowing !== newFollowingStatus) {
-                // If there's a mismatch, revert and refresh
-                setFollowingStatus(prev => ({
-                    ...prev,
-                    [targetUserName]: isFollowing
-                }));
-                // Refresh the user data
-                if (searchTerm.trim()) {
-                    fetchUsers(searchTerm, page);
-                }
-            }
-        } catch (err) {
-            console.error("Error toggling follow:", err);
-            // Revert optimistic update on error
-            const wasFollowing = followingStatus[targetUserName] ?? false;
-            setFollowingStatus(prev => ({
-                ...prev,
-                [targetUserName]: wasFollowing
-            }));
-            
-            // Revert counts
-            setUsers(prevUsers => 
-                prevUsers.map(user => {
-                    if (user.userName === targetUserName) {
-                        return {
-                            ...user,
-                            followersCount: wasFollowing
-                                ? (user.followersCount || 0) + 1
-                                : Math.max(0, (user.followersCount || 0) - 1)
-                        };
-                    }
-                    return user;
-                })
-            );
-            
-            setCurrentUser(prev => prev ? {
-                ...prev,
-                followingCount: wasFollowing
-                    ? (prev.followingCount || 0) + 1
-                    : Math.max(0, (prev.followingCount || 0) - 1)
-            } : null);
-            
-            // Refresh the user data
-            if (searchTerm.trim()) {
-                fetchUsers(searchTerm, page);
-            }
-        } finally {
-            // Remove from pending updates after a short delay to allow state to settle
-            setTimeout(() => {
-                pendingFollowUpdates.current.delete(targetUserName);
-            }, 1000);
-        }
-    };
+  const toggleFollow = async (userName) => {
+    if (!currentUser || pendingFollow) return;
+    const was = Boolean(following[userName]);
+    const bump = (list) => list.map((u) => (u.userName === userName
+      ? { ...u, followersCount: Math.max(0, (u.followersCount || 0) + (was ? -1 : 1)) }
+      : u));
+    setPendingFollow(userName);
+    setFollowing((prev) => ({ ...prev, [userName]: !was }));
+    setResults(bump);
+    setSuggestions(bump);
+    try {
+      const { data } = await UserRelationsService.toggleFollow(userName);
+      const now = String(data) === "Followed";
+      if (now === was) {
+        // The server disagreed; show what it says
+        setFollowing((prev) => ({ ...prev, [userName]: now }));
+      }
+    } catch (err) {
+      console.error("Error toggling follow:", err);
+      setFollowing((prev) => ({ ...prev, [userName]: was }));
+      setResults((list) => list.map((u) => (u.userName === userName
+        ? { ...u, followersCount: Math.max(0, (u.followersCount || 0) + (was ? 1 : -1)) }
+        : u)));
+    } finally {
+      setPendingFollow(null);
+    }
+  };
 
-    const handleProfileClick = (userName) => {
-        navigate(`/profile/${userName}`);
-    };
+  const playDemo = async (user) => {
+    const demoId = user.demo?.[0];
+    if (!demoId) return;
+    setLoadingDemo(user.userName);
+    try {
+      const demo = await DemoService.getDemoById(demoId);
+      if (demo?.songUrl) setNowPlaying({ key: `${user.userName}-${demoId}`, user, url: demo.songUrl, title: demo.title || `${user.userName}'s demo` });
+    } catch (err) {
+      console.error("Error loading demo:", err);
+    } finally {
+      setLoadingDemo(null);
+    }
+  };
 
-    const handleDemoPlay = async (demoId, userName) => {
-        try {
-            setLoading(true);
-            const demoData = await DemoService.getDemoById(demoId);
-            if (demoData && demoData.songUrl) {
-                setPlayingDemo({ 
-                    url: demoData.songUrl, 
-                    userName,
-                    title: demoData.title || `${userName}'s Demo`
-                });
-            } else {
-                console.error("Demo data not found or missing audio URL");
-            }
-        } catch (error) {
-            console.error("Error fetching demo:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const changePage = (next) => {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    const loadUserDemos = async (userId, demoIds) => {
-        if (loadedDemos[userId] || loadingDemos[userId]) return;
-        
-        setLoadingDemos(prev => ({ ...prev, [userId]: true }));
-        
-        try {
-            const demoPromises = demoIds.map(demoId => 
-                DemoService.getDemoById(demoId).catch(err => {
-                    console.error(`Error loading demo ${demoId}:`, err);
-                    return null;
-                })
-            );
-            
-            const demos = await Promise.all(demoPromises);
-            const validDemos = demos.filter(demo => demo && demo.songUrl);
-            
-            setLoadedDemos(prev => ({ ...prev, [userId]: validDemos }));
-        } catch (error) {
-            console.error("Error loading demos:", error);
-        } finally {
-            setLoadingDemos(prev => ({ ...prev, [userId]: false }));
-        }
-    };
+  const cardProps = { currentUser, following, pendingFollow, onFollow: toggleFollow, onPlay: playDemo, loadingDemo, nowPlaying };
 
-    const handleDemoClose = () => {
-        setPlayingDemo(null);
-    };
+  return (
+    <div className="fm-page">
+      <Header />
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        if (searchTerm.trim()) {
-            setPage(0);
-            fetchUsers(searchTerm, 0);
-        }
-    };
+      <main className={`fm-page__main${nowPlaying ? " fm-search--playing" : ""}`}>
+        <div className="fm-search">
+          <div className="fm-search__intro">
+            <h1 className="fm-search__title">Find artists</h1>
+            <p className="fm-search__subtitle">Search by username to find people to follow, message and feature with.</p>
+          </div>
 
-    const nextPage = () => {
-        if (hasMore && !loading) {
-            const nextPageNum = page + 1;
-            setPage(nextPageNum);
-            fetchUsers(searchTerm, nextPageNum);
-        }
-    };
+          <form className="fm-search__form" role="search" onSubmit={(e) => { e.preventDefault(); setQuery(term.trim()); setPage(0); }}>
+            <Icon name="search" size={22} />
+            <label className="fm-visually-hidden" htmlFor="fm-search-input">Search artists</label>
+            <input
+              id="fm-search-input"
+              type="search"
+              className="fm-search__input"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search by username"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
+            />
+            {status === "loading" && <span className="fm-mini-spinner" aria-label="Searching" />}
+          </form>
 
-    const prevPage = () => {
-        if (page > 0 && !loading) {
-            const prevPageNum = page - 1;
-            setPage(prevPageNum);
-            fetchUsers(searchTerm, prevPageNum);
-        }
-    };
+          {status === "idle" && (
+            suggestions.length > 0 ? (
+              <section className="fm-search__section" aria-labelledby="fm-search-suggested">
+                <h2 id="fm-search-suggested" className="fm-search__section-title">Artists you might like</h2>
+                <ul className="fm-search__grid">
+                  {suggestions.map((user) => <ArtistCard key={user.userName} user={user} {...cardProps} />)}
+                </ul>
+              </section>
+            ) : (
+              <div className="fm-state">
+                <span className="fm-search__state-icon"><Icon name="search" size={26} /></span>
+                <h3>Search for artists</h3>
+                <p>Type a username above to get started.</p>
+              </div>
+            )
+          )}
 
-    const goToPage = (pageNum) => {
-        if (pageNum >= 0 && pageNum < totalPages && !loading) {
-            setPage(pageNum);
-            fetchUsers(searchTerm, pageNum);
-        }
-    };
-    
-    return (
-        <div className="user-search-page">
-            <Header />
-            <div className="user-search-container">
-            <div className="user-search-header">
-                <h1 className="search-title">Find Users</h1>
-                <p className="search-subtitle">Discover and connect with other users</p>
+          {status === "loading" && results.length === 0 && (
+            <div className="fm-state" role="status">
+              <div className="fm-spinner" />
+              <p>Searching…</p>
             </div>
+          )}
 
-            <form className="search-form" onSubmit={handleSearch}>
-                <div className="search-input-container">
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search by username..."
-                        className="search-input"
-                    />
-                    <button type="submit" className="search-button" disabled={loading}>
-                        {loading ? "Searching..." : "Search"}
-                    </button>
-                </div>
-            </form>
-
-            {error && (
-                <div className="error-message">
-                    {error}
-                </div>
-            )}
-
-            {loading && (
-                <div className="loading-spinner">
-                    <div className="spinner"></div>
-                    <p>Searching users...</p>
-                </div>
-            )}
-
-            {!loading && users.length > 0 && (
-                <div className="users-results">
-                    <div className="results-header">
-                        <h2>Search Results</h2>
-                        <span className="results-count">
-                            {users.length} user{users.length !== 1 ? 's' : ''} found
-                        </span>
-                    </div>
-                    
-                    <div className="users-grid">
-                        {users.map((user) => (
-                            <div key={user.id} className={`user-card ${user.role === 'USERPLUS' ? 'userplus-card' : ''}`}>
-                                <div className="user-card-header">
-                                    <img
-                                        src={user.profilePic || '/dpp.jpg'}
-                                        alt={user.userName}
-                                        className="search-user-avatar search-clickable"
-                                        onClick={() => handleProfileClick(user.userName)}
-                                        title="Click to view profile"
-                                    />
-                                    <div className="user-info">
-                                        <div className="user-name-container">
-                                            <h3 
-                                                className="search-user-name search-clickable"
-                                                onClick={() => handleProfileClick(user.userName)}
-                                                title="Click to view profile"
-                                            >
-                                                {user.userName}
-                                            </h3>
-                                            {user.role === 'USERPLUS' && (
-                                                <span className="premium-indicator">⭐</span>
-                                            )}
-                                        </div>
-                                        {user.location && (
-                                            <p className="user-location">📍 {user.location}</p>
-                                        )}
-                                        {user.bio && (
-                                            <p className="user-bio">{user.bio}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="user-card-content">
-                                    <div className="user-card-main">
-                                        <div className="user-card-details">
-                                            {/* Badges */}
-                                            {user.badges && user.badges.length > 0 && (
-                                                <div className="user-badges">
-                                                    <div className="badges-label">Badges:</div>
-                                                    <div className="badges-list">
-                                                        {user.badges.slice(0, 3).map((badge, index) => (
-                                                            <span key={index} className="badge">
-                                                                {badge}
-                                                            </span>
-                                                        ))}
-                                                        {user.badges.length > 3 && (
-                                                            <span className="badge more-badges">
-                                                                +{user.badges.length - 3} more
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Demo Section with Playable Demo */}
-                                            {user.demo && user.demo.length > 0 && (
-                                                <div className="user-demos">
-                                                    <div className="demos-label">Demos:</div>
-                                                    <div className="demos-list">
-                                                        {/* Most recent demo with play button */}
-                                                        <button 
-                                                            className="demo-play-btn"
-                                                            onClick={() => handleDemoPlay(user.demo[0], user.userName)}
-                                                            title="Play demo"
-                                                            disabled={loading}
-                                                        >
-                                                            {loading ? "Loading..." : "🎵 Play Demo"}
-                                                        </button>
-                                                        
-                                                        {/* Load more demos button */}
-                                                        {user.demo.length > 1 && !loadedDemos[user.id] && (
-                                                            <button 
-                                                                className="load-demos-btn"
-                                                                onClick={() => loadUserDemos(user.id, user.demo.slice(1))}
-                                                                disabled={loadingDemos[user.id]}
-                                                            >
-                                                                {loadingDemos[user.id] ? "Loading..." : `+${user.demo.length - 1} More`}
-                                                            </button>
-                                                        )}
-                                                        
-                                                        {/* Additional loaded demos */}
-                                                        {loadedDemos[user.id] && loadedDemos[user.id].map((demo, index) => (
-                                                            <button 
-                                                                key={index + 1}
-                                                                className="demo-play-btn secondary"
-                                                                onClick={() => handleDemoPlay(demo.id, user.userName)}
-                                                                title={`Play ${demo.title}`}
-                                                                disabled={loading}
-                                                            >
-                                                                🎵 {demo.title || `Demo ${index + 2}`}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Stats Row */}
-                                        <div className="user-search-stats">
-                                            <div className="user-search-stat-item">
-                                                <span className="user-search-stat-number">{user.followersCount || 0}</span>
-                                                <span className="user-search-stat-label">Followers</span>
-                                            </div>
-                                            <div className="user-search-stat-item">
-                                                <span className="user-search-stat-number">{user.followingCount || 0}</span>
-                                                <span className="user-search-stat-label">Following</span>
-                                            </div>
-                                            <div className="user-search-stat-item">
-                                                <span className="user-search-stat-number">{user.postsCount || 0}</span>
-                                                <span className="user-search-stat-label">Posts</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Follow/Unfollow Button */}
-                                        {currentUser && currentUser.userName !== user.userName && (
-                                            <div className="user-actions">
-                                                <button 
-                                                    className={`follow-btn ${followingStatus[user.userName] ? 'following' : 'not-following'}`}
-                                                    onClick={() => handleFollowToggle(user.userName)}
-                                                >
-                                                    {followingStatus[user.userName] ? 'Unfollow' : 'Follow'}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {totalPages > 1 && (
-                        <div className="pagination">
-                            <button
-                                onClick={prevPage}
-                                disabled={page === 0 || loading}
-                                className="pagination-btn prev-btn"
-                            >
-                                Previous
-                            </button>
-                            
-                            <div className="pagination-numbers">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    let pageNum;
-                                    if (totalPages <= 5) {
-                                        pageNum = i;
-                                    } else if (page < 3) {
-                                        pageNum = i;
-                                    } else if (page >= totalPages - 3) {
-                                        pageNum = totalPages - 5 + i;
-                                    } else {
-                                        pageNum = page - 2 + i;
-                                    }
-                                    
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            onClick={() => goToPage(pageNum)}
-                                            className={`pagination-number ${page === pageNum ? 'active' : ''}`}
-                                            disabled={loading}
-                                        >
-                                            {pageNum + 1}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            
-                            <button
-                                onClick={nextPage}
-                                disabled={!hasMore || loading}
-                                className="pagination-btn next-btn"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {!loading && searchTerm && users.length === 0 && (
-                <div className="no-results">
-                    <div className="no-results-icon">🔍</div>
-                    <h3>No users found</h3>
-                    <p>Try searching with a different username or check your spelling.</p>
-                </div>
-            )}
-
-            {!searchTerm && (
-                <div className="search-prompt">
-                    <div className="search-prompt-icon">👥</div>
-                    <h3>Start searching for users</h3>
-                    <p>Enter a username in the search box above to find other users.</p>
-                </div>
-            )}
-
-            {/* Audio Player Modal */}
-            {playingDemo && (
-                <div className="audio-player-modal">
-                    <div className="audio-player-backdrop" onClick={handleDemoClose}></div>
-                    <div className="audio-player-container">
-                        <AudioPlayer2 
-                            src={playingDemo.url}
-                            title={playingDemo.title}
-                            onClose={handleDemoClose}
-                        />
-                    </div>
+          {status === "error" && (
+            <div className="fm-state" role="alert">
+              <h3>Search didn&apos;t work</h3>
+              <p>Check your connection and try again.</p>
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setRetryKey((k) => k + 1)}>Retry</button>
             </div>
-            )}
-            </div>
-            <Footer />
+          )}
+
+          {(status === "ready" || (status === "loading" && results.length > 0)) && (
+            results.length > 0 ? (
+              <section className="fm-search__section" aria-labelledby="fm-search-results" aria-busy={status === "loading"}>
+                <h2 id="fm-search-results" className="fm-search__section-title" aria-live="polite">
+                  {countLabel(totalResults, "artist")} matching &ldquo;{query}&rdquo;
+                </h2>
+                <ul className="fm-search__grid">
+                  {results.map((user) => <ArtistCard key={user.userName} user={user} {...cardProps} />)}
+                </ul>
+                <Pagination page={page} totalPages={totalPages} onChange={changePage} label="Search result pages" />
+              </section>
+            ) : (
+              <div className="fm-state">
+                <h3>No artists match &ldquo;{query}&rdquo;</h3>
+                <p>Check the spelling, or try part of the name.</p>
+              </div>
+            )
+          )}
         </div>
-    );
+      </main>
+
+      {nowPlaying && (
+        <div className="fm-search__player" role="region" aria-label="Now playing">
+          <div className="fm-search__player-inner">
+            <a href={`/profile/${nowPlaying.user.userName}`} className="fm-search__player-artist">
+              <img src={nowPlaying.user.profilePic || DEFAULT_AVATAR} alt="" />
+              <span>
+                <span className="fm-search__player-label">Demo by</span>
+                <span className="fm-search__player-name">{nowPlaying.user.userName}</span>
+              </span>
+            </a>
+            <div className="fm-search__player-controls">
+              <AudioPlayer2 key={nowPlaying.key} src={nowPlaying.url} title={nowPlaying.title} onClose={() => setNowPlaying(null)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Footer />
+    </div>
+  );
+}
+
+function ArtistCard({ user, currentUser, following, pendingFollow, onFollow, onPlay, loadingDemo, nowPlaying }) {
+  const isMe = currentUser?.userName === user.userName;
+  const isFollowing = Boolean(following[user.userName]);
+  const hasDemo = Array.isArray(user.demo) && user.demo.length > 0;
+  const isPlaying = nowPlaying?.user.userName === user.userName;
+
+  return (
+    <li className="fm-artist-card">
+      <a href={`/profile/${user.userName}`} className="fm-artist-card__link">
+        <span className="fm-artist-card__banner" style={bannerStyle(user)} aria-hidden="true" />
+        <span className="fm-artist-card__head">
+          <img className="fm-artist-card__avatar" src={user.profilePic || DEFAULT_AVATAR} alt="" />
+          <span className="fm-artist-card__name">
+            {user.userName}
+            {user.role === "USERPLUS" && <PlusBadge size={16} />}
+          </span>
+          {user.location && (
+            <span className="fm-artist-card__location"><Icon name="pin" size={14} />{user.location}</span>
+          )}
+        </span>
+        {user.bio && <span className="fm-artist-card__bio">{user.bio}</span>}
+        <span className="fm-artist-card__stats">
+          <span><strong>{user.followersCount || 0}</strong> {user.followersCount === 1 ? "follower" : "followers"}</span>
+          <span><strong>{user.postsCount || 0}</strong> {user.postsCount === 1 ? "post" : "posts"}</span>
+        </span>
+      </a>
+      <div className="fm-artist-card__actions">
+        {currentUser && !isMe && (
+          <button
+            type="button"
+            className={`fm-btn ${isFollowing ? "fm-btn--secondary" : "fm-btn--primary"}`}
+            onClick={() => onFollow(user.userName)}
+            disabled={pendingFollow === user.userName}
+            aria-pressed={isFollowing}
+          >
+            {isFollowing ? <><Icon name="check" size={16} strokeWidth={2.4} />Following</> : "Follow"}
+          </button>
+        )}
+        {isMe && <a href={`/profile/${user.userName}`} className="fm-btn fm-btn--secondary">Your profile</a>}
+        {hasDemo && (
+          <button
+            type="button"
+            className="fm-btn fm-btn--secondary"
+            onClick={() => onPlay(user)}
+            disabled={loadingDemo === user.userName || isPlaying}
+            aria-label={`Play ${user.userName}'s demo`}
+          >
+            <Icon name={isPlaying ? "volume" : "play"} size={16} />
+            {loadingDemo === user.userName ? "Loading…" : isPlaying ? "Playing" : "Demo"}
+          </button>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export default UserSearch;
