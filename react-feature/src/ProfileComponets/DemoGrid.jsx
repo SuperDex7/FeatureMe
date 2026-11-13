@@ -1,74 +1,49 @@
-import React from 'react';
 import DemoCard from './DemoCard';
+import Icon from '../Components/ui/Icon';
+import '../Styling/Demos.css';
 
 function DemoGrid({ demos, currentUser, username, onAddDemo, onDeleteDemo }) {
+  const isOwner = currentUser?.userName === username;
   const userRole = currentUser?.role || 'USER';
   const fileSizeLimit = userRole === 'USERPLUS' ? 90 : 15;
-  const allowedFormats = userRole === 'USERPLUS' ? 'MP3, WAV' : 'MP3';
+  const allowedFormats = userRole === 'USERPLUS' ? 'MP3 or WAV' : 'MP3';
   const demoLimit = userRole === 'USERPLUS' ? 6 : 3;
+  const isFull = demos.length >= demoLimit;
+
   return (
-    <div className="demo-grid-container">
-      <div className="demos-header">
-        <h3>🎵 Demos</h3>
-        {currentUser?.userName === username && (
-          <>
-            {demos.length < demoLimit ? (
-              <button 
-                className="add-demo-btn"
-                onClick={onAddDemo}
-              >
-                ➕ Add Demo
-              </button>
-            ) : (
-              <button 
-                className="add-demo-btn demos-full"
-                disabled
-              >
-                🚫 Demos Full
-              </button>
-            )}
-          </>
-        )}
-      </div>
-      
+    <div className="fm-demos">
+      {isOwner && (
+        <div className="fm-demos__bar">
+          <p className="fm-demos__limit">
+            {isFull
+              ? `You've used all ${demoLimit} demo slots.`
+              : `${demos.length} of ${demoLimit} demo slots used · ${allowedFormats}, up to ${fileSizeLimit} MB`}
+          </p>
+          <button type="button" className="fm-btn fm-btn--primary" onClick={onAddDemo} disabled={isFull}>
+            <Icon name="plus" size={18} strokeWidth={2} />
+            {isFull ? 'Demos full' : 'Add demo'}
+          </button>
+        </div>
+      )}
+
       {demos.length > 0 ? (
-        <div className="demo-grid">
+        <div className="fm-demos__grid">
           {demos.map((demo) => (
-            <DemoCard 
-              key={demo.id} 
-              demo={demo} 
+            <DemoCard
+              key={demo.id}
+              demo={demo}
               onDelete={onDeleteDemo}
-              canDelete={currentUser?.userName === username}
+              canDelete={isOwner}
             />
           ))}
         </div>
       ) : (
-        <div className="no-demos">
-          <div className="no-demos-content">
-            <div className="no-demos-icon">🎵</div>
-            <h4>No demos yet</h4>
-            <p>Share your musical creations with the world!</p>
-            {currentUser?.userName === username && (
-              <button 
-                className="add-first-demo-btn"
-                onClick={onAddDemo}
-              >
-                Upload Your First Demo
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {currentUser?.userName === username && demos.length >= demoLimit && (
-        <div className="demo-limit-reached">
-          <p>🎯 You've reached the demo limit ({demoLimit} demos)</p>
-        </div>
-      )}
-      
-      {currentUser?.userName === username && demos.length < demoLimit && (
-        <div className="demo-requirements">
-          <p>📋 File Requirements: {allowedFormats} format, max {fileSizeLimit}MB per file</p>
+        <div className="fm-state">
+          <h3>No demos yet</h3>
+          <p>{isOwner ? 'Add a demo so other artists can hear what you sound like.' : 'This artist hasn’t shared any demos yet.'}</p>
+          {isOwner && (
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={onAddDemo}>Upload your first demo</button>
+          )}
         </div>
       )}
     </div>

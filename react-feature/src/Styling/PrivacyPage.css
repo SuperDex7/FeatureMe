@@ -1,146 +1,84 @@
-/* Privacy Page Styles */
-.privacy-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* Privacy policy (Pages/PrivacyPage.jsx): long-form reading layout. Values from tokens.css. */
+
+.fm-legal {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--fm-space-10) var(--fm-space-6) var(--fm-space-12);
   box-sizing: border-box;
+  color: var(--fm-text-2);
+  font-size: var(--fm-text-base);
+  line-height: 1.7;
 }
 
-.privacy-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  padding: 2rem 1rem;
-  overflow-y: auto;
-}
-
-.privacy-content {
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  padding: 3rem;
-  width: 100%;
-  max-width: 900px;
-  margin: 2rem 0;
-  line-height: 1.8;
-  color: #333;
-}
-
-.privacy-content h1 {
-  font-size: 2.5rem;
+.fm-legal h1 {
+  margin: 0;
+  color: var(--fm-text);
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-3xl);
   font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: #667eea;
-  text-align: center;
+  letter-spacing: -0.02em;
 }
 
-.last-updated {
-  text-align: center;
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 2rem;
-  font-style: italic;
+.fm-legal__updated {
+  margin: var(--fm-space-2) 0 var(--fm-space-8);
+  padding-bottom: var(--fm-space-6);
+  border-bottom: 1px solid var(--fm-border);
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
 }
 
-.privacy-content h2 {
-  font-size: 1.8rem;
+.fm-legal section + section {
+  margin-top: var(--fm-space-8);
+}
+
+.fm-legal h2 {
+  margin: 0 0 var(--fm-space-3);
+  color: var(--fm-text);
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-xl);
   font-weight: 600;
-  margin-top: 2.5rem;
-  margin-bottom: 1rem;
-  color: #667eea;
-  border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 0.5rem;
+  scroll-margin-top: calc(var(--fm-header-height) + var(--fm-space-4));
 }
 
-.privacy-content h3 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: #764ba2;
-}
-
-.privacy-content section {
-  margin-bottom: 2rem;
-}
-
-.privacy-content p {
-  margin-bottom: 1rem;
-  color: #444;
-  font-size: 1rem;
-}
-
-.privacy-content ul {
-  margin: 1rem 0;
-  padding-left: 2rem;
-}
-
-.privacy-content li {
-  margin-bottom: 0.75rem;
-  color: #444;
-  font-size: 1rem;
-}
-
-.privacy-content li strong {
-  color: #667eea;
+.fm-legal h3 {
+  margin: var(--fm-space-5) 0 var(--fm-space-2);
+  color: var(--fm-text);
+  font-size: var(--fm-text-base);
   font-weight: 600;
 }
 
-.privacy-content a {
-  color: #667eea;
-  text-decoration: none;
-  transition: color 0.3s ease;
-  font-weight: 500;
+.fm-legal p {
+  margin: 0 0 var(--fm-space-3);
 }
 
-.privacy-content a:hover {
-  color: #764ba2;
-  text-decoration: underline;
+.fm-legal ul {
+  margin: 0 0 var(--fm-space-3);
+  padding-left: var(--fm-space-5);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .privacy-content {
-    padding: 2rem 1.5rem;
-    margin: 1rem 0;
-  }
-
-  .privacy-content h1 {
-    font-size: 2rem;
-  }
-
-  .privacy-content h2 {
-    font-size: 1.5rem;
-  }
-
-  .privacy-content h3 {
-    font-size: 1.1rem;
-  }
-
-  .privacy-content p,
-  .privacy-content li {
-    font-size: 0.95rem;
-  }
+.fm-legal li + li {
+  margin-top: var(--fm-space-2);
 }
 
-@media (max-width: 480px) {
-  .privacy-container {
-    padding: 1rem 0.5rem;
-  }
-
-  .privacy-content {
-    padding: 1.5rem 1rem;
-    border-radius: 15px;
-  }
-
-  .privacy-content h1 {
-    font-size: 1.75rem;
-  }
-
-  .privacy-content h2 {
-    font-size: 1.3rem;
-  }
+.fm-legal li::marker {
+  color: var(--fm-accent);
 }
 
+.fm-legal strong {
+  color: var(--fm-text);
+}
+
+.fm-legal a {
+  color: var(--fm-accent-text);
+}
+
+@media (max-width: 560px) {
+  .fm-legal {
+    padding: var(--fm-space-6) var(--fm-space-4) var(--fm-space-10);
+    font-size: var(--fm-text-md);
+  }
+
+  .fm-legal h1 {
+    font-size: var(--fm-text-2xl);
+  }
+}

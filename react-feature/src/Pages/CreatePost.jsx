@@ -1,815 +1,396 @@
-import "../Styling/CreatePost.css"
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../Components/Header";
 import Footer from "../Components/Footer";
-import { useNavigate } from "react-router-dom";
+import Icon from "../Components/ui/Icon";
+import PlusBadge from "../Components/ui/PlusBadge";
+import UserPicker from "../Components/ui/UserPicker";
 import api, { getCurrentUser } from "../services/AuthService";
-import { listUsers } from "../services/UserService";
-const GENRES = [
-  "Song","Beat","Loop", "Sample", "Acapella","Instrument","Open","Free","Paid",'Hip Hop','Underground','Trap','Drill', 'Pop', 'Punk', 'Rock', 'Jazz', 'R&B', 'Electronic', 'Classical',
-  'Reggae', 'Metal', 'Country', 'Indie','Folk', 'Blues', 'Afrobeat'
-];
+import { POST_TYPES, MUSIC_GENRES } from "../constants/genres";
+import { bannerStyle } from "../utils/banner";
+import "../Styling/CreatePostPage.css";
 
-function CreatePost(){
-  const [currentStep, setCurrentStep] = useState(1);
-  const [songName, setSongName] = useState('');
-  const [description, setDescription] = useState('');
-  const [file, setFile] = useState(null);
-  const [genres, setGenres] = useState([]);
-  const [ddOpen, setDdOpen] = useState(false);
-  const [genrePopupOpen, setGenrePopupOpen] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // User search state
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [searchedUsers, setSearchedUsers] = useState([]);
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  
-  const [post, setPost] = useState({
-    title: "",
-    description: "",
-    features: [],
-    genre: [],
-    music: "",
-    freeDownload: false
-  })
+const DEFAULT_AVATAR = "/dpp.jpg";
+const TITLE_MAX = 50;
+const DESCRIPTION_MAX = 300;
 
-  const navigate = useNavigate();
-  const ddRef = useRef(null);
+// What each plan can upload. The server checks this too.
+const UPLOAD_RULES = {
+  USERPLUS: { extensions: ["mp3", "wav"], maxMB: 90, accept: ".mp3,.wav,audio/mpeg,audio/wav", label: "MP3 or WAV, up to 90 MB" },
+  USER: { extensions: ["mp3"], maxMB: 15, accept: ".mp3,audio/mpeg", label: "MP3, up to 15 MB" },
+};
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    (() => {
-      let timeoutId;
-      return (term) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          searchUsers(term);
-        }, 300);
-      };
-    })(),
-    [currentUser, selectedUsers]
-  );
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    };
-    fetchUser();
-  }, []);
-
-  // Handle user search
-  useEffect(() => {
-    debouncedSearch(userSearchTerm);
-  }, [userSearchTerm, debouncedSearch]);
-
-  // Search for users by username
-  const searchUsers = async (searchTerm) => {
-    if (!searchTerm.trim()) {
-      setSearchedUsers([]);
-      return;
-    }
-
-    setSearchingUsers(true);
-    try {
-      const response = await api.get(`/user/get/search/${searchTerm}?page=0&size=20`);
-      const users = response.data.content || [];
-      // Filter out current user and already selected users
-      const filteredUsers = users.filter(user => 
-        user.userName !== currentUser?.userName && 
-        !selectedUsers.some(selectedUser => selectedUser.userName === user.userName)
-      );
-      setSearchedUsers(filteredUsers);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setSearchedUsers([]);
-    } finally {
-      setSearchingUsers(false);
-    }
-  };
-
-  // Add user to selected users
-  const toggleUserSelection = (user) => {
-    setSelectedUsers(prev => 
-      prev.some(selectedUser => selectedUser.userName === user.userName) 
-        ? prev.filter(selectedUser => selectedUser.userName !== user.userName)
-        : [...prev, user]
-    );
-  };
-
-
-  const handleInput = (e) => {
-    setPost({...post, [e.target.name]: e.target.value})
-    // Clear error when user starts typing
-    if (errors[e.target.name]) {
-      setErrors(prev => ({ ...prev, [e.target.name]: '' }));
-    }
-  }
-
-  const handleFreeDownloadToggle = () => {
-    setPost({...post, freeDownload: !post.freeDownload})
-  }
-
-
-  const toggleGenre = (g) => {
-    const newGenres = genres.includes(g)
-      ? genres.filter((x) => x !== g)
-      : [...genres, g];
-    setGenres(newGenres);
-    setPost({ ...post, genre: newGenres });
-    
-    // Clear genre error when a genre is selected
-    if (newGenres.length > 0 && errors.genre) {
-      setErrors(prev => ({ ...prev, genre: '' }));
-    }
-  };
-
-  const handleGenrePopupClose = () => {
-    setGenrePopupOpen(false);
-  };
-
-  const handleGenrePopupOpen = () => {
-    setGenrePopupOpen(true);
-  };
-
-  // Handle escape key to close popup
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && genrePopupOpen) {
-        handleGenrePopupClose();
-      }
-    };
-
-    if (genrePopupOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [genrePopupOpen]);
-
-  const genreLabel =
-    genres.length === 0 ? 'Select genres…' : genres.join(', ');
-
-  // Validation functions
-  const validateStep1 = () => {
-    const newErrors = {};
-    if (!post.title || post.title.trim() === '') {
-      newErrors.title = 'Song name is required';
-    }
-    if (genres.length === 0) {
-      newErrors.genre = 'At least one genre is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateStep3 = () => {
-    const newErrors = {};
-    if (!file) {
-      newErrors.file = 'Audio file is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const nextStep = (e) => {
-    // Prevent form submission when clicking Next button
-    if (e) {
-      e.preventDefault();
-    }
-    
-    let canProceed = true;
-    
-    if (currentStep === 1) {
-      canProceed = validateStep1();
-    } else if (currentStep === 3) {
-      canProceed = validateStep3();
-    }
-    
-    if (canProceed && currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // Only allow submission on the final step
-    if (currentStep !== 4) {
-      return;
-    }
-
-    // Prevent multiple submissions
-    if (isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Use only selected users from search
-    const allFeatures = selectedUsers.map(user => user.userName);
-    
-    const formData = new FormData();
-    const postData = {
-      ...post,
-      features: allFeatures
-    };
-    formData.append("post", JSON.stringify(postData))
-    if (file) {
-      /*
-      if (file.type !== "audio/mpeg") {
-        alert("Only MP3 files are allowed.");
-        return;
-      } */
-      formData.append('file', file);
-    }
-
-    // Temporarily use synchronous endpoint for stability
-    api.post(`/posts/create`, formData, {
-      headers:{"Content-Type": "multipart/form-data"}
-    }).then(res => {
-      alert("Upload successful!");
-      navigate("/feed");
-    })
-    .catch(error => {
-      console.error('Upload failed:', error);
-      if (error.code === 'ECONNABORTED') {
-        alert("Request timed out. Please check your connection and try again.");
-      } else if (error.response && error.response.status === 500) {
-        alert("Server error: " + (error.response.data || "Unknown error"));
-      } else {
-        alert("Upload failed. Please try again.");
-      }
-    })
-    .finally(() => {
-      setIsSubmitting(false);
-    });
+function formatSize(bytes) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-  // Handle file selection with validation
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    
-    if (!selectedFile) {
-      setFile(null);
+function checkFile(file, rules) {
+  const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "";
+  if (!rules.extensions.includes(extension)) {
+    return rules.extensions.length > 1
+      ? "That file type isn't supported. Upload an MP3 or WAV."
+      : "Free accounts can upload MP3 files. Get Plus to upload WAV.";
+  }
+  if (file.size > rules.maxMB * 1024 * 1024) {
+    return `That file is ${formatSize(file.size)}. The limit on your plan is ${rules.maxMB} MB.`;
+  }
+  return null;
+}
+
+function CreatePost() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState([]);
+  const [features, setFeatures] = useState([]);
+  const [freeDownload, setFreeDownload] = useState(false);
+  const [file, setFile] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [submitError, setSubmitError] = useState(null);
+
+  const fileInputRef = useRef(null);
+  const titleRef = useRef(null);
+  const trackRef = useRef(null);
+  const tagsRef = useRef(null);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    getCurrentUser().then(setCurrentUser);
+  }, []);
+
+  const rules = UPLOAD_RULES[currentUser?.role] || UPLOAD_RULES.USER;
+  const isPlus = currentUser?.role === "USERPLUS";
+  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  // Warn before leaving with unsaved work
+  const dirty = Boolean(file || title.trim() || description.trim() || tags.length || features.length);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (event) => {
+      if (doneRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const clearError = (key) => setErrors((prev) => (prev[key] ? { ...prev, [key]: null } : prev));
+
+  const chooseFile = (picked) => {
+    if (!picked) return;
+    const problem = checkFile(picked, rules);
+    if (problem) {
+      setErrors((prev) => ({ ...prev, file: problem }));
       return;
     }
+    setFile(picked);
+    clearError("file");
+  };
 
-    // Validate file type based on user role
-    const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
-    const userRole = currentUser?.role;
-    
-    let isValidFile = false;
-    let errorMessage = '';
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setDragging(false);
+    chooseFile(event.dataTransfer.files?.[0]);
+  };
 
-    if (userRole === 'USERPLUS') {
-      // Plus users can upload MP3 and WAV
-      if (fileExtension === 'mp3' || fileExtension === 'wav') {
-        isValidFile = true;
-      } else {
-        errorMessage = `Plus users can only upload MP3 and WAV files. You selected: .${fileExtension}`;
-      }
-    } else if (userRole === 'USER') {
-      // Free users can only upload MP3
-      if (fileExtension === 'mp3') {
-        isValidFile = true;
-      } else {
-        errorMessage = `Free users can only upload MP3 files. You selected: .${fileExtension}. Upgrade to Plus for WAV support!`;
-      }
-    } else {
-      errorMessage = 'Invalid user role. Cannot upload files.';
-    }
+  const toggleTag = (tag) => {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    clearError("tags");
+  };
 
-    // Additional file size validation
-    const maxFileSize = userRole === 'USERPLUS' ? 90 * 1024 * 1024 : 15 * 1024 * 1024; // 90MB for Plus, 15MB for free
-    if (isValidFile && selectedFile.size > maxFileSize) {
-      const maxSizeMB = maxFileSize / (1024 * 1024);
-      isValidFile = false;
-      errorMessage = `File size exceeds limit. Maximum allowed: ${maxSizeMB}MB for ${userRole} users.`;
-    }
+  const toggleFeature = (user) => {
+    setFeatures((prev) => (
+      prev.some((u) => u.userName === user.userName)
+        ? prev.filter((u) => u.userName !== user.userName)
+        : [...prev, user]
+    ));
+  };
 
-    if (isValidFile) {
-      setFile(selectedFile);
-      // Clear file error when user selects a valid file
-      if (errors.file) {
-        setErrors(prev => ({ ...prev, file: '' }));
-      }
-    } else {
-      setFile(null);
-      setErrors(prev => ({ ...prev, file: errorMessage }));
-      // Clear the file input
-      e.target.value = '';
+  const missing = [];
+  if (!file) missing.push("Add your track");
+  if (!title.trim()) missing.push("Give it a title");
+  if (tags.length === 0) missing.push("Pick at least one tag");
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (submitting) return;
+
+    const nextErrors = {};
+    if (!file) nextErrors.file = "Add an audio file to post.";
+    if (!title.trim()) nextErrors.title = "Give your track a title.";
+    if (tags.length === 0) nextErrors.tags = "Pick at least one tag so people can find it.";
+    setErrors(nextErrors);
+    if (nextErrors.file) { trackRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    if (nextErrors.title) { titleRef.current?.focus(); return; }
+    if (nextErrors.tags) { tagsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+
+    const formData = new FormData();
+    formData.append("post", JSON.stringify({
+      title: title.trim(),
+      description: description.trim(),
+      features: features.map((u) => u.userName),
+      genre: tags,
+      music: "",
+      freeDownload,
+    }));
+    formData.append("file", file);
+
+    setSubmitting(true);
+    setSubmitError(null);
+    setProgress(0);
+    try {
+      const { data } = await api.post("/posts/create", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 0, // big WAVs on slow connections can take a while
+        onUploadProgress: (e) => { if (e.total) setProgress(Math.round((e.loaded / e.total) * 100)); },
+      });
+      doneRef.current = true;
+      window.location.href = data?.id ? `/post/${data.id}` : "/feed";
+    } catch (err) {
+      console.error("Upload failed:", err);
+      const message = typeof err.response?.data === "string" && err.response.data.length < 200 ? err.response.data : null;
+      setSubmitError(message || (err.response ? "The upload failed. Try again." : "Couldn't reach the server. Check your connection and try again."));
+      setSubmitting(false);
     }
   };
 
-  const renderStepIndicator = () => (
-    <div className="create-post-step-indicator">
-      <div className={`create-post-step ${currentStep >= 1 ? 'active' : ''}`}>
-        <div className="create-post-step-circle">
-          <span className="create-post-step-number">1</span>
-        </div>
-        <span className="create-post-step-label">Song Details</span>
-      </div>
-      <div className={`create-post-step ${currentStep >= 2 ? 'active' : ''}`}>
-        <div className="create-post-step-circle">
-          <span className="create-post-step-number">2</span>
-        </div>
-        <span className="create-post-step-label">Features</span>
-      </div>
-      <div className={`create-post-step ${currentStep >= 3 ? 'active' : ''}`}>
-        <div className="create-post-step-circle">
-          <span className="create-post-step-number">3</span>
-        </div>
-        <span className="create-post-step-label">Upload & Download</span>
-      </div>
-      <div className={`create-post-step ${currentStep >= 4 ? 'active' : ''}`}>
-        <div className="create-post-step-circle">
-          <span className="create-post-step-number">4</span>
-        </div>
-        <span className="create-post-step-label">Preview</span>
-      </div>
-    </div>
-  );
-
-  const renderStep1 = () => (
-    <div className="create-post-step-content">
-      <h3 className="create-post-step-title">Song Details</h3>
-      <p className="create-post-step-description">Tell us about your song</p>
-      
-      <div className="create-post-input-group">
-        <label className="create-post-input-label">Song Name *</label>
-        <input
-          name="title"
-          type="text"
-          className={`create-post-text-input ${errors.title ? 'error' : ''}`}
-          placeholder="Format Suggestion: Song Name or Instrument - BPM"
-          maxLength="50"
-          onChange={handleInput}
-        />
-        <div className="create-post-char-counter">
-          {post.title.length}/50 characters
-        </div>
-        {errors.title && <span className="create-post-error-message">{errors.title}</span>}
-      </div>
-
-      <div className="create-post-input-group">
-        <label className="create-post-input-label">Description</label>
-        <textarea
-          name="description"
-          rows={4}
-          className="create-post-text-area"
-          placeholder="Describe your song, inspiration, or any special notes..."
-          maxLength="80"
-          onChange={handleInput}
-        />
-        <div className="create-post-char-counter">
-          {post.description.length}/80 characters
-        </div>
-      </div>
-
-
-      <div className="create-post-input-group">
-        <label className="create-post-input-label">Genre *</label>
-        <button
-          type="button"
-          className={`create-post-genre-selector-button ${errors.genre ? 'error' : ''}`}
-          onClick={handleGenrePopupOpen}
-        >
-          <span className="create-post-genre-button-text">
-            {genres.length === 0 ? 'Select genres…' : `${genres.length} genre${genres.length > 1 ? 's' : ''} selected`}
-          </span>
-          <span className="create-post-genre-button-icon">🎵</span>
-        </button>
-        {errors.genre && <span className="create-post-error-message">{errors.genre}</span>}
-        {genres.length > 0 && (
-          <div className="selected-genres-preview">
-            {genres.map((genre, index) => (
-              <span key={index} className="selected-genre-tag">
-                {genre}
-                <button
-                  type="button"
-                  className="remove-genre-btn"
-                  onClick={() => toggleGenre(genre)}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderStep2 = () => (
-    <div className="create-post-step-content">
-      <h3 className="create-post-step-title">Features & Collaborators</h3>
-      <p className="create-post-step-description">Add any featured artists or collaborators</p>
-      
-      <div className="approval-notice">
-        <div className="notice-icon">⚠️</div>
-        <div className="notice-content">
-          <strong>Feature Approval Required</strong>
-          <p>Featured users must approve before your post goes live. Your post will remain in draft status until all features are approved. Use the search below to find and add collaborators.
-          </p>
-        </div>
-      </div>
-      
-      {/* User Search Section */}
-      <div className="create-post-input-group">
-        <label className="create-post-input-label">Search and Select Users</label>
-        <div className="create-post-user-search-container">
-          <input
-            type="text"
-            value={userSearchTerm}
-            onChange={(e) => setUserSearchTerm(e.target.value)}
-            placeholder="Search by username..."
-            className="create-post-user-search-input"
-          />
-          {searchingUsers && (
-            <div className="create-post-search-loading">
-              <div className="create-post-search-spinner"></div>
-            </div>
-          )}
-        </div>
-        
-        {/* Selected Users */}
-        {selectedUsers.length > 0 && (
-          <div className="create-post-selected-users-section">
-            <label className="create-post-selected-users-label">Selected Users ({selectedUsers.length})</label>
-            <div className="create-post-selected-users-list">
-              {selectedUsers.map((user) => (
-                <div key={user.userName} className="create-post-selected-user-item">
-                  <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
-                  <span>{user.userName}</span>
-                  <button 
-                    type="button"
-                    className="create-post-remove-user-btn"
-                    onClick={() => toggleUserSelection(user)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Search Results */}
-        {userSearchTerm && (
-          <div className="create-post-search-results-section">
-            <label className="create-post-search-results-label">Search Results</label>
-            <div className="create-post-users-list">
-              {searchedUsers.length > 0 ? (
-                searchedUsers.map((user) => (
-                  <div
-                    key={user.userName}
-                    className={`create-post-user-item ${selectedUsers.some(selectedUser => selectedUser.userName === user.userName) ? 'selected' : ''}`}
-                    onClick={() => toggleUserSelection(user)}
-                  >
-                    <img src={user.profilePic || "/dpp.jpg"} alt={user.userName} />
-                    <div className="create-post-user-info">
-                      <span className="create-post-user-name">{user.userName}</span>
-                      {user.bio && <span className="create-post-user-bio">{user.bio}</span>}
-                    </div>
-                    {selectedUsers.some(selectedUser => selectedUser.userName === user.userName) && <span className="create-post-check">✓</span>}
-                  </div>
-                ))
-              ) : !searchingUsers ? (
-                <div className="create-post-no-search-results">
-                  <span>No users found for "{userSearchTerm}"</span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )}
-        
-        {/* Search Hint when no search term */}
-        {!userSearchTerm && (
-          <div className="create-post-search-hint">
-            <span>💡 Start typing a username to search for collaborators</span>
-          </div>
-        )}
-      </div>
-
-
-      <div className="create-post-features-preview">
-        <h4>Current Features:</h4>
-        {selectedUsers.length === 0 ? (
-          <p className="no-features">No features added yet</p>
-        ) : (
-          <div className="create-post-features-grid">
-            {selectedUsers.map((user, index) => (
-              <div key={`selected-${user.userName}`} className="create-post-feature-card">
-                <span className="create-post-feature-icon">👤</span>
-                <span className="create-post-feature-name">{user.userName}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => {
-    const userRole = currentUser?.role;
-    const acceptedTypes = userRole === 'USERPLUS' ? '.mp3,.wav' : '.mp3';
-    const maxFileSize = userRole === 'USERPLUS' ? 90 : 15;
-    const supportedFormats = userRole === 'USERPLUS' ? 'MP3, WAV' : 'MP3 only';
-    
-    return (
-      <div className="create-post-step-content">
-        <h3 className="create-post-step-title">Upload Audio File & Download Settings</h3>
-        <p className="create-post-step-description">
-          {userRole === 'USERPLUS' 
-            ? 'Upload your audio file (.mp3 or .wav) and configure download settings' 
-            : 'Upload your MP3 file (.mp3 only - Upgrade to Plus for WAV support!) and configure download settings'
-          }
-        </p>
-        
-        {userRole === 'USER' && (
-          <div className="create-post-upgrade-notice">
-            <div className="notice-icon">⭐</div>
-            <div className="notice-content">
-              <strong>Upgrade to Plus for more formats!</strong>
-              <p>Plus users can upload both MP3 and WAV files with higher file size limits.</p>
-            </div>
-          </div>
-        )}
-        
-        <div className="create-post-upload-section">
-          <div className="create-post-file-upload-area">
-            <input
-              type="file"
-              accept={acceptedTypes}
-              className="create-post-file-input"
-              onChange={handleFileChange}
-              id="audio-upload"
-            />
-            <label htmlFor="audio-upload" className={`create-post-file-upload-label ${errors.file ? 'error' : ''}`}>
-              <div className="create-post-upload-icon">🎵</div>
-              <div className="create-post-upload-text">
-                {file ? (
-                  <>
-                    <strong>File Selected:</strong>
-                    <span>{file.name}</span>
-                    <span className="create-post-file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </>
-                ) : (
-                  <>
-                    <strong>Click to upload</strong>
-                    <span>or drag and drop</span>
-                    <span className="create-post-file-types">{supportedFormats} up to {maxFileSize}MB</span>
-                  </>
-                )}
-              </div>
-            </label>
-          </div>
-          {errors.file && <span className="create-post-error-message">{errors.file}</span>}
-        </div>
-
-        {file && (
-          <div className="create-post-file-preview">
-            <h4>File Preview:</h4>
-            <div className="create-post-file-info">
-              <span className="create-post-file-name">{file.name}</span>
-              <span className="create-post-file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-              <span className="create-post-file-type">{file.type}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="create-post-input-group">
-          <div className="create-post-toggle-container">
-            <label className="create-post-toggle-label">
-              <input
-                type="checkbox"
-                checked={post.freeDownload}
-                onChange={handleFreeDownloadToggle}
-                className="create-post-toggle-checkbox"
-              />
-              <span className="create-post-toggle-slider"></span>
-              <span className="create-post-toggle-text">Enable Download</span>
-            </label>
-            <p className="create-post-toggle-description">
-              Allow users to download your track.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderStep4 = () => (
-    <div className="create-post-step-content">
-      <h3 className="create-post-step-title">Preview Your Post</h3>
-      <p className="create-post-step-description">Review your post before publishing</p>
-      
-      <div className="create-post-preview">
-        <div className="create-post-preview-card">
-          <div className="create-post-preview-header">
-            <div className="create-post-preview-profile">
-              <div className="create-post-preview-avatar">👤</div>
-              <div className="create-post-preview-user-info">
-                <span className="create-post-preview-username">{currentUser?.userName || 'User'}</span>
-                <span className="create-post-preview-time">Just now</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="create-post-preview-content">
-            <h3 className="create-post-preview-title">{post.title || "Song Title"}</h3>
-            <p className="create-post-preview-description">{post.description || "No description provided"}</p>
-            
-            {selectedUsers.length > 0 && (
-              <div className="create-post-preview-features">
-                <span className="create-post-preview-feat-label">Feat:</span>
-                <span className="create-post-preview-feat-list">
-                  {selectedUsers.map(user => user.userName).join(", ")}
-                </span>
-              </div>
-            )}
-            
-            {genres.length > 0 && (
-              <div className="create-post-preview-genres">
-                {genres.map((genre, index) => (
-                  <span key={index} className="create-post-preview-genre-tag">{genre}</span>
-                ))}
-              </div>
-            )}
-            
-            {file && (
-              <div className="create-post-preview-audio">
-                <div className="create-post-audio-player-preview">
-                  <span className="create-post-audio-icon">🎵</span>
-                  <span className="create-post-audio-name">{file.name}</span>
-                  <span className="create-post-audio-duration">--:--</span>
-                </div>
-                <div className="create-post-preview-download-status">
-                  <span className={`download-badge ${post.freeDownload ? 'free' : 'paid'}`}>
-                    {post.freeDownload ? '🆓 Free Download' : ''}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="create-post-preview-stats">
-            <span className="create-post-preview-likes">❤️ 0</span>
-            <span className="create-post-preview-comments">💬 0</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderCurrentStep = () => {
-    switch(currentStep) {
-      case 1: return renderStep1();
-      case 2: return renderStep2();
-      case 3: return renderStep3();
-      case 4: return renderStep4();
-      default: return renderStep1();
-    }
-  };
-
-  const renderGenrePopup = () => (
-    <div className={`create-post-genre-popup-overlay ${genrePopupOpen ? 'open' : ''}`} onClick={handleGenrePopupClose}>
-      <div className="create-post-genre-popup" onClick={(e) => e.stopPropagation()}>
-        <div className="create-post-genre-popup-header">
-          <h3 className="create-post-genre-popup-title">Select Genres</h3>
-          <button 
-            type="button" 
-            className="create-post-genre-popup-close"
-            onClick={handleGenrePopupClose}
-          >
-            ×
-          </button>
-        </div>
-        
-        <div className="create-post-genre-popup-content">
-          <div className="create-post-genre-category">
-            <h4 className="create-post-genre-category-title">Category</h4>
-            <div className="create-post-genre-options">
-              {GENRES.slice(0, 9).map((g) => (
-                <label key={g} className="create-post-genre-option">
-                  <input
-                    type="checkbox"
-                    checked={genres.includes(g)}
-                    onChange={() => toggleGenre(g)}
-                  />
-                  <span className="create-post-genre-option-text">{g}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          
-          <div className="create-post-genre-category">
-            <h4 className="create-post-genre-category-title">Music Genres</h4>
-            <div className="create-post-genre-options">
-              {GENRES.slice(9).map((g) => (
-                <label key={g} className="create-post-genre-option">
-                  <input
-                    type="checkbox"
-                    checked={genres.includes(g)}
-                    onChange={() => toggleGenre(g)}
-                  />
-                  <span className="create-post-genre-option-text">{g}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        <div className="create-post-genre-popup-footer">
-          <button 
-            type="button" 
-            className="create-post-genre-popup-done"
-            onClick={handleGenrePopupClose}
-          >
-            Done ({genres.length} selected)
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const typeTags = tags.filter((t) => POST_TYPES.includes(t));
+  const genreTags = tags.filter((t) => !POST_TYPES.includes(t));
 
   return (
-    <div className="create-post-page">
+    <div className="fm-page">
       <Header />
-      <div className="create-post-main">
-        <div className="create-post-container">
-          <div className="create-post-header">
-            <h1 className="create-post-title">Create New Post</h1>
-            <p className="create-post-subtitle">Share your music with the world</p>
+
+      <main className="fm-page__main">
+        <form className="fm-create" onSubmit={handleSubmit} noValidate>
+          <div className="fm-create__intro">
+            <h1 className="fm-create__title">New post</h1>
+            <p className="fm-create__subtitle">Share a track, beat or loop, and invite other artists to feature on it.</p>
           </div>
-          
-          <div className="create-post-card">
-            {renderStepIndicator()}
-            
-            <form onSubmit={handleSubmit} className="create-post-form">
-              {renderCurrentStep()}
-              
-              <div className="create-post-step-navigation">
-                {currentStep > 1 && (
-                  <button 
-                    type="button" 
-                    className="create-post-nav-button create-post-prev-button"
-                    onClick={prevStep}
-                  >
-                    ← Previous
-                  </button>
-                )}
-                
-                {currentStep < 4 ? (
-                  <button 
-                    type="button" 
-                    className={`create-post-nav-button create-post-next-button ${(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file) ? 'disabled' : ''}`}
-                    onClick={(e) => nextStep(e)}
-                    disabled={(currentStep === 1 && (!post.title.trim() || genres.length === 0)) || (currentStep === 3 && !file)}
-                  >
-                    Next →
-                  </button>
+
+          <div className="fm-create__layout">
+            <div className="fm-create__main">
+              {/* Track */}
+              <section className="fm-card fm-create__section" aria-labelledby="fm-create-track" ref={trackRef}>
+                <h2 id="fm-create-track" className="fm-create__section-title"><span>1</span>Your track</h2>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={rules.accept}
+                  hidden
+                  onChange={(e) => { chooseFile(e.target.files?.[0]); e.target.value = ""; }}
+                />
+                {file ? (
+                  <div className="fm-create__file">
+                    <span className="fm-create__file-icon"><Icon name="music" /></span>
+                    <span className="fm-create__file-meta">
+                      <span className="fm-create__file-name">{file.name}</span>
+                      <span className="fm-create__muted">{formatSize(file.size)}</span>
+                    </span>
+                    <button type="button" className="fm-btn fm-btn--secondary" onClick={() => fileInputRef.current?.click()} disabled={submitting}>Replace</button>
+                    <button type="button" className="fm-icon-btn" onClick={() => setFile(null)} disabled={submitting} aria-label="Remove file">
+                      <Icon name="close" />
+                    </button>
+                    {previewUrl && <audio className="fm-create__audio" controls preload="metadata" src={previewUrl} aria-label="Preview your track" />}
+                  </div>
                 ) : (
-                  <button 
-                    type="submit" 
-                    className={`create-post-submit-button ${isSubmitting ? 'loading' : ''}`}
-                    disabled={isSubmitting}
+                  <button
+                    type="button"
+                    className={`fm-create__drop${dragging ? " is-dragging" : ""}${errors.file ? " has-error" : ""}`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={handleDrop}
+                    aria-describedby={errors.file ? "fm-create-file-error" : undefined}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <div className="create-post-submit-spinner"></div>
-                        Publishing...
-                      </>
-                    ) : (
-                      'Publish Post'
-                    )}
+                    <span className="fm-create__drop-icon"><Icon name="music" size={28} /></span>
+                    <span className="fm-create__drop-title">Drop your audio file here, or click to choose</span>
+                    <span className="fm-create__muted">{rules.label}</span>
                   </button>
                 )}
+                {errors.file && <p id="fm-create-file-error" className="fm-field__error" role="alert">{errors.file}</p>}
+                {currentUser && !isPlus && (
+                  <p className="fm-create__upsell">
+                    <PlusBadge size={16} />
+                    <span>Want WAV uploads and files up to 90 MB? <a href="/subscription">Get Plus</a></span>
+                  </p>
+                )}
+              </section>
+
+              {/* Details */}
+              <section className="fm-card fm-create__section" aria-labelledby="fm-create-details">
+                <h2 id="fm-create-details" className="fm-create__section-title"><span>2</span>Details</h2>
+
+                <div className="fm-field">
+                  <label className="fm-field__label" htmlFor="fm-create-title">Title</label>
+                  <input
+                    ref={titleRef}
+                    id="fm-create-title"
+                    className={`fm-input${errors.title ? " has-error" : ""}`}
+                    value={title}
+                    onChange={(e) => { setTitle(e.target.value); clearError("title"); }}
+                    maxLength={TITLE_MAX}
+                    placeholder="Song name, or instrument and BPM"
+                    aria-invalid={Boolean(errors.title)}
+                    aria-describedby="fm-create-title-hint"
+                  />
+                  <span id="fm-create-title-hint" className="fm-create__field-foot">
+                    {errors.title ? <span className="fm-field__error">{errors.title}</span> : <span />}
+                    <span className="fm-field__hint">{title.length}/{TITLE_MAX}</span>
+                  </span>
+                </div>
+
+                <div className="fm-field">
+                  <label className="fm-field__label" htmlFor="fm-create-description">Description <span className="fm-create__optional">Optional</span></label>
+                  <textarea
+                    id="fm-create-description"
+                    className="fm-input"
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={DESCRIPTION_MAX}
+                    placeholder="What's the vibe? What are you looking for from a feature?"
+                  />
+                  <span className="fm-create__field-foot">
+                    <span />
+                    <span className="fm-field__hint">{description.length}/{DESCRIPTION_MAX}</span>
+                  </span>
+                </div>
+
+                <fieldset className="fm-create__tags" ref={tagsRef} aria-describedby={errors.tags ? "fm-create-tags-error" : undefined}>
+                  <legend className="fm-field__label">What is it?</legend>
+                  <div className="fm-create__chips">
+                    {POST_TYPES.map((tag) => (
+                      <button key={tag} type="button" className="fm-chip" aria-pressed={tags.includes(tag)} onClick={() => toggleTag(tag)}>
+                        {tags.includes(tag) && <Icon name="check" size={14} strokeWidth={2.4} />}
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="fm-create__tags">
+                  <legend className="fm-field__label">Genres</legend>
+                  <div className="fm-create__chips">
+                    {MUSIC_GENRES.map((tag) => (
+                      <button key={tag} type="button" className="fm-chip" aria-pressed={tags.includes(tag)} onClick={() => toggleTag(tag)}>
+                        {tags.includes(tag) && <Icon name="check" size={14} strokeWidth={2.4} />}
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                {errors.tags
+                  ? <p id="fm-create-tags-error" className="fm-field__error" role="alert">{errors.tags}</p>
+                  : <p className="fm-field__hint">Pick at least one. Tags decide where your post shows up in the feed filters.</p>}
+              </section>
+
+              {/* Features */}
+              <section className="fm-card fm-create__section" aria-labelledby="fm-create-features">
+                <h2 id="fm-create-features" className="fm-create__section-title"><span>3</span>Features <span className="fm-create__optional">Optional</span></h2>
+                <p className="fm-create__note">
+                  <Icon name="info" size={18} />
+                  <span>Everyone you add gets a request. The post goes live once they&apos;ve all accepted.</span>
+                </p>
+                <UserPicker
+                  label="Who's on this track?"
+                  exclude={currentUser ? [currentUser.userName] : []}
+                  selected={features.map((u) => u.userName)}
+                  onPick={toggleFeature}
+                />
+                {features.length > 0 && (
+                  <ul className="fm-person-chips" aria-label="Featured artists">
+                    {features.map((user) => (
+                      <li key={user.userName} className="fm-person-chip">
+                        <img src={user.profilePic || DEFAULT_AVATAR} alt="" />
+                        {user.userName}
+                        <button type="button" onClick={() => toggleFeature(user)} aria-label={`Remove ${user.userName}`}>
+                          <Icon name="close" size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* Downloads */}
+              <section className="fm-card fm-create__section" aria-labelledby="fm-create-downloads">
+                <h2 id="fm-create-downloads" className="fm-create__section-title"><span>4</span>Downloads</h2>
+                <label className="fm-create__switch">
+                  <input type="checkbox" role="switch" checked={freeDownload} onChange={(e) => setFreeDownload(e.target.checked)} />
+                  <span className="fm-create__switch-track" aria-hidden="true" />
+                  <span className="fm-create__switch-text">
+                    <span className="fm-create__switch-title">Free download</span>
+                    <span className="fm-create__muted">Let anyone download this track from the player.</span>
+                  </span>
+                </label>
+              </section>
+            </div>
+
+            {/* Preview + publish */}
+            <aside className="fm-create__rail" aria-label="Preview and publish">
+              <div className="fm-create__sticky">
+                <p className="fm-create__rail-label">Preview</p>
+                <article className="fm-card fm-create__preview" aria-label="How your post will look">
+                  <div className="fm-create__preview-cover" style={bannerStyle(currentUser || {})}>
+                    {freeDownload && <span className="fm-pill fm-pill--accent">Free download</span>}
+                  </div>
+                  <div className="fm-create__preview-body">
+                    <div className="fm-create__preview-by">
+                      <img src={currentUser?.profilePic || DEFAULT_AVATAR} alt="" />
+                      <span>{currentUser?.userName || "You"}</span>
+                      {isPlus && <PlusBadge size={16} />}
+                      <span className="fm-create__muted">· Just now</span>
+                    </div>
+                    <h3 className={`fm-create__preview-title${title.trim() ? "" : " is-placeholder"}`}>{title.trim() || "Your track title"}</h3>
+                    {features.length > 0 && (
+                      <p className="fm-create__preview-feat">feat. {features.map((u) => u.userName).join(", ")}</p>
+                    )}
+                    {description.trim() && <p className="fm-create__preview-desc">{description.trim()}</p>}
+                    {tags.length > 0 && (
+                      <div className="fm-create__preview-tags">
+                        {[...typeTags, ...genreTags].map((tag) => <span key={tag} className="fm-tag">{tag}</span>)}
+                      </div>
+                    )}
+                  </div>
+                </article>
+
+                <div className="fm-create__publish">
+                  {missing.length > 0 && !submitting && (
+                    <ul className="fm-create__todo" aria-label="Still needed">
+                      {missing.map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                  )}
+                  {features.length > 0 && missing.length === 0 && !submitting && (
+                    <p className="fm-create__muted">
+                      This goes live after {features.length === 1 ? features[0].userName : `all ${features.length} featured artists`} accept{features.length === 1 ? "s" : ""}.
+                    </p>
+                  )}
+                  {submitError && <p className="fm-field__error" role="alert">{submitError}</p>}
+                  <button type="submit" className="fm-btn fm-btn--primary fm-create__submit" disabled={submitting}>
+                    {submitting
+                      ? (progress < 100 ? `Uploading… ${progress}%` : "Finishing up…")
+                      : (features.length > 0 ? "Post and send requests" : "Publish")}
+                  </button>
+                  {submitting && (
+                    <div className="fm-create__progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Upload progress">
+                      <span style={{ width: `${progress}%` }} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </form>
+            </aside>
           </div>
-        </div>
-      </div>
-      
-      {renderGenrePopup()}
+        </form>
+      </main>
+
       <Footer />
     </div>
   );
 }
 
-export default CreatePost
+export default CreatePost;

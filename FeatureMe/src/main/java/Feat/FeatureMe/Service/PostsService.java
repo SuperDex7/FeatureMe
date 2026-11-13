@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -18,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import Feat.FeatureMe.Dto.CommentDTO;
-import Feat.FeatureMe.Dto.CommentedOnDTO;
 import Feat.FeatureMe.Dto.ViewsDTO;
 import Feat.FeatureMe.Dto.LikesDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
@@ -40,8 +40,12 @@ public class PostsService {
     private final PostCommentService postCommentService;
     private final PostLikeService postLikeService;
     private final S3Service s3Service;
+    private final NotificationService notificationService;
+    private final AtomicUpdates atomicUpdates;
     
-    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService, S3Service s3Service) {
+    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService, S3Service s3Service, NotificationService notificationService, AtomicUpdates atomicUpdates) {
+        this.notificationService = notificationService;
+        this.atomicUpdates = atomicUpdates;
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
         this.postViewService = postViewService;
@@ -50,6 +54,80 @@ public class PostsService {
         this.s3Service = s3Service;
     }
     
+
+    // ---------- Post -> PostsDTO, batched ----------
+    //
+    // Every list of posts used to resolve each post's author separately (lazy
+    // @DBRef) and look up the profile picture of every person in each post's
+    // recent likes and comments one at a time: ~20+ queries per post. Authors
+    // now load in one query per batch, and likes/comments batch their
+    // pictures (see PostLikeService / PostCommentService).
+
+    /** The author's id without loading the author (lazy @DBRef proxy) */
+    private static String authorIdOf(Posts post) {
+        Object author = post.getAuthor();
+        if (author == null) return null;
+        if (author instanceof org.springframework.data.mongodb.core.convert.LazyLoadingProxy proxy) {
+            com.mongodb.DBRef ref = proxy.toDBRef();
+            return ref == null ? null : String.valueOf(ref.getId());
+        }
+        return ((User) author).getId();
+    }
+
+    List<PostsDTO> toDTOs(List<Posts> posts) {
+        if (posts == null || posts.isEmpty()) return new ArrayList<>();
+        List<String> authorIds = posts.stream().map(PostsService::authorIdOf).filter(java.util.Objects::nonNull).distinct().toList();
+        java.util.Map<String, User> authors = new java.util.HashMap<>();
+        for (User user : userRepository.findAllById(authorIds)) {
+            authors.put(user.getId(), user);
+        }
+        List<PostsDTO> result = new ArrayList<>(posts.size());
+        for (Posts p : posts) {
+            User u = authors.get(authorIdOf(p));
+            if (u == null) u = p.getAuthor(); // not in the batch: resolve the reference
+            UserPostsDTO author = u == null ? null : new UserPostsDTO(
+                u.getId(), u.getUserName(), u.getProfilePic(), u.getBanner(), u.getBio(), u.getLocation(), u.getRole());
+            result.add(new PostsDTO(
+                p.getId(),
+                author,
+                p.getTitle(),
+                p.getDescription(),
+                p.getFeatures(),
+                p.getPendingFeatures(),
+                p.getStatus(),
+                p.getPrice(),
+                p.isFreeDownload(),
+                p.getGenre(),
+                p.getMusic(),
+                getCommentsForPost(p.getId()),
+                p.getTime(),
+                getLikesForPost(p.getId()),
+                getViewsForPost(p.getId()),
+                p.getTotalViews(),
+                p.getTotalComments(),
+                p.getTotalDownloads(),
+                p.getTotalLikes()
+            ));
+        }
+        return result;
+    }
+
+    /**
+     * A user's liked posts in the order they liked them (newest first), read
+     * from post_likes, so it can't drift from the real likes.
+     */
+    public PagedModel<PostsDTO> getLikedPosts(String userName, int page, int size) {
+        Page<Feat.FeatureMe.Entity.PostLike> likes = postLikeService.getLikesByUser(userName, page, size);
+        List<String> ids = likes.getContent().stream().map(Feat.FeatureMe.Entity.PostLike::getPostId).toList();
+        java.util.Map<String, Posts> byId = new java.util.HashMap<>();
+        for (Posts p : postsRepository.findAllById(ids)) byId.put(p.getId(), p);
+        List<Posts> ordered = ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+        return new PagedModel<>(new PageImpl<>(toDTOs(ordered), likes.getPageable(), likes.getTotalElements()));
+    }
+
+    private Page<PostsDTO> toDTOPage(Page<Posts> page) {
+        return new PageImpl<>(toDTOs(page.getContent()), page.getPageable(), page.getTotalElements());
+    }
 
     private List<LikesDTO> getLikesForPost(String postId) {
         try {
@@ -71,13 +149,13 @@ public class PostsService {
     }
     
     
+    /**
+     * Post responses are public, so they no longer list who listened (that's
+     * the author's analytics, see /posts/views/{id}/paginated). Kept as an
+     * empty list so the response shape doesn't change for clients.
+     */
     private List<ViewsDTO> getViewsForPost(String postId) {
-        try {
-            // Get recent views from the separate collection (limit to 10 for post DTOs)
-            return postViewService.getRecentViews(postId, 10);
-        } catch (Exception e) {
-            return List.of(); // Return empty list on error
-        }
+        return List.of();
     }
     
         
@@ -147,25 +225,20 @@ public class PostsService {
         }
         author.getPosts().add(savedPost.getId());
         
-        userRepository.save(author);
+        atomicUpdates.addToUserList(author.getUserName(), "posts", savedPost.getId());
 
         // Send approval requests to featured users instead of auto-adding
         if (requestedFeatures != null && !requestedFeatures.isEmpty()) {
             List<User> featuredUsers = userRepository.findByUserNameIn(requestedFeatures);
             
             for(User featuredUser : featuredUsers) {
-                if(featuredUser.getNotifications() == null){
-                    featuredUser.setNotifications(new ArrayList<>());
-                }
                 // Send approval request notification instead of confirmation
-                featuredUser.getNotifications().add(new NotificationsDTO(
-                    postDto.id(), 
-                    author.getUserName(), 
-                    "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.", 
-                    Instant.now(),
-                    NotificationsDTO.NotiType.POST
-                ));
-                userRepository.save(featuredUser);
+                notificationService.notify(featuredUser.getUserName(),
+                    postDto.id(),
+                    author.getUserName(),
+                    "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.",
+                    NotificationsDTO.NotiType.POST);
+
             }
         }
         
@@ -204,35 +277,20 @@ public class PostsService {
             
             // Notify post author that post is now published
             User author = post.getAuthor();
-            if (author.getNotifications() == null) {
-                author.setNotifications(new ArrayList<>());
-            }
-            author.getNotifications().add(new NotificationsDTO(
-                postId, 
-                "System", 
-                "Your post '" + post.getTitle() + "' is now published! All featured users have approved.", 
-                Instant.now(),
-                NotificationsDTO.NotiType.POST
-            ));
-            userRepository.save(author);
+            notificationService.notify(author.getUserName(), postId, "System",
+                "Your post '" + post.getTitle() + "' is now published! All featured users have approved.",
+                NotificationsDTO.NotiType.POST);
         } else {
             post.setStatus("PARTIALLY_APPROVED");
         }
         
         // Notify approver
-        if (approver.getNotifications() == null) {
-            approver.setNotifications(new ArrayList<>());
-        }
-        approver.getNotifications().add(new NotificationsDTO(
-            postId, 
-            post.getAuthor().getUserName(), 
-            "You approved the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(approver.getUserName(), postId, post.getAuthor().getUserName(),
+            "You approved the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         postsRepository.save(post);
-        userRepository.save(approver);
+        atomicUpdates.addToUserList(approver.getUserName(), "featuredOn", postId);
         
         return true;
     }
@@ -259,49 +317,27 @@ public class PostsService {
             
             // Notify post author
             User author = post.getAuthor();
-            if (author.getNotifications() == null) {
-                author.setNotifications(new ArrayList<>());
-            }
-            author.getNotifications().add(new NotificationsDTO(
-                postId, 
-                "System", 
-                "Your post '" + post.getTitle() + "' is now published with approved features only.", 
-                Instant.now(),
-                NotificationsDTO.NotiType.POST
-            ));
-            userRepository.save(author);
+            notificationService.notify(author.getUserName(), postId, "System",
+                "Your post '" + post.getTitle() + "' is now published with approved features only.",
+                NotificationsDTO.NotiType.POST);
         } else if (!post.getFeatures().isEmpty()) {
             post.setStatus("PARTIALLY_APPROVED");
         }
         
         // Notify rejecter
-        if (rejecter.getNotifications() == null) {
-            rejecter.setNotifications(new ArrayList<>());
-        }
-        rejecter.getNotifications().add(new NotificationsDTO(
-            postId, 
-            post.getAuthor().getUserName(), 
-            "You rejected the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(rejecter.getUserName(), postId, post.getAuthor().getUserName(),
+            "You rejected the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         // Notify post author about rejection
         User author = post.getAuthor();
-        if (author.getNotifications() == null) {
-            author.setNotifications(new ArrayList<>());
-        }
-        author.getNotifications().add(new NotificationsDTO(
-            postId, 
-            rejecterUserName, 
-            rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(author.getUserName(), postId, rejecterUserName,
+            rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         postsRepository.save(post);
-        userRepository.save(rejecter);
-        userRepository.save(author);
+
+
         
         return true;
     }
@@ -312,38 +348,7 @@ public class PostsService {
             .filter(post -> post.getPendingFeatures() != null && post.getPendingFeatures().contains(userName))
             .collect(java.util.stream.Collectors.toList());
         
-        return posts.stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        }).collect(java.util.stream.Collectors.toList());
+        return toDTOs(posts);
     }
     
     
@@ -368,43 +373,9 @@ public class PostsService {
     
 
     public PostsDTO getPostById(String id) {
-        try {
-            Posts post = postsRepository.findById(id)
-                       .orElseThrow(() -> new IllegalArgumentException("Post not found"));
-            User u = post.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            
-            return new PostsDTO(
-                post.getId(),
-                author,
-                post.getTitle(),
-                post.getDescription(),
-                post.getFeatures(),
-                post.getPendingFeatures(),
-                post.getStatus(),
-                post.getPrice(),
-                post.isFreeDownload(),
-                post.getGenre(),
-                post.getMusic(),
-                getCommentsForPost(post.getId()),
-                post.getTime(),
-                getLikesForPost(post.getId()),
-                getViewsForPost(post.getId()),
-                post.getTotalViews(),
-                post.getTotalComments(),
-                post.getTotalDownloads()
-            );
-        } catch (Exception e) {
-            throw e;
-        }
+        Posts post = postsRepository.findById(id)
+                   .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        return toDTOs(List.of(post)).get(0);
     }
     
     
@@ -430,7 +401,7 @@ public class PostsService {
         if (author.getPosts() != null) {
             author.getPosts().remove(id);
         }
-        userRepository.save(author);
+        atomicUpdates.removeFromUserList(author.getUserName(), "posts", id);
 
         // Clean up APPROVED features (remove from their featuredOn lists)
         if (approvedFeatures != null && !approvedFeatures.isEmpty()) {
@@ -439,7 +410,7 @@ public class PostsService {
             for (User featuredUser : approvedUsers) {
                 if (featuredUser != null && featuredUser.getFeaturedOn() != null) {
                     featuredUser.getFeaturedOn().remove(id);
-                    userRepository.save(featuredUser);
+                    atomicUpdates.removeFromUserList(featuredUser.getUserName(), "featuredOn", id);
                 }
             }
         }
@@ -451,23 +422,15 @@ public class PostsService {
             for (User pendingUser : pendingUsers) {
                 if (pendingUser != null) {
                     // Remove any existing notifications related to this post
-                    if (pendingUser.getNotifications() != null) {
-                        pendingUser.getNotifications().removeIf(notification -> 
-                            id.equals(notification.id()));
-                    }
+                    notificationService.removeAbout(pendingUser.getUserName(), id);
                     
                     // Add deletion notification
-                    if (pendingUser.getNotifications() == null) {
-                        pendingUser.setNotifications(new ArrayList<>());
-                    }
-                    pendingUser.getNotifications().add(new NotificationsDTO(
+                    notificationService.notify(pendingUser.getUserName(),
                         null, // No post ID since it's deleted
                         author.getUserName(),
                         "Deleted their post '" + post.getTitle() + "' before you could approve/reject the feature request.",
-                        Instant.now(),
-                        NotificationsDTO.NotiType.POST
-                    ));
-                    userRepository.save(pendingUser);
+                        NotificationsDTO.NotiType.POST);
+
                 }
             }
         }
@@ -504,38 +467,7 @@ public class PostsService {
     public List<PostsDTO> getFeaturedOn(String userName){
         return postsRepository.findByFeatures(userName).stream()
             .filter(p -> "PUBLISHED".equals(p.getStatus()))
-            .map(p -> {
-                User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-                return new PostsDTO(
-                    p.getId(),
-                    author,
-                    p.getTitle(),
-                    p.getDescription(),
-                    p.getFeatures(),
-                    p.getPendingFeatures(),
-                    p.getStatus(),
-                    p.getPrice(),
-                    p.isFreeDownload(),
-                    p.getGenre(),
-                    p.getMusic(),
-                    getCommentsForPost(p.getId()),
-                    p.getTime(),
-                    getLikesForPost(p.getId()),
-                    getViewsForPost(p.getId()),
-                    p.getTotalViews(),
-                    p.getTotalComments(),
-                    p.getTotalDownloads()
-                );
-            }).toList();
+            .collect(Collectors.collectingAndThen(Collectors.toList(), this::toDTOs)).stream().toList();
     
     }
 
@@ -569,38 +501,7 @@ public class PostsService {
         List<Posts> pagedPosts = start < totalElements ? sortedPosts.subList(start, end) : new ArrayList<>();
         
         // Convert to DTOs
-        List<PostsDTO> postsDTOList = pagedPosts.stream().map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),  
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        }).collect(Collectors.toList());
+        List<PostsDTO> postsDTOList = toDTOs(pagedPosts);
         
         // Create Page object manually
         Page<PostsDTO> postsDTOPage = new org.springframework.data.domain.PageImpl<PostsDTO>(
@@ -617,207 +518,73 @@ public class PostsService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "time"));
         Page<Posts> posts = postsRepository.findAllByIdInOrderByTimeDesc(ids, pageable);
         
-        Page<PostsDTO> postsDTOPage = posts.map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        });
+        Page<PostsDTO> postsDTOPage = toDTOPage(posts);
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
 
-    /**
-     * Ensures notifications list doesn't exceed 30 items by removing oldest ones
-     */
-    private void cleanupNotifications(User user) {
-        List<NotificationsDTO> notifications = user.getNotifications();
-        if (notifications != null && notifications.size() > 30) {
-            // Sort by time (oldest first) and keep only the 30 most recent
-            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
-            // Remove oldest notifications, keeping only the 30 newest
-            notifications.subList(0, notifications.size() - 30).clear();
-        }
-    }
-
     public Optional<Posts> addLike(String id, String userName){
         Optional<Posts> post = postsRepository.findById(id);
-        if (post.isPresent()) {
-            Posts foundPost = post.get();
-            User author = foundPost.getAuthor();
-            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-            
-            // Use the new PostLikeService to toggle the like
-            boolean isLiked = postLikeService.toggleLike(id, userName);
-            
-            // Update the cached totalLikes count in the Posts entity
-            long newTotalLikes = postLikeService.getTotalLikes(id);
-            foundPost.setTotalLikes((int) newTotalLikes);
-            postsRepository.save(foundPost); // Save the updated like count
-            
-            // Handle notifications and user liked posts
-            if(author.getNotifications() == null){
-                author.setNotifications(new ArrayList<>());
-            }
-            if(user.getLikedPosts() == null){
-                user.setLikedPosts(new ArrayList<>());
-            }
-            
-            if (isLiked) {
-                // User liked the post - add to the end of the list
-                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", Instant.now(), NotificationsDTO.NotiType.POST);
-                // Remove if already exists (in case of re-like), then add to end
-                user.getLikedPosts().remove(id);
-                user.getLikedPosts().add(id);
-                author.getNotifications().add(noti);
-                
-                // Clean up notifications if they exceed 30
-                cleanupNotifications(author);
-            } else {
-                // User unliked the post
-                user.getLikedPosts().remove(id);
-                
-                // Remove the like notification
-                List<NotificationsDTO> currentNoti = author.getNotifications();
-                if(currentNoti != null){
-                    currentNoti.removeIf(notification -> 
-                        notification.id() != null && 
-                        notification.id().equals(foundPost.getId()) && 
-                        notification.userName().equals(userName) && 
-                        notification.noti().equals("Liked Your Post!")
-                    );
-                }
-            }
-            
-            userRepository.save(author);
-            userRepository.save(user);
-            return Optional.of(foundPost);
-        }
+        if (post.isEmpty()) return post;
+        Posts foundPost = post.get();
+        User author = foundPost.getAuthor();
+        userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        return post; // Return original post if no changes made
+        boolean isLiked = postLikeService.toggleLike(id, userName);
+
+        // Count straight from post_likes and write just that field (no whole-post save)
+        int totalLikes = (int) postLikeService.getTotalLikes(id);
+        atomicUpdates.setPost(id, "totalLikes", totalLikes);
+        foundPost.setTotalLikes(totalLikes);
+
+        if (isLiked) {
+            atomicUpdates.addToUserList(userName, "likedPosts", id);
+            if (author != null && !author.getUserName().equals(userName)) {
+                notificationService.notify(author.getUserName(), id, userName, "Liked Your Post!", NotificationsDTO.NotiType.POST);
+            }
+        } else {
+            atomicUpdates.removeFromUserList(userName, "likedPosts", id);
+            if (author != null) {
+                notificationService.removeMatching(author.getUserName(), id, userName, "Liked Your Post!");
+            }
+        }
+        return Optional.of(foundPost);
     }
 
     public Optional<Posts> addComment(String id, String userName, String comment){
         Optional<Posts> post = postsRepository.findById(id);
-        if(post.isPresent()){
-            Posts foundPost = post.get();
-            User author = foundPost.getAuthor();
-            User user = userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
-            
-            // Use the new PostCommentService to add the comment
-            postCommentService.addComment(id, userName, comment);
-            
-            // Update the cached total comments count
-            foundPost.setTotalComments(foundPost.getTotalComments() + 1);
-            
-            // Handle notifications and user comment history
-            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", Instant.now(),NotificationsDTO.NotiType.POST);
-            
-            if(author.getNotifications() == null){
-                author.setNotifications(new ArrayList<>());
-            }
-            if(user.getComments() == null){
-                user.setComments(new ArrayList<>());
-            }
-            
-            user.getComments().add(new CommentedOnDTO(id, comment, Instant.now()));
-            author.getNotifications().add(noti);
-            
-            // Clean up notifications if they exceed 30
-            cleanupNotifications(author);
-            
-            // Save the post with updated comment count
-            postsRepository.save(foundPost);
-            userRepository.save(author);
-            userRepository.save(user);
-            return Optional.of(foundPost);
+        if (post.isEmpty()) return post;
+        Posts foundPost = post.get();
+        User author = foundPost.getAuthor();
+        userRepository.findByUserName(userName).orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        postCommentService.addComment(id, userName, comment);
+        atomicUpdates.incPost(id, "totalComments", 1);
+        foundPost.setTotalComments(foundPost.getTotalComments() + 1);
+
+        if (author != null && !author.getUserName().equals(userName)) {
+            notificationService.notify(author.getUserName(), id, userName, "Commented on Your Post!", NotificationsDTO.NotiType.POST);
         }
-        return post;
+        // (No copy on the user anymore: comments live in post_comments)
+        return Optional.of(foundPost);
     }
 
 
     public boolean deleteCommentById(String commentId, String userName) {
         // Use PostCommentService to delete the comment by ID
         PostComment deletedComment = postCommentService.deleteCommentById(commentId, userName);
-        
         if (deletedComment == null) {
             // Comment not found or user not authorized
             return false;
         }
-        
-        // Clean up notifications and user comment history
+
         String postId = deletedComment.getPostId();
-        String commentText = deletedComment.getComment();
-        
-        Optional<Posts> post = postsRepository.findById(postId);
-        if (post.isPresent()) {
-            Posts foundPost = post.get();
-            
-            // Update the cached total comments count
-            foundPost.setTotalComments(Math.max(0, foundPost.getTotalComments() - 1));
-            
-            User author = foundPost.getAuthor();
-            User user = userRepository.findByUserName(userName).orElse(null);
-            
-            if (author != null && user != null) {
-                // Remove the notification that was created when the comment was added
-                List<NotificationsDTO> currentNoti = author.getNotifications();
-                if(currentNoti != null){
-                    currentNoti.removeIf(notification -> 
-                        notification.id() != null &&
-                        notification.id().equals(postId) && 
-                        notification.userName() != null &&
-                        notification.userName().equals(userName) && 
-                        notification.noti() != null &&
-                        notification.noti().equals("Commented on Your Post!")
-                    );
-                }
-                
-                // Remove the comment from user's comments list
-                List<CommentedOnDTO> userComments = user.getComments();
-                if(userComments != null){
-                    userComments.removeIf(comment -> 
-                        comment.id() != null &&
-                        comment.id().equals(postId) && 
-                        comment.commented() != null &&
-                        comment.commented().equals(commentText)
-                    );
-                }
-                
-                userRepository.save(author);
-                userRepository.save(user);
-            }
-            
-            // Save the post with updated comment count
-            postsRepository.save(foundPost);
-        }
-        
+        atomicUpdates.incPost(postId, "totalComments", -1);
+
+        postsRepository.findById(postId).map(Posts::getAuthor).ifPresent(author ->
+            // The notification was created for the commenter, who may not be
+            // the one deleting (post authors can delete comments too)
+            notificationService.removeComment(author.getUserName(), postId, deletedComment.getUserName()));
         return true;
     }
 
@@ -827,38 +594,7 @@ public class PostsService {
         Page<Posts> postsPage = postsRepository.findByStatusOrderByTimeDesc("PUBLISHED", pageable);
         
         // Convert Page<Posts> to Page<PostsDTO>
-        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        });
+        Page<PostsDTO> postsDTOPage = toDTOPage(postsPage);
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
@@ -870,38 +606,7 @@ public class PostsService {
         Page<Posts> postsPage = postsRepository.findByStatusOrderByTotalLikesDescTimeDesc("PUBLISHED", pageable);
         
         // Convert to DTOs (much simpler now)
-        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        });
+        Page<PostsDTO> postsDTOPage = toDTOPage(postsPage);
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
@@ -913,38 +618,7 @@ public class PostsService {
         // Only search published posts
         Page<Posts> postsSearchedPage = postsRepository.findByTitleOrDescriptionContainingIgnoreCaseAndStatus(search, "PUBLISHED", pageable);
         
-        Page<PostsDTO> postsDTOSearchedPage = postsSearchedPage.map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        });
+        Page<PostsDTO> postsDTOSearchedPage = toDTOPage(postsSearchedPage);
         
         return new PagedModel<PostsDTO>(postsDTOSearchedPage);
     }
@@ -978,54 +652,18 @@ public class PostsService {
         }
         
         // Convert to DTOs (much simpler now with database sorting)
-        Page<PostsDTO> postsDTOPage = postsPage.map(p -> {
-            User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-            return new PostsDTO(
-                p.getId(),
-                author,
-                p.getTitle(),
-                p.getDescription(),
-                p.getFeatures(),
-                p.getPendingFeatures(),
-                p.getStatus(),
-                p.getPrice(),
-                p.isFreeDownload(),
-                p.getGenre(),
-                p.getMusic(),
-                getCommentsForPost(p.getId()),
-                p.getTime(),
-                getLikesForPost(p.getId()),
-                getViewsForPost(p.getId()),
-                p.getTotalViews(),
-                p.getTotalComments(),
-                p.getTotalDownloads()
-            );
-        });
+        Page<PostsDTO> postsDTOPage = toDTOPage(postsPage);
         
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
 
 
     public void addView(String id, String userName) {
-        // Verify post exists
-        Posts post = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        
-        // Use the new PostViewService to handle view tracking
+        postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
         postViewService.addView(id, userName);
-        
-        // Update the cached totalViews count in the Posts entity
-        long newTotalViews = postViewService.getTotalViews(id);
-        post.setTotalViews((int) newTotalViews);
-        postsRepository.save(post); // Save the updated view count
+        // Count the play on the post (atomic; incremented, not recounted from
+        // post_views, whose older records were deleted by a since-removed TTL)
+        atomicUpdates.incPost(id, "totalViews", 1);
     }
     
     public List<ViewsDTO> getPostViews(String postId) {
@@ -1038,8 +676,13 @@ public class PostsService {
     
     // New methods for the separate views system
     public PostViewService.PostViewSummary getPostViewSummary(String postId) {
-        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        return postViewService.getViewSummary(postId);
+        Posts post = postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        PostViewService.PostViewSummary fromRecords = postViewService.getViewSummary(postId);
+        // Some per-listener records were deleted by an old TTL index, so the
+        // post's own play counter can be higher; never report fewer plays than it
+        long totalViews = Math.max(fromRecords.getTotalViews(), post.getTotalViews());
+        long listeners = fromRecords.getUniqueViewers();
+        return new PostViewService.PostViewSummary(totalViews, listeners, listeners > 0 ? (double) totalViews / listeners : 0);
     }
     
     public PagedModel<ViewsDTO> getPostViewsPaginated(String postId, int page, int size) {
@@ -1087,38 +730,7 @@ public class PostsService {
             .filter(p -> p.getAuthor() != null && role.equals(p.getAuthor().getRole()))
             .skip((long) page * size)
             .limit(size)
-            .map(p -> {
-                User u = p.getAuthor();
-            UserPostsDTO author = new UserPostsDTO(
-                u.getId(),
-                u.getUserName(),
-                u.getProfilePic(),
-                u.getBanner(),
-                u.getBio(),
-                u.getLocation(),
-                u.getRole()
-            );
-                return new PostsDTO(
-                    p.getId(),
-                    author,
-                    p.getTitle(),
-                    p.getDescription(),
-                    p.getFeatures(),
-                    p.getPendingFeatures(),
-                    p.getStatus(),
-                    p.getPrice(),
-                    p.isFreeDownload(),
-                    p.getGenre(),
-                    p.getMusic(),
-                    getCommentsForPost(p.getId()),
-                    p.getTime(),
-                    getLikesForPost(p.getId()),
-                    getViewsForPost(p.getId()),
-                    p.getTotalViews(),
-                    p.getTotalComments(),
-                    p.getTotalDownloads()
-                );
-            })
+            .collect(Collectors.collectingAndThen(Collectors.toList(), this::toDTOs)).stream()
             .toList();
         
         // Calculate total elements for pagination (this is an approximation)
@@ -1137,30 +749,17 @@ public class PostsService {
     }
 
 
-    public ResponseEntity<List<NotificationsDTO>> notifyDownload(String id, String userName) {
-        Posts post = postsRepository.findById(id).get();
+    public void notifyDownload(String id, String userName) {
+        Posts post = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
         User author = post.getAuthor();
-
-        if (author.getNotifications() == null) {
-            author.setNotifications(new ArrayList<>());
-        }
-        author.getNotifications().add(new NotificationsDTO(
-            id, 
-            userName, 
-            "Downloaded Your Post '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
-        userRepository.save(author);
-        
-        return ResponseEntity.ok(author.getNotifications());
+        if (author == null || author.getUserName().equals(userName)) return;
+        notificationService.notify(author.getUserName(), id, userName,
+            "Downloaded Your Post '" + post.getTitle() + "'", NotificationsDTO.NotiType.POST);
     }
     
     public void incrementTotalDownloads(String postId) {
-        Posts post = postsRepository.findById(postId)
-            .orElseThrow(() -> new IllegalArgumentException("Post not found"));
-        post.setTotalDownloads(post.getTotalDownloads() + 1);
-        postsRepository.save(post);
+        postsRepository.findById(postId).orElseThrow(() -> new IllegalArgumentException("Post not found"));
+        atomicUpdates.incPost(postId, "totalDownloads", 1);
     }
    
     }

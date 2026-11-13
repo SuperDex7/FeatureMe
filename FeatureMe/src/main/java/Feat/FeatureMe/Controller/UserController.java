@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -8,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import Feat.FeatureMe.Dto.LoginDTO;
 import Feat.FeatureMe.Dto.NotificationsDTO;
+import Feat.FeatureMe.Dto.PublicUserDTO;
 import Feat.FeatureMe.Dto.UserDTO;
 import Feat.FeatureMe.Dto.UserPostsDTO;
 import Feat.FeatureMe.Dto.UserSearchDTO;
@@ -17,9 +19,11 @@ import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 import Feat.FeatureMe.Service.FileUploadService;
 import Feat.FeatureMe.Service.PasswordResetService;
+import Feat.FeatureMe.Service.EmailVerificationException;
+import Feat.FeatureMe.Service.EmailVerificationService;
+import Feat.FeatureMe.Service.NotificationService;
 import java.io.File;
 import java.io.IOException;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +31,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,7 +43,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
-import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -63,69 +69,99 @@ public class UserController {
     private final JwtService jwtService;
     private final FileUploadService fileUploadService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
+    private final NotificationService notificationService;
     
     @Value("${resend.api.key}")
     private Resend resend;
 
-    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService, EmailVerificationService emailVerificationService, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
         this.fileUploadService = fileUploadService;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
     }
 
-    @GetMapping("/auth/email/{email}")
-    public String VerifyEmail(@PathVariable String email) {
+    private static final java.util.regex.Pattern EMAIL_FORMAT = java.util.regex.Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
+    /**
+     * Step 1 of signup: email a 6-digit code. Only a hash of it is kept, and
+     * nothing about the code is sent back to the browser.
+     */
+    @PostMapping("/auth/email-verification/send")
+    public ResponseEntity<Map<String, String>> sendSignupCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email") == null ? "" : request.get("email").trim();
+        if (!EMAIL_FORMAT.matcher(email).matches() || email.length() > 100) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Enter a valid email address."));
+        }
+        if (userService.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "An account with this email already exists."));
+        }
 
-        String code = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
-        String encryptedCode = Base64.getEncoder().encodeToString(code.getBytes());
-
-
-        
-        
-        
-        CreateEmailOptions params = CreateEmailOptions.builder()
-		.from("Signup@featureme.co")
-		.to(email)
-		.subject("Verify your email for FeatureMe")
-		.html(
-			"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;'>" +
-			  "<div style='text-align:center; margin-bottom: 24px;'>" +
-			    "<div style='font-size: 28px; font-weight: 800; color: #2d3748; margin-bottom: 4px;'>FeatureMe</div>" +
-			    "<div style='font-size: 14px; color: #718096;'>Create. Connect. Get Discovered.</div>" +
-			  "</div>" +
-			  "<div style='background: linear-gradient(135deg, #667eea, #764ba2); padding: 2px; border-radius: 14px;'>" +
-			    "<div style='background: #ffffff; border-radius: 12px; padding: 24px;'>" +
-			      "<h2 style='margin: 0 0 8px 0; color: #2d3748; font-size: 20px;'>Verify Your Email</h2>" +
-			      "<p style='margin: 0 0 16px 0; color: #4a5568; line-height: 1.6;'>" +
-			        "Thanks for signing up! Use the verification code below to complete your account setup." +
-			      "</p>" +
-			      "<div style='background-color: #f7fafc; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; border: 1px solid #edf2f7;'>" +
-			        "<div style='color: #4a5568; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;'>Your verification code</div>" +
-			        "<div style='color: #2b6cb0; font-weight: 800; font-size: 32px; letter-spacing: 4px;'>" + code + "</div>" +
-			      "</div>" +
-			      "<p style='margin: 0 0 8px 0; color: #4a5568;'>This code will expire in <strong>15 minutes</strong>.</p>" +
-			      "<p style='margin: 0; color: #718096; font-size: 14px;'>If you didn't request this, you can safely ignore this email.</p>" +
-			    "</div>" +
-			  "</div>" +
-			  "<div style='text-align:center; color:#a0aec0; font-size:12px; margin-top:16px;'>" +
-			    "This is an automated message from FeatureMe • Please do not reply" +
-			  "</div>" +
-			"</div>"
-		)
-		.build();
-
-       
+        String code;
         try {
-            CreateEmailResponse data = resend.emails().send(params);
-            System.out.println(data.getId());
+            code = emailVerificationService.issueCode(email);
+        } catch (EmailVerificationException e) {
+            return ResponseEntity.status(e.getStatus()).body(Map.of("error", e.getMessage()));
+        }
+
+        CreateEmailOptions params = CreateEmailOptions.builder()
+            .from("Signup@featureme.co")
+            .to(email)
+            .subject("Your FeatureMe code: " + code)
+            .html(signupEmailHtml(code))
+            .build();
+        try {
+            resend.emails().send(params);
         } catch (ResendException e) {
             e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "We couldn't send the email. Check the address and try again."));
         }
-        
-        return encryptedCode;
+        return ResponseEntity.ok(Map.of("message", "Code sent"));
+    }
+
+    /**
+     * Step 2 of signup: swap the emailed code for a one-time token that
+     * /auth/create requires. Five wrong tries and the code stops working.
+     */
+    @PostMapping("/auth/email-verification/verify")
+    public ResponseEntity<Map<String, String>> verifySignupCode(@RequestBody Map<String, String> request) {
+        try {
+            String token = emailVerificationService.verifyCode(request.get("email"), request.get("code"));
+            return ResponseEntity.ok(Map.of("verificationToken", token));
+        } catch (EmailVerificationException e) {
+            return ResponseEntity.status(e.getStatus()).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private static String signupEmailHtml(String code) {
+        return "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;'>" +
+              "<div style='text-align:center; margin-bottom: 24px;'>" +
+                "<div style='font-size: 28px; font-weight: 800; color: #2d3748; margin-bottom: 4px;'>FeatureMe</div>" +
+                "<div style='font-size: 14px; color: #718096;'>Create. Connect. Get Discovered.</div>" +
+              "</div>" +
+              "<div style='background: linear-gradient(135deg, #667eea, #764ba2); padding: 2px; border-radius: 14px;'>" +
+                "<div style='background: #ffffff; border-radius: 12px; padding: 24px;'>" +
+                  "<h2 style='margin: 0 0 8px 0; color: #2d3748; font-size: 20px;'>Verify Your Email</h2>" +
+                  "<p style='margin: 0 0 16px 0; color: #4a5568; line-height: 1.6;'>" +
+                    "Thanks for signing up! Use the verification code below to complete your account setup." +
+                  "</p>" +
+                  "<div style='background-color: #f7fafc; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; border: 1px solid #edf2f7;'>" +
+                    "<div style='color: #4a5568; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;'>Your verification code</div>" +
+                    "<div style='color: #2b6cb0; font-weight: 800; font-size: 32px; letter-spacing: 4px;'>" + code + "</div>" +
+                  "</div>" +
+                  "<p style='margin: 0 0 8px 0; color: #4a5568;'>This code will expire in <strong>15 minutes</strong>.</p>" +
+                  "<p style='margin: 0; color: #718096; font-size: 14px;'>If you didn't request this, you can safely ignore this email.</p>" +
+                "</div>" +
+              "</div>" +
+              "<div style='text-align:center; color:#a0aec0; font-size:12px; margin-top:16px;'>" +
+                "This is an automated message from FeatureMe • Please do not reply" +
+              "</div>" +
+            "</div>";
     }
 
     /**
@@ -174,6 +210,20 @@ public class UserController {
     private static final String DEFAULT_BANNER_URL = "https://featuremellc.s3.us-east-2.amazonaws.com/defaults/pb.jpg";
     
     /**
+     * The web client's JWT cookie. HttpOnly so scripts can't read it, Secure so it only
+     * travels over HTTPS, and SameSite=Lax so other sites can't send it with their requests.
+     */
+    public static ResponseCookie sessionCookie(String value, Duration maxAge) {
+        return ResponseCookie.from("sessionToken", value)
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(maxAge)
+            .build();
+    }
+
+    /**
      * Helper method to get default profile picture URL, replacing relative paths with S3 URL
      */
     private String getDefaultProfilePicUrl(String profilePic) {
@@ -193,14 +243,45 @@ public class UserController {
         return banner;
     }
 
-     @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /**
+     * Step 3 of signup. Needs the token from /auth/email-verification/verify for
+     * the same email. Only the fields a new user may choose are read from the
+     * request; role, badges, posts and the like are always set here.
+     */
+    @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
-    @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
-        
-        // Parse user JSON and create User object
+    @RequestPart(value = "banner", required = false) MultipartFile banner,
+    @RequestParam(value = "verificationToken", required = false) String verificationToken) throws IOException {
+
         ObjectMapper mapper = new ObjectMapper();
-        User user = mapper.readValue(userJson, User.class);
+        User submitted = mapper.readValue(userJson, User.class);
+
+        String email = submitted.getEmail() == null ? "" : submitted.getEmail().trim();
+        String userName = submitted.getUserName() == null ? "" : submitted.getUserName().trim();
+        String password = submitted.getPassword();
+        if (email.isEmpty() || userName.length() < 3 || userName.length() > 30 || password == null || password.length() < 6) {
+            return ResponseEntity.badRequest().body("Email, a username of 3 to 30 characters and a password of at least 6 characters are required");
+        }
+
+        // Checked before anything is uploaded or saved
+        if (!emailVerificationService.isVerified(email, verificationToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Verify your email before creating an account");
+        }
+
+        User user = new User();
+        user.setUserName(userName);
+        user.setEmail(email);
+        user.setPassword(password);
+        user.setRole("USER");
+        user.setBio(trimTo(submitted.getBio(), 50));
+        user.setAbout(trimTo(submitted.getAbout(), 250));
+        user.setLocation(trimTo(submitted.getLocation(), 50));
+        user.setSocialMedia(new java.util.ArrayList<>());
+        user.setBadges(new java.util.ArrayList<>());
+        user.setDemo(new java.util.ArrayList<>());
+        user.setFeaturedOn(new java.util.ArrayList<>());
+        user.setPosts(new java.util.ArrayList<>());
         
         // Handle profile picture - use default if not provided
         if (pp != null && !pp.isEmpty()) {
@@ -263,7 +344,9 @@ public class UserController {
         
         try {
             User createdUser = userService.createUser(user);
-            return ResponseEntity.ok(createdUser);
+            emailVerificationService.consume(email);
+            // Never send the saved entity back: it includes the password hash
+            return ResponseEntity.ok(Map.of("message", "Account created", "userName", createdUser.getUserName()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
@@ -271,13 +354,19 @@ public class UserController {
                 .body("Internal server error during user creation");
         }
     }
+    private static String trimTo(String value, int max) {
+        if (value == null) return "";
+        String trimmed = value.trim();
+        return trimmed.length() > max ? trimmed.substring(0, max) : trimmed;
+    }
+
     @PatchMapping("/update")
     public void updateUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
     @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -360,9 +449,12 @@ public class UserController {
         userService.updateUser(userr.getId(), userUpdateData);
     }
     
+    // Profile lookups return PublicUserDTO: other users' chats, notifications,
+    // liked posts, purchases and comment history are private. The owner gets
+    // the full UserDTO from /me.
     @GetMapping("/get")
-    public List<UserDTO> getAllUsers() {
-        return userService.getAllUsers();
+    public List<PublicUserDTO> getAllUsers() {
+        return userService.getAllUsers().stream().map(PublicUserDTO::from).toList();
     }
     @GetMapping("/get/list/{userName}")
     public PagedModel<UserPostsDTO> getUserByName(@PathVariable String userName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
@@ -376,18 +468,18 @@ public class UserController {
     }
 
     @GetMapping("/get/{userName}")
-    public UserDTO getUserByUserName(@PathVariable String userName) {
-        return userService.getAUser(userName);
+    public PublicUserDTO getUserByUserName(@PathVariable String userName) {
+        return PublicUserDTO.from(userService.getAUser(userName));
     }
     @GetMapping("/get/id/{id}")
-        public UserDTO getUserById(@PathVariable String id){
-            return userService.getUserById(id);
-        }
+    public PublicUserDTO getUserById(@PathVariable String id){
+        return PublicUserDTO.from(userService.getUserById(id));
+    }
     
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
         
@@ -406,8 +498,10 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
+            System.err.println("Error deleting user " + id + ": " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error deleting user: " + e.getMessage());
+                .body("Error deleting user. Please try again.");
         }
     }
     @PostMapping("/auth/login")
@@ -423,12 +517,7 @@ public class UserController {
             String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getEmail());
             
             // Create HttpOnly cookie for the JWT token
-            Cookie sessionCookie = new Cookie("sessionToken", token);
-            sessionCookie.setHttpOnly(true);
-            sessionCookie.setSecure(true); // Set to true in production with HTTPS
-            sessionCookie.setPath("/");
-            sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
-            response.addCookie(sessionCookie);
+            response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie(token, Duration.ofHours(24)).toString());
                     
             Map<String, String> responseBody = new HashMap<>();
             responseBody.put("message", "Login successful");
@@ -438,21 +527,73 @@ public class UserController {
             
             return ResponseEntity.ok(responseBody);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            // Same message for unknown user and wrong password
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
         
     }
 
     @GetMapping("/get/notifications/{userName}")
-    public List<NotificationsDTO> getMethodName(@PathVariable String userName) {
-        return userService.getNoti(userName);
+    public ResponseEntity<?> getMyNotifications(@PathVariable String userName) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        User currentUser = userService.findByUsernameOrEmail(authentication.getName())
+            .orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        // Path kept for client compatibility, but you can only read your own notifications
+        if (!currentUser.getUserName().equals(userName)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only view your own notifications");
+        }
+        List<NotificationsDTO> notifications = userService.getNoti(currentUser.getUserName());
+        return ResponseEntity.ok(notifications);
+    }
+
+    private User loggedInUserOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) return null;
+        return userService.findByUsernameOrEmail(authentication.getName()).orElse(null);
+    }
+
+    /**
+     * Your notifications, newest first (max 50 per request). Pass before=<time
+     * of the last one you have> to get the next ones; page= also works but
+     * shifts if notifications are deleted in between.
+     */
+    @GetMapping("/notifications")
+    public ResponseEntity<?> pageMyNotifications(@RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "20") int size,
+                                                 @RequestParam(required = false) java.time.Instant before) {
+        User user = loggedInUserOrNull();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        return ResponseEntity.ok(new PagedModel<>(before != null
+            ? notificationService.olderThan(user.getUserName(), before, size)
+            : notificationService.page(user.getUserName(), page, size)));
+    }
+
+    /** Deletes one of your notifications */
+    @DeleteMapping("/notifications/{notificationId}")
+    public ResponseEntity<?> deleteMyNotification(@PathVariable String notificationId) {
+        User user = loggedInUserOrNull();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        if (!notificationService.delete(user.getUserName(), notificationId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Notification not found");
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/notifications/clear")
     public ResponseEntity<?> clearMyNotifications() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
 
@@ -466,18 +607,11 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to clear notifications");
         }
     }
-    @PostMapping("/follow/{follower}/{following}")
-    public String postMethodName(@PathVariable String follower, @PathVariable String following) {
-        
-        return userService.follow(follower, following);
-        
-    }
-    
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
             }
             
@@ -492,7 +626,9 @@ public class UserController {
             UserDTO userDTO = userService.getAUser(user.getUserName());
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info: " + e.getMessage());
+            System.err.println("Error retrieving current user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error retrieving user info");
         }
     }
     
@@ -504,7 +640,7 @@ public class UserController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "User not authenticated"));
             }
@@ -537,20 +673,18 @@ public class UserController {
                     .body(Map.of("error", "Current password is incorrect"));
             }
         } catch (Exception e) {
+            System.err.println("Error changing password: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to change password: " + e.getMessage()));
+                .body(Map.of("error", "Failed to change password. Please try again."));
         }
     }
 
     @PostMapping("/auth/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
-        // Create an empty cookie to clear the session token
-        Cookie sessionCookie = new Cookie("sessionToken", "");
-        sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(true); // Set to true in production with HTTPS
-        sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(0); // Expire immediately
-        response.addCookie(sessionCookie);
+        // Overwrite the session cookie with an empty one that expires immediately
+        // (attributes must match the login cookie for the browser to replace it)
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie("", Duration.ZERO).toString());
         
         Map<String, String> responseBody = new HashMap<>();
         responseBody.put("message", "Logout successful");

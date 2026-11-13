@@ -1,16 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import '../Styling/Profile.css';
+import '../Styling/ProfilePage.css';
 import ShowFollow from '../Components/ShowFollow';
 import FeedItem from '../Components/FeedItem';
 import DemoGrid from '../ProfileComponets/DemoGrid';
 import AddDemo from '../ProfileComponets/AddDemo';
-import api, { getCurrentUser } from '../services/AuthService';
+import { cached, invalidate } from '../utils/requestCache';
+import { getFeaturedPosts, getPostsByUser } from '../services/PostsService';
+import api, { getCurrentUser, logout } from '../services/AuthService';
 import { UserRelationsService, updateProfile, changePassword } from '../services/UserService';
 import DemoService from '../services/DemoService';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import BadgeService from '../services/BadgeService';
+import Icon from '../Components/ui/Icon';
+import PlusBadge from '../Components/ui/PlusBadge';
+import Dialog from '../Components/ui/Dialog';
+import Pagination from '../Components/ui/Pagination';
+import { bannerStyle } from '../utils/banner';
 
 export default function Profile() {
   const { username } = useParams();
@@ -67,23 +74,19 @@ export default function Profile() {
   // Edit Profile Tab state
   const [editProfileTab, setEditProfileTab] = useState('basic');
 
-  const getPlatformIcon = (url) => {
+  const getPlatformName = (url) => {
     try {
-      const domain = new URL(url).hostname.toLowerCase();
-      if (domain.includes('youtube')) return '📺';
-      if (domain.includes('tiktok')) return '🎵';
-      if (domain.includes('instagram')) return '📷';
-      if (domain.includes('twitter') || domain.includes('x.com')) return '🐦';
-      if (domain.includes('facebook')) return '👥';
-      if (domain.includes('linkedin')) return '💼';
-      if (domain.includes('twitch')) return '🎮';
-      if (domain.includes('discord')) return '💬';
-      if (domain.includes('spotify')) return '🎧';
-      if (domain.includes('soundcloud')) return '🎶';
-      if (domain.includes('github')) return '🐙';
-      return '🌐';
+      const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      const known = [
+        ['youtube', 'YouTube'], ['youtu.be', 'YouTube'], ['tiktok', 'TikTok'], ['instagram', 'Instagram'],
+        ['twitter', 'X'], ['x.com', 'X'], ['facebook', 'Facebook'], ['linkedin', 'LinkedIn'],
+        ['twitch', 'Twitch'], ['discord', 'Discord'], ['spotify', 'Spotify'], ['soundcloud', 'SoundCloud'],
+        ['apple.com', 'Apple Music'], ['bandcamp', 'Bandcamp'], ['github', 'GitHub'],
+      ];
+      const match = known.find(([needle]) => domain.includes(needle));
+      return match ? match[1] : domain;
     } catch {
-      return '🌐';
+      return 'Link';
     }
   };
 
@@ -149,6 +152,8 @@ export default function Profile() {
     }
   };
 
+  // Tab pages are cached (utils/requestCache), so switching tabs, paging
+  // back, or the user object changing (e.g. after Follow) doesn't refetch.
   const loadPosts = async (page = 0) => {
     if (!user || !user.posts || user.posts.length === 0) {
       setPosts([]);
@@ -156,9 +161,10 @@ export default function Profile() {
       return;
     }
     try {
-      const res = await api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${pageSize}`);
-      setPosts(res.data.content || []);
-      setPostsTotalPages(res.data.page?.totalPages || 0);
+      const key = `profile:${username}:posts:${user.posts.length}:${page}`;
+      const data = await cached(key, () => getPostsByUser(username, page, pageSize).then((r) => r.data));
+      setPosts(data.content || []);
+      setPostsTotalPages(data.page?.totalPages || 0);
       setPostsPage(page);
     } catch (e) {
       console.error('posts load error', e);
@@ -174,9 +180,10 @@ export default function Profile() {
       return;
     }
     try {
-      const res = await api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${page}&size=${pageSize}`);
-      setFeatures(res.data.content || []);
-      setFeatTotalPages(res.data.page?.totalPages || 0);
+      const key = `profile:${username}:featured:${user.featuredOn.length}:${page}`;
+      const data = await cached(key, () => getFeaturedPosts(username, page, pageSize).then((r) => r.data));
+      setFeatures(data.content || []);
+      setFeatTotalPages(data.page?.totalPages || 0);
       setFeatPage(page);
     } catch (e) {
       console.error('features load error', e);
@@ -191,9 +198,9 @@ export default function Profile() {
         return;
       }
     try {
-      const list = await DemoService.getUserDemos(user.id);
-      // Reverse the order so newer demos appear first
-      setDemos(list.reverse());
+      const list = await cached(`profile:${username}:demos`, () => DemoService.getUserDemos(user.id));
+      // Newer demos first (copied: the cached list must stay as it came)
+      setDemos([...list].reverse());
     } catch (e) {
       console.error('demos load error', e);
       setDemos([]);
@@ -344,8 +351,8 @@ export default function Profile() {
     setDeleting(true);
     try {
       await api.delete(`/user/delete/${user.id}`);
-      document.cookie = 'jwt=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      navigate('/login');
+      // Clears the HttpOnly session cookie on the server and goes to /login
+      await logout();
     } catch (err) {
       console.error('Error deleting account:', err);
       alert('Failed to delete account');
@@ -354,572 +361,470 @@ export default function Profile() {
     }
   };
 
+  const isOwnProfile = currentUser?.userName === username;
+
+  const closeEdit = () => {
+    setIsEditing(false);
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setShowPasswordFields(false);
+    setEditProfileTab('basic');
+  };
+
+  const deleteDemo = async (demoId) => {
+    try {
+      await DemoService.deleteDemo(demoId);
+      invalidate(`profile:${username}:demos`);
+      loadDemos();
+    } catch (err) {
+      console.error('Error deleting demo:', err);
+      alert('Failed to delete demo');
+    }
+  };
+
+  const renderPostGrid = (list, emptyTitle, emptyText) => (
+    list.length > 0 ? (
+      <div className="fm-profile__grid">
+        {list.map((post) => (
+          <FeedItem key={post.id} {...post} currentUser={currentUser} />
+        ))}
+      </div>
+    ) : (
+      <div className="fm-state">
+        <h3>{emptyTitle}</h3>
+        <p>{emptyText}</p>
+      </div>
+    )
+  );
+
   if (loading) {
-  return (
-      <div className="profile">
-        <div className="profile-main">
-          <div className="profile-card" style={{ margin: '32px' }}>Loading profile...</div>
-        </div>
+    return (
+      <div className="fm-page">
+        <Header />
+        <main className="fm-page__main">
+          <div className="fm-state" role="status">
+            <div className="fm-spinner" aria-hidden="true" />
+            <p>Loading profile...</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   if (error || !user) {
     return (
-      <div className="profile">
-        <div className="profile-main">
-          <div className="profile-card" style={{ margin: '32px' }}>
-            <h2 className="profile-card-title">Profile not found</h2>
-            <button className="profile-btn" onClick={() => navigate('/')}>Go Home</button>
-                </div>
-              </div>
-                </div>
+      <div className="fm-page">
+        <Header />
+        <main className="fm-page__main">
+          <div className="fm-state" role="alert">
+            <h3>Profile not found</h3>
+            <p>This artist may have changed their username or deleted their account.</p>
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={() => navigate('/home')}>Go home</button>
+          </div>
+        </main>
+      </div>
     );
   }
-  
-  return (
-    <div className="profile">
-      <Header />
-      <div className="profile-main">
 
-        <section className="profile-hero">
-          <div
-            className="profile-cover"
-            style={{
-              backgroundImage: `url('${user.banner || '/default-banner.jpg'}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          />
-          <div className="profile-container">
-          <div 
-            className="profile-hero-content"
-            style={user.role === 'USERPLUS' ? {
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1)), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)), var(--profile-surface)',
-              border: '1px solid rgba(139, 92, 246, 0.2)'
-            } : {}}
-          >
-            <img className="profile-avatar" src={user.profilePic || '/dpp.jpg'} alt={user.userName} />
-            <div className="profile-identity">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 className="profile-name">{user.userName}</h1>
-                {user.role === 'USERPLUS' && (
-                  <img 
-                    src="/SVGs/Logo Gradient.svg" 
-                    alt="FeatureMe" 
-                    style={{ 
-                      width: '24px', 
-                      height: '24px',
-                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                    }} 
-                  />
-                )}
-                    </div>
-              {user.location && <p className="profile-title">📍 {user.location}</p>}
-              {user.bio && (
-                <p className="profile-paragraph" style={{ marginTop: 6, marginBottom: 0 }}>
-                  {user.bio.length > 120 ? (
-                    <>
-                      {user.bio.slice(0, 120)}...
-            <button 
-                        className="profile-tab"
-                        style={{ padding: '2px 6px', marginLeft: 6 }}
-                        onClick={() => {
-                          const el = document.getElementById('intro-section');
-                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                      >Read more</button>
-                        </>
-                      ) : (
-                    user.bio
-                  )}
+  const badges = Array.isArray(user.badges) ? user.badges : [];
+  const socials = (user.socialMedia || []).filter(Boolean).slice(0, 6);
+  const TABS = [
+    { id: 'posts', label: 'Posts', count: user.posts?.length || 0 },
+    { id: 'demos', label: 'Demos', count: user.demo?.length || 0 },
+    { id: 'featured', label: 'Featured on', count: user.featuredOn?.length || 0 },
+  ];
+
+  return (
+    <div className="fm-page">
+      <Header />
+      <main className="fm-page__main">
+        <section className={`fm-profile-hero${user.role === 'USERPLUS' ? ' fm-profile-hero--plus' : ''}`} aria-label={`${user.userName}'s profile`}>
+          <div className="fm-profile-hero__banner" style={bannerStyle(user)} />
+          <div className="fm-profile-hero__inner">
+            <img className="fm-profile-hero__avatar" src={user.profilePic || '/dpp.jpg'} alt="" />
+
+            <div className="fm-profile-hero__identity">
+              <div className="fm-profile-hero__name-row">
+                <h1 className="fm-profile-hero__name">{user.userName}</h1>
+                {user.role === 'USERPLUS' && <PlusBadge size={30} />}
+              </div>
+              {user.location && (
+                <p className="fm-profile-hero__location">
+                  <Icon name="pin" size={16} />
+                  {user.location}
                 </p>
               )}
-              {/* Badges row */}
-              {Array.isArray(user.badges) && user.badges.length > 0 && (
-                <div className="profile-socials" style={{ gap: 6 }}>
-                  {user.badges.map((b, i) => {
+              {user.bio && <p className="fm-profile-hero__bio">{user.bio}</p>}
+
+              {badges.length > 0 && (
+                <ul className="fm-profile-badges" aria-label="Badges">
+                  {badges.map((b) => {
                     const info = BadgeService.getBadgeInfo ? BadgeService.getBadgeInfo(b) : null;
-                    const bg = info?.color || 'rgba(148, 163, 184, 0.14)';
-                    const icon = info?.icon || '🏷️';
                     const label = info?.label || b;
-                    const description = info?.description || '';
                     return (
-                      <span key={i} className="profile-badge" style={{ background: 'transparent' }}>
-                        <span className="profile-chip" style={{ background: bg, color: '#fff', borderColor: bg }}>
-                          {icon}
-                        </span>
-                        <span className="profile-badge-tooltip">
-                          <strong style={{ display: 'block' }}>{label}</strong>
-                          <span>{description}</span>
-                        </span>
-                      </span>
+                      <li key={b} className="fm-profile-badge" title={info?.description || label}>
+                        <span className="fm-profile-badge__dot" style={{ background: info?.color || 'var(--fm-muted)' }} aria-hidden="true" />
+                        {label}
+                        {info?.description && <span className="fm-visually-hidden">: {info.description}</span>}
+                      </li>
                     );
                   })}
-                  </div>
-                )}
-              {/* Social links */}
-              <div className="profile-socials">
-                {(user.socialMedia || []).slice(0, 6).map((link, i) => (
-                  <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="profile-social" aria-label={`social-${i}`} title={link}>
-                    <span>{getPlatformIcon(link)}</span>
-                  </a>
-                ))}
-              </div>
-                </div>
-            {/* Quick actions on right */}
-            <div className="profile-hero-actions" style={{ display: 'grid', alignContent: 'center', justifyItems: 'end', gap: 8 }}>
-              {currentUser && currentUser.userName !== username ? (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="profile-btn profile-btn--primary" onClick={handleFollow}>{isFollowing ? '✓ Following' : '+ Follow'}</button>
-                  <button className="profile-btn" onClick={() => navigate(`/messages?createChat=true&user=${username}`)}>💬 Message</button>
-                  </div>
-                ) : (
-                <button className="profile-btn" onClick={() => setIsEditing(true)}>✏️ Edit Profile</button>
+                </ul>
               )}
-              {/* Compact stats */}
-              <ul className="profile-stats" style={{ marginTop: 8 }}>
+            </div>
+
+            <div className="fm-profile-hero__side">
+              <div className="fm-profile-hero__actions">
+                {currentUser && !isOwnProfile ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`fm-btn ${isFollowing ? 'fm-btn--secondary' : 'fm-btn--primary'}`}
+                      onClick={handleFollow}
+                      aria-pressed={isFollowing}
+                    >
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                    <button
+                      type="button"
+                      className="fm-btn fm-btn--secondary"
+                      onClick={() => navigate(`/messages?createChat=true&user=${username}`)}
+                    >
+                      <Icon name="message" size={18} />
+                      Message
+                    </button>
+                  </>
+                ) : isOwnProfile ? (
+                  <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setIsEditing(true)}>
+                    Edit profile
+                  </button>
+                ) : null}
+              </div>
+
+              <ul className="fm-profile-stats">
                 <li>
-                  <span className="profile-stat-value">{user.posts?.length || 0}</span>
-                  <span className="profile-stat-label">Posts</span>
+                  <div className="fm-profile-stats__item">
+                    <span className="fm-profile-stats__value">{user.posts?.length || 0}</span>
+                    <span className="fm-profile-stats__label">Posts</span>
+                  </div>
                 </li>
                 <li>
-                  <button className="profile-stat-button" onClick={() => { setFollowPopupType('followers'); setShowFollow(true); }}>
-                    <span className="profile-stat-value">{user?.followersCount ?? 0}</span>
-                    <span className="profile-stat-label">Followers</span>
-                      </button>
+                  <button type="button" className="fm-profile-stats__item" onClick={() => { setFollowPopupType('followers'); setShowFollow(true); }}>
+                    <span className="fm-profile-stats__value">{user.followersCount ?? 0}</span>
+                    <span className="fm-profile-stats__label">Followers</span>
+                  </button>
                 </li>
                 <li>
-                  <button className="profile-stat-button" onClick={() => { setFollowPopupType('following'); setShowFollow(true); }}>
-                    <span className="profile-stat-value">{user?.followingCount ?? 0}</span>
-                    <span className="profile-stat-label">Following</span>
+                  <button type="button" className="fm-profile-stats__item" onClick={() => { setFollowPopupType('following'); setShowFollow(true); }}>
+                    <span className="fm-profile-stats__value">{user.followingCount ?? 0}</span>
+                    <span className="fm-profile-stats__label">Following</span>
                   </button>
                 </li>
               </ul>
-                </div>
-              </div>
-              
             </div>
+          </div>
         </section>
 
-        <div className="profile-grid profile-grid--two">
-          <section className="profile-card" id="intro-section">
-            <h2 className="profile-card-title">Introduction</h2>
-            <p className="profile-paragraph">{user.about || 'No about information available'}</p>
-            <ul className="profile-list">
-              {user.location && (<li><span>📍</span> {user.location}</li>)}
-            </ul>
-          </section>
+        <div className="fm-profile">
+          <aside className="fm-profile__aside">
+            <section className="fm-card">
+              <h2 className="fm-profile__card-title">About</h2>
+              <p className="fm-profile__about">{user.about || (isOwnProfile ? 'Tell other artists about yourself. Add an About section from Edit profile.' : 'No about information yet.')}</p>
+            </section>
 
-          {/* Main content area switches by tab */}
-          <section className="profile-card">
-            <div className="profile-tabs" style={{ padding: 0, marginBottom: '12px' }}>
-              {['Posts', 'Demos', 'Featured'].map((t) => (
-            <button 
-                  key={t}
-                  className={`profile-tab ${(
-                    (t === 'Posts' && activeTab === 'posts') ||
-                    (t === 'Demos' && activeTab === 'demos') ||
-                    (t === 'Featured' && activeTab === 'featured')
-                  ) ? 'is-active' : ''}`}
-                  onClick={() => setActiveTab(t.toLowerCase())}
-                >{t}</button>
-              ))}
-                </div>
-            {activeTab === 'posts' && (
-                  <div>
-                <h2 className="profile-card-title">Posts</h2>
-                {currentUser?.userName === username && (
-                  <button className="profile-btn profile-btn--cta" onClick={() => navigate('/create-post')}>➕ Create Post</button>
-                )}
-                {posts.length > 0 ? (
-                  <div className="profile-posts-grid">
-                    {posts.map((post) => (
-                      <FeedItem
-                        key={post.id}
-                        id={post.id}
-                        author={post.author}
-                        title={post.title}
-                        description={post.description}
-                        time={post.time}
-                        features={post.features}
-                        genre={post.genre}
-                        music={post.music}
-                        comments={post.comments}
-                        likes={post.likes}
-                        totalViews={post.totalViews}
-                        totalComments={post.totalComments}
-                        freeDownload={post.freeDownload}
-                      />
-                    ))}
-                </div>
-                ) : (
-                  <p className="profile-paragraph">No posts yet</p>
-                )}
-                {postsTotalPages > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <button className="profile-btn" disabled={postsPage === 0} onClick={() => loadPosts(postsPage - 1)}>Previous</button>
-                    <button className="profile-btn" disabled={postsPage >= postsTotalPages - 1} onClick={() => loadPosts(postsPage + 1)}>Next</button>
-                </div>
+            {socials.length > 0 && (
+              <section className="fm-card">
+                <h2 className="fm-profile__card-title">Links</h2>
+                <ul className="fm-profile__links">
+                  {socials.map((link) => (
+                    <li key={link}>
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        <Icon name="link" size={16} />
+                        {getPlatformName(link)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
-          </div>
-            )}
+          </aside>
 
-            {activeTab === 'demos' && (
-                  <div>
-                <h2 className="profile-card-title">Demos</h2>
+          <section className="fm-profile__content">
+            <div className="fm-profile__tabs-row">
+              <div className="fm-segmented" role="tablist" aria-label="Profile sections">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`fm-profile-tab-${tab.id}`}
+                    aria-selected={activeTab === tab.id}
+                    aria-controls="fm-profile-panel"
+                    className={`fm-segment${activeTab === tab.id ? ' is-active' : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                    <span className="fm-profile__tab-count">{tab.count}</span>
+                  </button>
+                ))}
+              </div>
+              {isOwnProfile && activeTab === 'posts' && (
+                <button type="button" className="fm-btn fm-btn--primary" onClick={() => navigate('/create-post')}>
+                  <Icon name="plus" size={18} strokeWidth={2} />
+                  Create post
+                </button>
+              )}
+            </div>
+
+            <div id="fm-profile-panel" role="tabpanel" aria-labelledby={`fm-profile-tab-${activeTab}`} className="fm-profile__panel">
+              {activeTab === 'posts' && (
+                <>
+                  {renderPostGrid(
+                    posts,
+                    'No posts yet',
+                    isOwnProfile ? 'Share your first track and request features from other artists.' : `${user.userName} hasn’t posted anything yet.`
+                  )}
+                  <Pagination page={postsPage} totalPages={postsTotalPages} onChange={loadPosts} label="Posts pages" />
+                </>
+              )}
+
+              {activeTab === 'demos' && (
                 <DemoGrid
                   demos={demos}
                   currentUser={currentUser}
                   username={username}
                   onAddDemo={() => setShowAddDemo(true)}
-                  onDeleteDemo={async (demoId) => {
-                    try {
-                      await DemoService.deleteDemo(demoId);
-                      loadDemos();
-                    } catch (err) {
-                      console.error('Error deleting demo:', err);
-                      alert('Failed to delete demo');
-                    }
-                  }}
+                  onDeleteDemo={deleteDemo}
                 />
-                </div>
-                )}
+              )}
 
-            {activeTab === 'featured' && (
-                  <div>
-                <h2 className="profile-card-title">Featured On</h2>
-                {features.length > 0 ? (
-                  <div className="profile-posts-grid">
-                    {features.map((post) => (
-                      <FeedItem
-                        key={post.id}
-                        id={post.id}
-                        author={post.author}
-                        title={post.title}
-                        description={post.description}
-                        time={post.time}
-                        features={post.features}
-                        genre={post.genre}
-                        music={post.music}
-                        comments={post.comments}
-                        likes={post.likes}
-                        totalViews={post.totalViews}
-                        totalComments={post.totalComments}
-                        freeDownload={post.freeDownload}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="profile-paragraph">No features yet</p>
-                )}
-                {featTotalPages > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <button className="profile-btn" disabled={featPage === 0} onClick={() => loadFeatures(featPage - 1)}>Previous</button>
-                    <button className="profile-btn" disabled={featPage >= featTotalPages - 1} onClick={() => loadFeatures(featPage + 1)}>Next</button>
-              </div>
-                )}
-          </div>
-        )}
+              {activeTab === 'featured' && (
+                <>
+                  {renderPostGrid(
+                    features,
+                    'No features yet',
+                    `Tracks ${isOwnProfile ? 'you’re' : `${user.userName} is`} featured on will show up here.`
+                  )}
+                  <Pagination page={featPage} totalPages={featTotalPages} onChange={loadFeatures} label="Featured pages" />
+                </>
+              )}
+            </div>
           </section>
-
-          {/* Connections card removed; main content widened */}
         </div>
-        
-        
-                </div>
+      </main>
+
       <Footer />
 
-        <ShowFollow 
-          userName={username}
-          isOpen={showFollow}
+      <ShowFollow
+        userName={username}
+        isOpen={showFollow}
         onClose={() => setShowFollow(false)}
-          type={followPopupType}
-        />
+        type={followPopupType}
+      />
 
-      {isEditing && (
-        <div className="profile-card" style={{ position: 'fixed', inset: '100px 20px 20px', maxWidth: 560, margin: 'auto', zIndex: 50, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h2 className="profile-card-title" style={{ margin: 0 }}>Edit Profile</h2>
-            <button type="button" className="profile-btn" onClick={() => {
-              setIsEditing(false);
-              setPasswordForm({
-                currentPassword: '',
-                newPassword: '',
-                confirmPassword: ''
-              });
-              setShowPasswordFields(false);
-              setEditProfileTab('basic');
-            }} aria-label="Close edit profile">✕</button>
-              </div>
-          
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '2px solid var(--profile-border)' }}>
+      <Dialog open={isEditing} onClose={closeEdit} title="Edit profile" size="md" closeDisabled={showDeleteModal}>
+        <div className="fm-segmented fm-profile-edit__tabs" role="tablist" aria-label="Edit profile sections">
+          {[['basic', 'Profile'], ['images', 'Images'], ['security', 'Account']].map(([id, label]) => (
             <button
+              key={id}
               type="button"
-              className={`profile-tab ${editProfileTab === 'basic' ? 'is-active' : ''}`}
-              onClick={() => setEditProfileTab('basic')}
-              style={{ borderBottom: editProfileTab === 'basic' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
+              role="tab"
+              aria-selected={editProfileTab === id}
+              className={`fm-segment${editProfileTab === id ? ' is-active' : ''}`}
+              onClick={() => setEditProfileTab(id)}
             >
-              Basic Info
+              {label}
             </button>
-            <button
-              type="button"
-              className={`profile-tab ${editProfileTab === 'images' ? 'is-active' : ''}`}
-              onClick={() => setEditProfileTab('images')}
-              style={{ borderBottom: editProfileTab === 'images' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
-            >
-              Images
-            </button>
-            <button
-              type="button"
-              className={`profile-tab ${editProfileTab === 'security' ? 'is-active' : ''}`}
-              onClick={() => setEditProfileTab('security')}
-              style={{ borderBottom: editProfileTab === 'security' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: '-2px' }}
-            >
-              Security
-            </button>
-          </div>
+          ))}
+        </div>
 
-          <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: 12 }}>
-            {/* Basic Info Tab */}
+        {editProfileTab !== 'security' ? (
+          <form onSubmit={handleEditSubmit} className="fm-profile-edit">
             {editProfileTab === 'basic' && (
               <>
-                <h3 className="profile-card-title" style={{ margin: 0 }}>Basic Information</h3>
-            <label>
-              <div className="profile-stat-label" style={{ marginBottom: 6 }}>Bio</div>
-              <input className="profile-input" placeholder="Short bio (max 50 chars)" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} />
-            </label>
-            <label>
-              <div className="profile-stat-label" style={{ marginBottom: 6 }}>Location</div>
-              <input className="profile-input" placeholder="City, State" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
-            </label>
-            <label>
-              <div className="profile-stat-label" style={{ marginBottom: 6 }}>About</div>
-              <textarea className="profile-input" rows={4} placeholder="About you" value={editForm.about} onChange={(e) => setEditForm({ ...editForm, about: e.target.value })} />
-            </label>
+                <div className="fm-field">
+                  <label htmlFor="edit-bio" className="fm-field__label">Bio</label>
+                  <input id="edit-bio" className="fm-input" placeholder="A short line about you" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} aria-describedby="edit-bio-hint" />
+                  <span id="edit-bio-hint" className="fm-field__hint">Shown under your name. Keep it short: {editForm.bio.length}/50 characters.</span>
+                </div>
+                <div className="fm-field">
+                  <label htmlFor="edit-location" className="fm-field__label">Location</label>
+                  <input id="edit-location" className="fm-input" placeholder="City, State" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
+                </div>
+                <div className="fm-field">
+                  <label htmlFor="edit-about" className="fm-field__label">About</label>
+                  <textarea id="edit-about" className="fm-input" rows={4} placeholder="Your sound, influences, what you're looking for..." value={editForm.about} onChange={(e) => setEditForm({ ...editForm, about: e.target.value })} />
+                </div>
 
-            {/* Social Links (USERPLUS only) */}
-            {currentUser?.role === 'USERPLUS' && (
-              <div style={{ display: 'grid', gap: 8 }}>
-                <h3 className="profile-card-title" style={{ margin: 0 }}>Social Links</h3>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <button 
-                    type="button"
-                    className="profile-btn"
-                    onClick={() => {
-                      if ((editForm.socialMedia?.length || 0) >= 5) return;
-                      setEditForm(prev => ({ ...prev, socialMedia: [...(prev.socialMedia || []), ''] }));
-                    }}
-                    disabled={(editForm.socialMedia?.length || 0) >= 5}
-                  >➕ Add Link {(editForm.socialMedia?.length || 0) >= 5 ? '(Max 5)' : ''}</button>
-                </div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {(editForm.socialMedia || []).map((link, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}>
-                      <input
-                        className="profile-input"
-                        placeholder="https://example.com/your-profile"
-                        value={link}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEditForm(prev => {
-                            const arr = [...(prev.socialMedia || [])];
-                            arr[idx] = val;
-                            return { ...prev, socialMedia: arr };
-                          });
-                        }}
-                      />
-                      <button 
-                        type="button"
-                        className="profile-btn"
-                        onClick={() => setEditForm(prev => ({ ...prev, socialMedia: (prev.socialMedia || []).filter((_, i) => i !== idx) }))}
-                        title="Remove link"
-                      >✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                {currentUser?.role === 'USERPLUS' ? (
+                  <fieldset className="fm-profile-edit__links">
+                    <legend className="fm-field__label">Links</legend>
+                    {(editForm.socialMedia || []).map((link, idx) => (
+                      <div key={idx} className="fm-profile-edit__link-row">
+                        <label className="fm-visually-hidden" htmlFor={`edit-link-${idx}`}>Link {idx + 1}</label>
+                        <input
+                          id={`edit-link-${idx}`}
+                          className="fm-input"
+                          placeholder="https://example.com/your-profile"
+                          value={link}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditForm((prev) => {
+                              const arr = [...(prev.socialMedia || [])];
+                              arr[idx] = val;
+                              return { ...prev, socialMedia: arr };
+                            });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="fm-icon-btn"
+                          onClick={() => setEditForm((prev) => ({ ...prev, socialMedia: (prev.socialMedia || []).filter((_, i) => i !== idx) }))}
+                          aria-label={`Remove link ${idx + 1}`}
+                        >
+                          <Icon name="close" size={18} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="fm-btn fm-btn--secondary fm-profile-edit__add-link"
+                      onClick={() => setEditForm((prev) => ({ ...prev, socialMedia: [...(prev.socialMedia || []), ''] }))}
+                      disabled={(editForm.socialMedia?.length || 0) >= 5}
+                    >
+                      <Icon name="plus" size={16} strokeWidth={2} />
+                      {(editForm.socialMedia?.length || 0) >= 5 ? 'Maximum 5 links' : 'Add link'}
+                    </button>
+                  </fieldset>
+                ) : (
+                  <p className="fm-field__hint">Links to your other profiles are available with Plus.</p>
+                )}
               </>
             )}
 
-            {/* Images Tab */}
             {editProfileTab === 'images' && (
               <>
-                <h3 className="profile-card-title" style={{ margin: 0 }}>Images</h3>
-                
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                      <input type="radio" name="ppMethod" value="url" checked={uploadMethod.profilePic === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'url' })} /> URL
-                    </label>
-                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                      <input type="radio" name="ppMethod" value="file" checked={uploadMethod.profilePic === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, profilePic: 'file' })} /> File
-                    </label>
-                  </div>
-                  {uploadMethod.profilePic === 'url' ? (
-                    <label>
-                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Profile Picture URL</div>
-                      <input className="profile-input" placeholder="https://...jpg" value={editForm.profilePic} onChange={(e) => setEditForm({ ...editForm, profilePic: e.target.value })} />
-                    </label>
-                  ) : (
-                    <label>
-                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Profile Picture</div>
-                      <input ref={fileInputRef} type="file" accept="image/*" />
-                    </label>
-                  )}
-                </div>
-
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                      <input type="radio" name="bannerMethod" value="url" checked={uploadMethod.banner === 'url'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'url' })} /> URL
-                    </label>
-                    <label className="profile-btn" style={{ cursor: 'pointer' }}>
-                      <input type="radio" name="bannerMethod" value="file" checked={uploadMethod.banner === 'file'} onChange={() => setUploadMethod({ ...uploadMethod, banner: 'file' })} /> File
-                    </label>
-                  </div>
-                  {uploadMethod.banner === 'url' ? (
-                    <label>
-                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Banner Image URL</div>
-                      <input className="profile-input" placeholder="https://...jpg" value={editForm.banner} onChange={(e) => setEditForm({ ...editForm, banner: e.target.value })} />
-                    </label>
-                  ) : (
-                    <label>
-                      <div className="profile-stat-label" style={{ marginBottom: 6 }}>Upload Banner Image</div>
-                      <input ref={bannerInputRef} type="file" accept="image/*" />
-                    </label>
-                  )}
-                </div>
+                {[
+                  ['profilePic', 'Profile picture', fileInputRef],
+                  ['banner', 'Banner', bannerInputRef],
+                ].map(([key, label, ref]) => (
+                  <fieldset key={key} className="fm-profile-edit__image">
+                    <legend className="fm-field__label">{label}</legend>
+                    <div className="fm-segmented" role="radiogroup" aria-label={`${label} source`}>
+                      {[['file', 'Upload file'], ['url', 'Use a URL']].map(([method, methodLabel]) => (
+                        <button
+                          key={method}
+                          type="button"
+                          role="radio"
+                          aria-checked={uploadMethod[key] === method}
+                          className={`fm-segment${uploadMethod[key] === method ? ' is-active' : ''}`}
+                          onClick={() => setUploadMethod({ ...uploadMethod, [key]: method })}
+                        >
+                          {methodLabel}
+                        </button>
+                      ))}
+                    </div>
+                    {uploadMethod[key] === 'url' ? (
+                      <div className="fm-field">
+                        <label htmlFor={`edit-${key}-url`} className="fm-visually-hidden">{label} URL</label>
+                        <input id={`edit-${key}-url`} className="fm-input" placeholder="https://...jpg" value={editForm[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })} />
+                      </div>
+                    ) : (
+                      <div className="fm-field">
+                        <label htmlFor={`edit-${key}-file`} className="fm-visually-hidden">{label} file</label>
+                        <input id={`edit-${key}-file`} ref={ref} type="file" accept="image/*" className="fm-profile-edit__file" />
+                      </div>
+                    )}
+                  </fieldset>
+                ))}
               </>
             )}
 
-            {/* Security Tab */}
-            {editProfileTab === 'security' && (
-              <>
-                <h3 className="profile-card-title" style={{ margin: 0 }}>Security</h3>
-                
-                {/* Change Password Section */}
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div className="profile-stat-label" style={{ marginBottom: 0 }}>Change Password</div>
-                    <button 
-                      type="button"
-                      className="profile-btn"
-                      onClick={() => setShowPasswordFields(!showPasswordFields)}
-                    >
-                      {showPasswordFields ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  
-                  {showPasswordFields && (
-                    <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: 8 }}>
-                      <label>
-                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>Current Password</div>
-                        <input 
-                          className="profile-input" 
-                          type="password"
-                          placeholder="Enter current password"
-                          value={passwordForm.currentPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} 
-                        />
-                      </label>
-                      
-                      <label>
-                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>New Password</div>
-                        <input 
-                          className="profile-input" 
-                          type="password"
-                          placeholder="Enter new password"
-                          value={passwordForm.newPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} 
-                        />
-                      </label>
-                      
-                      <label>
-                        <div className="profile-stat-label" style={{ marginBottom: 6 }}>Confirm New Password</div>
-                        <input 
-                          className="profile-input" 
-                          type="password"
-                          placeholder="Confirm new password"
-                          value={passwordForm.confirmPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} 
-                        />
-                      </label>
-                      
-                      <button 
-                        type="submit" 
-                        disabled={isChangingPassword}
-                        className="profile-btn profile-btn--primary"
-                        style={{ justifySelf: 'flex-start' }}
-                      >
-                        {isChangingPassword ? 'Changing Password...' : 'Change Password'}
-                      </button>
-                    </form>
-                  )}
-                </div>
-
-                {/* Danger Zone */}
-                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--profile-border)' }}>
-                  <h3 className="profile-card-title">Danger Zone</h3>
-                  <p className="profile-paragraph">Deleting your account will permanently remove your profile, posts, demos, and relationships.</p>
-                  <button className="profile-btn" onClick={() => setShowDeleteModal(true)}>🗑️ Delete Account</button>
-                </div>
-              </>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button type="button" className="profile-btn" onClick={() => {
-              setIsEditing(false);
-              setPasswordForm({
-                currentPassword: '',
-                newPassword: '',
-                confirmPassword: ''
-              });
-              setShowPasswordFields(false);
-              setEditProfileTab('basic');
-            }}>Cancel</button>
-              <button type="submit" disabled={editLoading} className="profile-btn profile-btn--primary">{editLoading ? 'Saving...' : 'Save'}</button>
-      </div>
-          </form>
+            <div className="fm-profile-edit__actions">
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={closeEdit}>Cancel</button>
+              <button type="submit" className="fm-btn fm-btn--primary" disabled={editLoading}>{editLoading ? 'Saving...' : 'Save changes'}</button>
             </div>
-        )}
-        
-      {showDeleteModal && (
-        <div className="profile-card" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 60 }} onClick={() => setShowDeleteModal(false)}>
-          <div className="profile-card" style={{ width: 'min(560px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 className="profile-card-title">Delete Account</h3>
-              <button className="profile-btn" onClick={() => setShowDeleteModal(false)} disabled={deleting}>✕</button>
-                </div>
-            <p className="profile-paragraph">This action cannot be undone. Type <strong>DELETE</strong> to confirm.</p>
-            <input className="profile-input" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" disabled={deleting} />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-              <button className="profile-btn" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
-              <button className="profile-btn profile-btn--primary" onClick={handleAccountDelete} disabled={deleting || deleteConfirm !== 'DELETE'}>
-                {deleting ? 'Deleting...' : 'Delete Account'}
-                    </button>
-                </div>
+          </form>
+        ) : (
+          <div className="fm-profile-edit">
+            {/* Kept outside the profile form: nested forms aren't valid HTML, and the
+                browser would submit the profile form instead of changing the password. */}
+            <section className="fm-profile-edit__section">
+              <div className="fm-profile-edit__section-head">
+                <h3>Change password</h3>
+                <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setShowPasswordFields(!showPasswordFields)} aria-expanded={showPasswordFields}>
+                  {showPasswordFields ? 'Cancel' : 'Change'}
+                </button>
               </div>
+              {showPasswordFields && (
+                <form onSubmit={handleChangePassword} className="fm-profile-edit">
+                  {[
+                    ['currentPassword', 'Current password', 'current-password'],
+                    ['newPassword', 'New password', 'new-password'],
+                    ['confirmPassword', 'Confirm new password', 'new-password'],
+                  ].map(([key, label, autoComplete]) => (
+                    <div key={key} className="fm-field">
+                      <label htmlFor={`pw-${key}`} className="fm-field__label">{label}</label>
+                      <input
+                        id={`pw-${key}`}
+                        className="fm-input"
+                        type="password"
+                        autoComplete={autoComplete}
+                        value={passwordForm[key]}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, [key]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                  <span className="fm-field__hint">At least 6 characters.</span>
+                  <div className="fm-profile-edit__actions">
+                    <button type="submit" className="fm-btn fm-btn--primary" disabled={isChangingPassword}>
+                      {isChangingPassword ? 'Changing...' : 'Change password'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+
+            <section className="fm-profile-edit__section fm-profile-edit__danger">
+              <h3>Delete account</h3>
+              <p>Permanently removes your profile, posts, demos and connections.</p>
+              <button type="button" className="fm-btn fm-btn--danger" onClick={() => setShowDeleteModal(true)}>
+                <Icon name="trash" size={16} />
+                Delete account
+              </button>
+            </section>
           </div>
         )}
+      </Dialog>
 
-      {showAddDemo && (
-        <div className="profile-card" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 60 }} onClick={() => setShowAddDemo(false)}>
-          <div className="profile-card" style={{ width: 'min(560px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 className="profile-card-title">Add Demo</h3>
-              <button className="profile-btn" onClick={() => setShowAddDemo(false)}>✕</button>
-                </div>
-              <AddDemo 
-              setAddDemo={setShowAddDemo}
-              onDemoAdded={() => { loadDemos(); setShowAddDemo(false); }}
-              userRole={currentUser?.role}
-            />
-                </div>
-              </div>
-            )}
+      <Dialog
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete account"
+        size="sm"
+        closeDisabled={deleting}
+        footer={(
+          <>
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+            <button type="button" className="fm-btn fm-btn--danger" onClick={handleAccountDelete} disabled={deleting || deleteConfirm !== 'DELETE'}>
+              {deleting ? 'Deleting...' : 'Delete account'}
+            </button>
+          </>
+        )}
+      >
+        <p>This can&apos;t be undone. Type <strong>DELETE</strong> to confirm.</p>
+        <div className="fm-field">
+          <label htmlFor="delete-confirm" className="fm-visually-hidden">Type DELETE to confirm</label>
+          <input id="delete-confirm" className="fm-input" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" disabled={deleting} autoComplete="off" />
+        </div>
+      </Dialog>
+
+      <Dialog open={showAddDemo} onClose={() => setShowAddDemo(false)} title="Add demo" size="md">
+        <AddDemo
+          setAddDemo={setShowAddDemo}
+          onDemoAdded={() => { invalidate(`profile:${username}:demos`); loadDemos(); setShowAddDemo(false); }}
+          userRole={currentUser?.role}
+        />
+      </Dialog>
     </div>
   );
 }

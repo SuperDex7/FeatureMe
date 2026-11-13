@@ -13,11 +13,11 @@
     "@stripe/react-stripe-js": "^4.0.2",
     "@stripe/stripe-js": "^7.9.0",
     "@tanstack/react-query": "^5.66.0",
-    "axios": "^1.7.9",
+    "axios": "^1.21.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-feature": "file:",
-    "react-router-dom": "^7.1.5",
+    "react-router-dom": "^7.18.5",
     "react-stomp": "^5.1.0",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3"

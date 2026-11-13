@@ -1,5 +1,6 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -48,7 +49,7 @@ public class DemoController {
     public Demos createDemo (@RequestPart("file") MultipartFile file, @RequestPart("demo") String demoJson ) throws IOException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -85,7 +86,7 @@ public class DemoController {
     public CompletableFuture<Demos> createDemoAsync(@RequestPart("file") MultipartFile file, @RequestPart("demo") String demoJson) throws IOException {
         // Get the authenticated user (capture for async propagation)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -129,7 +130,7 @@ public class DemoController {
     public List<Demos> getAllDemos(@PathVariable String id) {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -148,7 +149,7 @@ public class DemoController {
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteDemo(@PathVariable String id){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         

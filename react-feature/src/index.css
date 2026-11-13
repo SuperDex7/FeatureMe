@@ -1,32 +1,24 @@
+/* Base page styles. Colors and fonts come from Styling/tokens.css. */
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+  font-family: var(--fm-font-body);
   line-height: 1.5;
-  font-weight: 400;
-  overflow-x: hidden;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-  
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-body{
-  
-    margin-left: -2px;
-    min-width:100%;
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--fm-bg);
+  color: var(--fm-text);
+  overflow-x: hidden;
 }
 
 a {
-  color: #ffffff;          /* Match your brand or theme color */
-  text-decoration: none;   /* Remove default underline */
-  
-  transition: color 0.2s;  /* Smooth color transition on hover/focus */
+  color: inherit;
+  text-decoration: none;
 }
-
-a:hover,
-a:focus {
-  color: #cecbcb;          /* Darker shade on hover/focus */
-}
-

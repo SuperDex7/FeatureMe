@@ -1,4 +1,4 @@
-FROM nginx:1.27-alpine
+FROM nginx:1.30-alpine
 
 # Create directories for SSL certificates (will be mounted via volumes)
 RUN mkdir -p /etc/nginx/certs

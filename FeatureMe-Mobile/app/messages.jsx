@@ -28,7 +28,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -288,9 +288,10 @@ export default function MessagesScreen() {
   };
 
   const loadMessages = async (conversation) => {
+    // Outside the try: the catch below falls back to the cache for this room
+    const chatRoomId = conversation.ChatId || conversation.chatRoomId;
     try {
       setLoadingMessages(true);
-      const chatRoomId = conversation.ChatId || conversation.chatRoomId;
       
       // Only load if not cached
       if (!conversationCache[chatRoomId]) {
@@ -750,43 +751,45 @@ export default function MessagesScreen() {
     }
   };
 
-  // Audio player functions
+  // Audio player functions (expo-audio; the global audio mode is set in AudioContext)
+  // playbackStatus keeps the shape the player UI below reads:
+  // { isLoaded, isPlaying, positionMillis, durationMillis }
   useEffect(() => {
     return () => {
       if (sound) {
-        sound.unloadAsync().catch((error) => {
-          console.error('Error unloading sound in cleanup:', error);
-        });
+        try {
+          sound.remove();
+        } catch (error) {
+          console.error('Error releasing audio player in cleanup:', error);
+        }
       }
     };
   }, [sound]);
+
+  const toPlaybackStatus = (status) => ({
+    isLoaded: Boolean(status?.isLoaded),
+    isPlaying: Boolean(status?.playing),
+    positionMillis: Math.round((status?.currentTime || 0) * 1000),
+    durationMillis: Math.round((status?.duration || 0) * 1000),
+  });
 
   const openAudioPlayer = async (url, name) => {
     try {
       setCurrentAudioUrl(url);
       setCurrentAudioName(name);
       setShowAudioPlayer(true);
-      
-      // Configure audio mode for playback
-      await Audio.setAudioModeAsync({
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+
+      const player = createAudioPlayer({ uri: url });
+      player.addListener('playbackStatusUpdate', (status) => {
+        setPlaybackStatus(toPlaybackStatus(status));
+        setIsPlaying(Boolean(status.playing));
+        if (status.didJustFinish) {
+          player.pause();
+          player.seekTo(0).catch(() => {});
+        }
       });
 
-      // Load the sound
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: url },
-        { shouldPlay: false },
-        (status) => {
-          setPlaybackStatus(status);
-          if (status.isLoaded) {
-            setIsPlaying(status.isPlaying);
-          }
-        }
-      );
-      
-      setSound(newSound);
+      setSound(player);
     } catch (error) {
       console.error('Error loading audio:', error);
       Alert.alert('Error', 'Failed to load audio file');
@@ -795,17 +798,15 @@ export default function MessagesScreen() {
 
   const handlePlayPause = async () => {
     if (!sound) return;
-    
+
     try {
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
+      if (!sound.isLoaded) return;
+      if (sound.playing) {
+        sound.pause();
+        setIsPlaying(false);
+      } else {
+        sound.play();
+        setIsPlaying(true);
       }
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -814,22 +815,25 @@ export default function MessagesScreen() {
 
   const handleStop = async () => {
     if (!sound) return;
-    
+
     try {
-      await sound.stopAsync();
-      await sound.setPositionAsync(0);
+      sound.pause();
+      await sound.seekTo(0);
       setIsPlaying(false);
     } catch (error) {
       console.error('Error stopping audio:', error);
     }
   };
 
+  // Positions are in milliseconds, like the UI; expo-audio seeks in seconds
+  const seekToMillis = (millis) => sound.seekTo(millis / 1000);
+
   const handleSeek = async (position) => {
     if (!sound || !playbackStatus?.isLoaded) return;
-    
+
     try {
       const newPosition = Math.max(0, Math.min(position, playbackStatus.durationMillis));
-      await sound.setPositionAsync(newPosition);
+      await seekToMillis(newPosition);
     } catch (error) {
       console.error('Error seeking audio:', error);
     }
@@ -837,12 +841,11 @@ export default function MessagesScreen() {
 
   const handleSkipBackward = async () => {
     if (!sound || !playbackStatus?.isLoaded) return;
-    
+
     try {
       const currentPosition = playbackStatus.positionMillis || 0;
       const skipAmount = 10000; // 10 seconds
-      const newPosition = Math.max(0, currentPosition - skipAmount);
-      await sound.setPositionAsync(newPosition);
+      await seekToMillis(Math.max(0, currentPosition - skipAmount));
     } catch (error) {
       console.error('Error skipping backward:', error);
     }
@@ -850,15 +853,11 @@ export default function MessagesScreen() {
 
   const handleSkipForward = async () => {
     if (!sound || !playbackStatus?.isLoaded) return;
-    
+
     try {
       const currentPosition = playbackStatus.positionMillis || 0;
       const skipAmount = 10000; // 10 seconds
-      const newPosition = Math.min(
-        playbackStatus.durationMillis || 0,
-        currentPosition + skipAmount
-      );
-      await sound.setPositionAsync(newPosition);
+      await seekToMillis(Math.min(playbackStatus.durationMillis || 0, currentPosition + skipAmount));
     } catch (error) {
       console.error('Error skipping forward:', error);
     }
@@ -866,14 +865,8 @@ export default function MessagesScreen() {
 
   const closeAudioPlayer = async () => {
     try {
-      if (sound) {
-        try {
-          await sound.unloadAsync();
-        } catch (error) {
-          console.error('Error unloading sound:', error);
-        }
-        setSound(null);
-      }
+      // The effect above releases the player when sound changes
+      setSound(null);
     } catch (error) {
       console.error('Error in closeAudioPlayer:', error);
     } finally {

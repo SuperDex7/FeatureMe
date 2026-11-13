@@ -1,68 +1,115 @@
-/* Modern notifications list styles */
+/* Notifications list (header panel and home page). Values from tokens.css. */
 .notifications-list {
   list-style: none;
-  padding: 0;
   margin: 0;
-  width: 100%;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 2px;
 }
+
 .notification-item {
-  padding: 0.7rem 0.5rem;
-  border-bottom: 1px solid #232946;
-  border-radius: 0.5rem;
-  background: rgba(36, 40, 54, 0.32);
-  color: #f3f3f7;
-  font-size: 1.08rem;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  transition: background 0.18s;
+  gap: var(--fm-space-3);
+  padding: 10px var(--fm-space-3);
+  border-radius: var(--fm-radius-sm);
+  color: var(--fm-text-2);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-md);
+  line-height: 1.45;
 }
+
 .notification-item:hover {
-  background: rgba(100,125,222,0.10);
+  background: var(--fm-surface-2);
 }
 
-/* Chat notification specific styles */
-.chat-notification {
-  border-left: 3px solid #7eaaff;
-  background: rgba(126, 170, 255, 0.05);
+.notification-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.chat-notification:hover {
-  background: rgba(126, 170, 255, 0.15);
+.notification-text a {
+  color: var(--fm-text-2);
+  text-decoration: none;
+}
+
+.notification-text a:hover {
+  color: var(--fm-text);
+  text-decoration: underline;
+}
+
+.notification-user,
+.notification-user strong {
+  margin-right: 4px;
+  color: var(--fm-text);
+  font-weight: 600;
 }
 
 .chat-notification-text {
-  color: #f3f3f7;
-  font-weight: 500;
+  color: var(--fm-text-2);
 }
-.notification-text {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.notification-user {
-  color: #7eaaff;
-  margin-right: 0.3rem;
-}
+
 .notification-time {
-  color: #bfc9d1;
-  font-size: 0.97rem;
-  margin-left: 2.5rem;
+  flex: none;
+  color: var(--fm-muted);
+  font-size: var(--fm-text-xs);
   white-space: nowrap;
-  opacity: 0.62;
-  letter-spacing: 0.5px;
-  font-style: italic;
 }
-@media (max-width: 600px) {
-  .notification-item {
-    font-size: 1rem;
-    padding: 0.5rem 0.2rem;
+
+.notification-meta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.notification-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--fm-radius-sm);
+  background: transparent;
+  color: var(--fm-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.notification-item:hover .notification-dismiss,
+.notification-dismiss:focus-visible {
+  opacity: 1;
+}
+
+/* Touch screens have no hover: always show it */
+@media (hover: none) {
+  .notification-dismiss {
+    opacity: 1;
   }
-  .notification-time {
-    margin-left: 1.1rem;
-    font-size: 0.93rem;
-  }
+}
+
+.notification-dismiss:hover {
+  background: var(--fm-surface-3);
+  color: var(--fm-text);
+}
+
+.notification-dismiss:focus-visible {
+  outline: none;
+  box-shadow: var(--fm-focus-ring);
+}
+
+.notifications-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--fm-space-2) 0 0;
+}
+
+.notifications-more .fm-btn {
+  min-height: 34px;
+  padding: 0 var(--fm-space-4);
+  font-size: var(--fm-text-sm);
 }

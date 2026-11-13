@@ -149,7 +149,8 @@ function HomepageTab({ user, relationshipSummary, latestPost, onShowFollow, onSh
 
       // Fetch only the current page from backend (backend uses 0-indexed pages)
       const backendPage = currentPage - 1;
-      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${backendPage}&size=${postsPerPage}`;
+      // The server looks up the ids (they used to go in the URL, which breaks at a few hundred)
+      const endpoint = `/posts/get/by-user/${encodeURIComponent(user.userName)}?page=${backendPage}&size=${postsPerPage}`;
       const response = await api.get(endpoint);
       
       const postsData = response.data?.content || [];

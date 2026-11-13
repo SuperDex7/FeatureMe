@@ -387,6 +387,8 @@ export default function SubscriptionPage() {
         await checkUserRole();
       } else if (result.cancelled) {
         setMessage('Purchase cancelled by user');
+      } else if (result.pending) {
+        setMessage('⏳ Your purchase is waiting for approval. Plus switches on as soon as it goes through.');
       } else {
         const errorMsg = result.error || 'Purchase failed. Please try again.';
         console.error('Purchase failed:', errorMsg);

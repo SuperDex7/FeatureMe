@@ -817,7 +817,8 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? likedPage : 0;
-      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${currentPage}&size=${POSTS_PER_PAGE}`;
+      // The server looks up the ids (they used to go in the URL, which breaks at a few hundred)
+      const endpoint = `/posts/liked?page=${currentPage}&size=${POSTS_PER_PAGE}`;
       const response = await api.get(endpoint);
       const newPosts = response.data.content || [];
       
@@ -860,7 +861,8 @@ export function FeedScreen({ skipAuth = false, onSpotlightPress }) {
     
     try {
       const currentPage = isLoadMore ? myPostsPage : 0;
-      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${currentPage}&size=${POSTS_PER_PAGE}`;
+      // The server looks up the ids (they used to go in the URL, which breaks at a few hundred)
+      const endpoint = `/posts/get/by-user/${encodeURIComponent(user.userName)}?page=${currentPage}&size=${POSTS_PER_PAGE}`;
       const response = await api.get(endpoint);
       const newPosts = response.data.content || [];
       

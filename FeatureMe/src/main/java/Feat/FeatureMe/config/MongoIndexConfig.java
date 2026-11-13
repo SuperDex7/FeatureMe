@@ -19,7 +19,8 @@ import org.springframework.core.annotation.Order;
  * - Compound indexes for complex queries
  * - Text search indexes for full-text search
  * - Sparse indexes for optional fields
- * - TTL indexes for data cleanup
+ * - No TTL indexes on user content: posts' views, likes, comments, downloads,
+ *   messages and demos are kept (see dropDataExpiryIndexes)
  */
 @Configuration
 @EnableMongoAuditing // Enable @CreatedDate and @LastModifiedDate annotations
@@ -63,6 +64,15 @@ public class MongoIndexConfig implements CommandLineRunner {
         
         // Demo Collection Indexes
         createDemoIndexes();
+
+        // Signup email verification records
+        createEmailVerificationIndexes();
+
+        // Notifications (paged per user, newest first)
+        createNotificationIndexes();
+
+        // Older versions of this class auto-deleted user data; remove those indexes
+        dropDataExpiryIndexes();
         
         System.out.println("MongoDB indexes created successfully!");
     }
@@ -235,10 +245,6 @@ public class MongoIndexConfig implements CommandLineRunner {
                                             .on("userName", org.springframework.data.domain.Sort.Direction.ASC)
                                             .named("post_user_idx"));
             
-            // Time-based cleanup index (TTL - 1 year)
-            indexOps.ensureIndex(new Index().on("time", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .expire(365 * 24 * 60 * 60) // 1 year in seconds
-                                            .named("comment_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating post comment indexes: " + e.getMessage());
         }
@@ -258,10 +264,6 @@ public class MongoIndexConfig implements CommandLineRunner {
                                             .on("likedAt", org.springframework.data.domain.Sort.Direction.DESC)
                                             .named("user_liked_time_idx"));
             
-            // Time-based cleanup index (TTL - 2 years)
-            indexOps.ensureIndex(new Index().on("likedAt", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .expire(2 * 365 * 24 * 60 * 60) // 2 years in seconds
-                                            .named("like_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating post like indexes: " + e.getMessage());
         }
@@ -292,10 +294,6 @@ public class MongoIndexConfig implements CommandLineRunner {
                                             .on("viewCount", org.springframework.data.domain.Sort.Direction.DESC)
                                             .named("post_view_count_idx"));
             
-            // Time-based cleanup index (TTL - 6 months)
-            indexOps.ensureIndex(new Index().on("lastView", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .expire(6 * 30 * 24 * 60 * 60) // 6 months in seconds
-                                            .named("view_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating post view indexes: " + e.getMessage());
         }
@@ -315,10 +313,6 @@ public class MongoIndexConfig implements CommandLineRunner {
                                             .on("downloadedAt", org.springframework.data.domain.Sort.Direction.DESC)
                                             .named("user_download_time_idx"));
             
-            // Time-based cleanup index (TTL - 1 year)
-            indexOps.ensureIndex(new Index().on("downloadedAt", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .expire(365 * 24 * 60 * 60) // 1 year in seconds
-                                            .named("download_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating post download indexes: " + e.getMessage());
         }
@@ -389,10 +383,6 @@ public class MongoIndexConfig implements CommandLineRunner {
                                                    .on("sentAt", org.springframework.data.domain.Sort.Direction.DESC)
                                                    .named("sender_time_idx"));
             
-            // Message TTL (keep messages for 1 year)
-            messageIndexOps.ensureIndex(new Index().on("sentAt", org.springframework.data.domain.Sort.Direction.ASC)
-                                                   .expire(365 * 24 * 60 * 60) // 1 year in seconds
-                                                   .named("message_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating chat indexes: " + e.getMessage());
         }
@@ -420,12 +410,66 @@ public class MongoIndexConfig implements CommandLineRunner {
             indexOps.ensureIndex(new Index().on("createdAt", org.springframework.data.domain.Sort.Direction.DESC)
                                             .named("demo_created_idx"));
             
-            // Demo TTL (keep demos for 2 years)
-            indexOps.ensureIndex(new Index().on("createdAt", org.springframework.data.domain.Sort.Direction.ASC)
-                                            .expire(2 * 365 * 24 * 60 * 60) // 2 years in seconds
-                                            .named("demo_ttl_idx"));
         } catch (Exception e) {
             System.err.println("Error creating demo indexes: " + e.getMessage());
+        }
+    }
+
+    private void createNotificationIndexes() {
+        IndexOperations indexOps = mongoTemplate.indexOps("notifications");
+        try {
+            indexOps.ensureIndex(new Index().on("recipient", org.springframework.data.domain.Sort.Direction.ASC)
+                                            .on("time", org.springframework.data.domain.Sort.Direction.DESC)
+                                            .named("recipient_time_idx"));
+        } catch (Exception e) {
+            System.err.println("Error creating notification indexes: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Signup codes: one record per email, removed automatically once deleteAt
+     * passes (these are short-lived by design, unlike user content).
+     */
+    private void createEmailVerificationIndexes() {
+        IndexOperations indexOps = mongoTemplate.indexOps("email_verifications");
+        try {
+            indexOps.ensureIndex(new Index().on("email", org.springframework.data.domain.Sort.Direction.ASC)
+                                            .unique()
+                                            .named("email_verification_email_idx"));
+            indexOps.ensureIndex(new Index().on("deleteAt", org.springframework.data.domain.Sort.Direction.ASC)
+                                            .expire(0)
+                                            .named("email_verification_expiry_idx"));
+        } catch (Exception e) {
+            System.err.println("Error creating email verification indexes: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Earlier versions created TTL indexes that made MongoDB delete listener
+     * records after 6 months, comments after a year and likes after 2 years
+     * (plus inactive ones on downloads, messages and demos). Removing them from
+     * this class doesn't remove them from the database, so drop them here.
+     */
+    private void dropDataExpiryIndexes() {
+        String[][] legacy = {
+            { "post_views", "view_ttl_idx" },
+            { "post_comments", "comment_ttl_idx" },
+            { "post_likes", "like_ttl_idx" },
+            { "post_downloads", "download_ttl_idx" },
+            { "chat_messages", "message_ttl_idx" },
+            { "demos", "demo_ttl_idx" },
+        };
+        for (String[] entry : legacy) {
+            try {
+                IndexOperations indexOps = mongoTemplate.indexOps(entry[0]);
+                boolean exists = indexOps.getIndexInfo().stream().anyMatch(info -> entry[1].equals(info.getName()));
+                if (exists) {
+                    indexOps.dropIndex(entry[1]);
+                    System.out.println("Dropped data-expiry index " + entry[1] + " on " + entry[0]);
+                }
+            } catch (Exception e) {
+                System.err.println("Error dropping index " + entry[1] + ": " + e.getMessage());
+            }
         }
     }
 }

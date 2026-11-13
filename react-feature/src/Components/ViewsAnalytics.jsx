@@ -1,843 +1,284 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/AuthService';
-import './ViewsAnalytics.css';
+import { useCallback, useEffect, useRef, useState } from "react";
+import api from "../services/AuthService";
+import Dialog from "./ui/Dialog";
+import Icon from "./ui/Icon";
+import Pagination from "./ui/Pagination";
+import "./ViewsAnalytics.css";
 
-function ViewsAnalytics({ postId, postTitle, isOpen, onClose, currentUser, postAuthor, totalDownloads: postTotalDownloads = 0, totalViews: postTotalViews = 0, totalComments: postTotalComments = 0 }) {
-  const [views, setViews] = useState([]);
-  const [downloads, setDownloads] = useState([]);
-  const [likes, setLikes] = useState([]);
-  const [comments, setComments] = useState([]);
-  const [likerUsernames, setLikerUsernames] = useState(new Set());
-  const [loading, setLoading] = useState(false);
-  const [postingComment, setPostingComment] = useState(false);
-  const [newComment, setNewComment] = useState("");
-  const [deletingCommentId, setDeletingCommentId] = useState(null);
-  const [sortBy, setSortBy] = useState('lastView');
-  const [sortOrder, setSortOrder] = useState('desc');
-  
-  // Pagination state
-  const [viewsPage, setViewsPage] = useState(0);
-  const [downloadsPage, setDownloadsPage] = useState(0);
-  const [likesPage, setLikesPage] = useState(0);
-  const [commentsPage, setCommentsPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [viewsTotalPages, setViewsTotalPages] = useState(0);
-  const [downloadsTotalPages, setDownloadsTotalPages] = useState(0);
-  const [likesTotalPages, setLikesTotalPages] = useState(0);
-  const [commentsTotalPages, setCommentsTotalPages] = useState(0);
-  const [viewsTotalElements, setViewsTotalElements] = useState(0);
-  const [downloadsTotalElements, setDownloadsTotalElements] = useState(0);
-  const [likesTotalElements, setLikesTotalElements] = useState(0);
-  const [commentsTotalElements, setCommentsTotalElements] = useState(0);
-  
-  // Analytics data
-  const [analyticsData, setAnalyticsData] = useState({
-    totalViews: 0,
-    uniqueViewers: 0,
-    totalDownloads: 0,
-    totalLikes: 0,
-    totalComments: 0,
-    avgViewsPerUser: 0,
-    topViewers: [],
-    recentActivity: []
-  });
-  
-  // UI state
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'views', 'downloads'
+const PAGE_SIZE = 10;
+const DEFAULT_AVATAR = "/dpp.jpg";
 
+// One list per tab: where to fetch it and how to describe each row
+const TABS = [
+  { key: "views", label: "Listeners", url: (id) => `/posts/views/${id}/paginated`, empty: "Nobody has played this yet." },
+  { key: "likes", label: "Likes", url: (id) => `/posts/likes/${id}/paginated`, empty: "No likes yet." },
+  { key: "downloads", label: "Downloads", url: (id) => `/posts/downloads/${id}/paginated`, empty: "No downloads yet." },
+  { key: "comments", label: "Comments", url: (id) => `/posts/comments/${id}/paginated`, empty: "No comments yet." },
+];
+
+function compact(n) {
+  const value = Number(n) || 0;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e4) return `${Math.round(value / 1e3)}K`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+  return String(value);
+}
+
+function when(timestamp) {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: sameYear ? undefined : "numeric" });
+}
+
+const isGuest = (name) => !name || name === "unknown";
+
+// Per-post analytics for the post's author (a Plus feature): totals plus who
+// listened, liked, downloaded and commented. Used inline by the home
+// dashboard's analytics dialog and wrapped in a dialog by ViewsAnalytics.
+export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads = 0, totalViews = 0, totalComments = 0 }) {
+  const isOpen = Boolean(postId);
+  const [summary, setSummary] = useState({ plays: totalViews, listeners: null, likes: null, downloads: totalDownloads, comments: totalComments });
+  const [tab, setTab] = useState("views");
+  const [page, setPage] = useState(0);
+  const [list, setList] = useState({ items: [], likers: new Set(), totalPages: 0, totalElements: 0, tab: "views", status: "loading" });
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Totals for the stat tiles
   useEffect(() => {
-    if (isOpen && postId) {
-      setViewsPage(0);
-      setDownloadsPage(0);
-      setLikesPage(0);
-      setCommentsPage(0);
-      // Initialize totals from props immediately
-      setAnalyticsData(prev => ({
-        ...prev,
-        totalViews: postTotalViews || 0,
-        totalDownloads: postTotalDownloads || 0,
-        totalComments: postTotalComments || 0
+    if (!isOpen || !postId) return undefined;
+    let cancelled = false;
+    setTab("views");
+    setPage(0);
+    setSummary({ plays: totalViews, listeners: null, likes: null, downloads: totalDownloads, comments: totalComments });
+    const total = (res) => res.value?.data?.page?.totalElements;
+    Promise.allSettled([
+      api.get(`/posts/views/${postId}/summary`),
+      api.get(`/posts/likes/${postId}/summary`),
+      api.get(`/posts/downloads/${postId}/count`),
+      api.get(`/posts/comments/${postId}/paginated`, { params: { page: 0, size: 1 } }),
+    ]).then(([views, likes, downloads, comments]) => {
+      if (cancelled) return;
+      setSummary((prev) => ({
+        plays: views.value?.data?.totalViews ?? prev.plays,
+        listeners: views.value?.data?.uniqueViewers ?? prev.listeners,
+        likes: likes.value?.data?.totalLikes ?? prev.likes,
+        downloads: typeof downloads.value?.data === "number" ? downloads.value.data : prev.downloads,
+        comments: total(comments) ?? prev.comments,
       }));
-      fetchSummary();
-      fetchLikesSummary();
-      fetchViews();
-      fetchDownloads();
-      fetchLikes();
-      fetchLikers();
-      fetchComments();
-    }
+    });
+    return () => { cancelled = true; };
+    // Reload when the dialog opens for a post; the totals props are only a starting point
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, postId]);
 
+  // Pages already loaded for this post, keyed "tab:page", so switching tabs
+  // or going back a page is instant. Cleared when the post changes.
+  const cacheRef = useRef(new Map());
+  const pendingRef = useRef(new Map());
   useEffect(() => {
-    if (isOpen && postId) {
-      fetchViews();
-    }
-  }, [viewsPage, pageSize, isOpen, postId]);
+    cacheRef.current = new Map();
+    pendingRef.current = new Map();
+  }, [postId]);
 
+  // Fetch one page (or reuse it); listeners pages also get their "Liked" marks
+  const loadPage = useCallback((tabKey, pageNum) => {
+    const key = `${tabKey}:${pageNum}`;
+    if (cacheRef.current.has(key)) return Promise.resolve(cacheRef.current.get(key));
+    if (pendingRef.current.has(key)) return pendingRef.current.get(key);
+    const cache = cacheRef.current;
+    const tabDef = TABS.find((t) => t.key === tabKey);
+    const request = api.get(tabDef.url(postId), { params: { page: pageNum, size: PAGE_SIZE } })
+      .then(async ({ data }) => {
+        const items = data?.content || [];
+        const entry = {
+          items,
+          totalPages: data?.page?.totalPages || 0,
+          totalElements: data?.page?.totalElements || 0,
+          likers: new Set(),
+        };
+        if (tabKey === "views") {
+          const names = items.map((v) => v.userName).filter((n) => !isGuest(n));
+          if (names.length > 0) {
+            try {
+              const res = await api.get(`/posts/likes/${postId}/liked-by`, { params: { userNames: names.join(",") } });
+              entry.likers = new Set(res.data || []);
+            } catch {
+              // Badges are a nice-to-have; show the list without them
+            }
+          }
+        }
+        cache.set(key, entry);
+        return entry;
+      })
+      .finally(() => pendingRef.current.delete(key));
+    pendingRef.current.set(key, request);
+    return request;
+  }, [postId]);
+
+  // The open tab's page of people
   useEffect(() => {
-    if (isOpen && postId) {
-      fetchDownloads();
+    if (!isOpen || !postId) return undefined;
+    let cancelled = false;
+    const cached = cacheRef.current.get(`${tab}:${page}`);
+    if (cached) {
+      setList({ ...cached, tab, status: "ready" });
+    } else {
+      // Never show the previous tab's people while this one loads
+      setList((prev) => ({ items: [], likers: new Set(), totalPages: prev.tab === tab ? prev.totalPages : 0, totalElements: 0, tab, status: "loading" }));
     }
-  }, [downloadsPage, pageSize, isOpen, postId]);
+    loadPage(tab, page)
+      .then((entry) => {
+        if (cancelled) return;
+        setList({ ...entry, tab, status: "ready" });
+        // Get the next page ready too
+        if (page + 1 < entry.totalPages) loadPage(tab, page + 1).catch(() => {});
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(`Error loading ${tab}:`, err);
+        const code = err.response?.status;
+        setList({ items: [], likers: new Set(), totalPages: 0, totalElements: 0, tab, status: code === 401 ? "signedout" : code === 403 ? "forbidden" : "error" });
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, postId, tab, page, loadPage]);
 
+  // Load the first page of the other tabs in the background
   useEffect(() => {
-    if (isOpen && postId) {
-      fetchLikes();
-    }
-  }, [likesPage, pageSize, isOpen, postId]);
+    if (!isOpen || !postId) return;
+    TABS.filter((t) => t.key !== "views").forEach((t) => loadPage(t.key, 0).catch(() => {}));
+  }, [isOpen, postId, loadPage]);
 
-  useEffect(() => {
-    if (isOpen && postId) {
-      fetchComments();
-    }
-  }, [commentsPage, pageSize, isOpen, postId]);
-
-  const fetchViews = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/posts/views/${postId}/paginated`, {
-        params: {
-          page: viewsPage,
-          size: pageSize
-        }
-      });
-      
-      if (response.data) {
-        // Handle PagedModel response structure
-        const content = response.data.content || response.data._embedded?.viewsDTO || [];
-        const totalPages = response.data.page?.totalPages || 0;
-        const totalElements = response.data.page?.totalElements || 0;
-        
-        setViews(content);
-        setViewsTotalPages(totalPages);
-        setViewsTotalElements(totalElements);
-        
-        // Calculate analytics (do not overwrite totalViews here)
-        const uniqueViewers = totalElements || 0;
-        setAnalyticsData(prev => ({
-          ...prev,
-          uniqueViewers,
-          avgViewsPerUser: uniqueViewers > 0 ? (prev.totalViews / uniqueViewers).toFixed(1) : 0
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching views:', error);
-      setViews([]);
-    } finally {
-      setLoading(false);
-    }
+  const switchTab = (key) => {
+    setTab(key);
+    setPage(0);
   };
 
-  const fetchDownloads = async () => {
-    try {
-      const response = await api.get(`/posts/downloads/${postId}/paginated`, {
-        params: {
-          page: downloadsPage,
-          size: pageSize
-        }
-      });
-      
-      if (response.data) {
-        // Handle PagedModel response structure
-        const content = response.data.content || response.data._embedded?.postDownloadDTO || [];
-        const totalPages = response.data.page?.totalPages || 0;
-        const totalElements = response.data.page?.totalElements || 0;
-        
-        setDownloads(content);
-        setDownloadsTotalPages(totalPages);
-        setDownloadsTotalElements(totalElements);
-        
-        setAnalyticsData(prev => ({
-          ...prev,
-          totalDownloads: totalElements || 0
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching downloads:', error);
-      setDownloads([]);
-    }
-  };
-
-  const fetchLikes = async () => {
-    try {
-      const response = await api.get(`/posts/likes/${postId}/paginated`, {
-        params: {
-          page: likesPage,
-          size: pageSize
-        }
-      });
-      
-      if (response.data) {
-        const content = response.data.content || response.data._embedded?.likesDTO || [];
-        const totalPages = response.data.page?.totalPages || 0;
-        const totalElements = response.data.page?.totalElements || 0;
-        
-        setLikes(content);
-        setLikesTotalPages(totalPages);
-        setLikesTotalElements(totalElements);
-        
-        setAnalyticsData(prev => ({
-          ...prev,
-          totalLikes: totalElements || 0
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching likes:', error);
-      setLikes([]);
-    }
-  };
-
-  const fetchLikers = async () => {
-    try {
-      const response = await api.get(`/posts/likes/${postId}/paginated`, {
-        params: {
-          page: 0,
-          size: 1000
-        }
-      });
-      if (response.data) {
-        const content = response.data.content || response.data._embedded?.likesDTO || [];
-        const names = new Set(content.map(l => l.userName).filter(Boolean));
-        setLikerUsernames(names);
-      }
-    } catch (e) {
-      console.error('Error fetching liker usernames:', e);
-      setLikerUsernames(new Set());
-    }
-  };
-
-  const fetchLikesSummary = async () => {
-    try {
-      const response = await api.get(`/posts/likes/${postId}/summary`);
-      if (response.data && typeof response.data.totalLikes !== 'undefined') {
-        setAnalyticsData(prev => ({
-          ...prev,
-          totalLikes: response.data.totalLikes || 0
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching likes summary:', error);
-    }
-  };
-
-  const fetchSummary = async () => {
-    try {
-      const res = await api.get(`/posts/views/${postId}/summary`);
-      if (res.data) {
-        const summaryTotalViews = res.data.totalViews || 0;
-        const summaryUniqueViewers = res.data.uniqueViewers || 0;
-        const summaryAvg = summaryUniqueViewers > 0 ? (summaryTotalViews / summaryUniqueViewers).toFixed(1) : 0;
-        setAnalyticsData(prev => ({
-          ...prev,
-          totalViews: summaryTotalViews,
-          uniqueViewers: summaryUniqueViewers,
-          avgViewsPerUser: summaryAvg
-        }));
-      }
-    } catch (e) {
-      // Fallback stays as previously computed values
-      console.error('Error fetching view summary:', e);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      const response = await api.get(`/posts/comments/${postId}/paginated`, {
-        params: {
-          page: commentsPage,
-          size: pageSize
-        }
-      });
-      if (response.data) {
-        const content = response.data.content || response.data._embedded?.commentDTO || [];
-        const totalPages = response.data.page?.totalPages || 0;
-        const totalElements = response.data.page?.totalElements || 0;
-        setComments(content);
-        setCommentsTotalPages(totalPages);
-        setCommentsTotalElements(totalElements);
-        setAnalyticsData(prev => ({
-          ...prev,
-          totalComments: totalElements || prev.totalComments
-        }));
-      }
-    } catch (e) {
-      console.error('Error fetching comments:', e);
-      setComments([]);
-    }
-  };
-
-  const handleAddComment = async () => {
-    const text = (newComment || "").trim();
-    if (!text) return;
-    if (!currentUser) return;
-    setPostingComment(true);
-    try {
-      await api.post(`/posts/add/comment/${postId}`, text, { headers: { 'Content-Type': 'application/json' } });
-      setNewComment("");
-      // Refresh comments first page
-      setCommentsPage(0);
-      await fetchComments();
-    } catch (e) {
-      console.error('Error adding comment:', e);
-    } finally {
-      setPostingComment(false);
-    }
-  };
-
-  const handleDeleteComment = async (commentId) => {
-    if (!commentId) return;
-    setDeletingCommentId(commentId);
+  const deleteComment = async (commentId) => {
+    setDeletingId(commentId);
     try {
       await api.delete(`/posts/delete/comment/${commentId}`);
-      // Remove locally and refresh counts
-      setComments(prev => prev.filter(c => c.id !== commentId));
-      setAnalyticsData(prev => ({ ...prev, totalComments: Math.max(0, (prev.totalComments || 1) - 1) }));
-    } catch (e) {
-      console.error('Error deleting comment:', e);
+      const key = `comments:${page}`;
+      const updated = {
+        ...list,
+        items: list.items.filter((c) => c.id !== commentId),
+        totalElements: Math.max(0, list.totalElements - 1),
+      };
+      // Later comment pages shift by one, so drop them and keep this one
+      [...cacheRef.current.keys()].filter((k) => k.startsWith("comments:")).forEach((k) => cacheRef.current.delete(k));
+      cacheRef.current.set(key, { items: updated.items, totalPages: updated.totalPages, totalElements: updated.totalElements, likers: new Set() });
+      setList(updated);
+      setSummary((prev) => ({ ...prev, comments: Math.max(0, prev.comments - 1) }));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
     } finally {
-      setDeletingCommentId(null);
+      setDeletingId(null);
     }
   };
 
-  const formatNumber = (num) => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  };
+  const downloadRate = summary.plays > 0 ? `${((summary.downloads / summary.plays) * 100).toFixed(1)}%` : "0%";
+  const canModerate = currentUser && postAuthor && currentUser.userName === postAuthor.userName;
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getEngagementRate = () => {
-    if (analyticsData.totalViews === 0) return '0%';
-    const rate = ((analyticsData.totalDownloads / analyticsData.totalViews) * 100).toFixed(1);
-    return `${rate}%`;
-  };
-
-  const handleSortChange = (newSortBy) => {
-    setSortBy(newSortBy);
-    setViewsPage(0);
-  };
-
-  const handleSortOrderToggle = () => {
-    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-    setViewsPage(0);
-  };
-
-  if (!isOpen) return null;
+  const tiles = [
+    { icon: "play", label: "Plays", value: compact(summary.plays) },
+    { icon: "user", label: "Listeners", value: summary.listeners == null ? "–" : compact(summary.listeners) },
+    { icon: "heart", label: "Likes", value: summary.likes == null ? "–" : compact(summary.likes) },
+    { icon: "message", label: "Comments", value: compact(summary.comments) },
+    { icon: "download", label: "Downloads", value: compact(summary.downloads), hint: `${downloadRate} of plays` },
+  ];
+  const counts = { views: summary.listeners, likes: summary.likes, downloads: summary.downloads, comments: summary.comments };
 
   return (
-    <div className="views-analytics-overlay" onClick={onClose}>
-      <div className="views-analytics-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="views-analytics-header">
-          <div className="views-analytics-header-content">
-            <div className="views-analytics-icon">📊</div>
-            <div className="views-analytics-title">
-              <h3>Post Analytics</h3>
-              {postTitle && (
-                <p className="views-analytics-subtitle">{postTitle}</p>
-              )}
-            </div>
-          </div>
-          <button className="views-analytics-close" onClick={onClose}>&times;</button>
+      <div className="fm-stats">
+        <ul className="fm-stats__tiles" aria-label="Totals">
+          {tiles.map((tile) => (
+            <li key={tile.label} className="fm-stats__tile">
+              <span className="fm-stats__tile-head"><Icon name={tile.icon} size={16} />{tile.label}</span>
+              <strong>{tile.value}</strong>
+              {tile.hint && <span className="fm-stats__hint">{tile.hint}</span>}
+            </li>
+          ))}
+        </ul>
+
+        <div className="fm-segmented fm-stats__tabs" role="tablist" aria-label="People">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`fm-segment${tab === t.key ? " is-active" : ""}`}
+              onClick={() => switchTab(t.key)}
+            >
+              {t.label} {counts[t.key] != null && <span className="fm-stats__count">{compact(counts[t.key])}</span>}
+            </button>
+          ))}
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="views-analytics-nav">
-          <button 
-            className={`views-analytics-nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            📈 Overview
-          </button>
-          <button 
-            className={`views-analytics-nav-tab ${activeTab === 'views' ? 'active' : ''}`}
-            onClick={() => setActiveTab('views')}
-          >
-            👁️ Views ({analyticsData.uniqueViewers})
-          </button>
-          <button 
-            className={`views-analytics-nav-tab ${activeTab === 'downloads' ? 'active' : ''}`}
-            onClick={() => setActiveTab('downloads')}
-          >
-            ⬇️ Downloads ({analyticsData.totalDownloads})
-          </button>
-          <button 
-            className={`views-analytics-nav-tab ${activeTab === 'likes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('likes')}
-          >
-            ❤️ Likes ({analyticsData.totalLikes})
-          </button>
-          <button 
-            className={`views-analytics-nav-tab ${activeTab === 'comments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('comments')}
-          >
-            💬 Comments ({analyticsData.totalComments})
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="views-analytics-content">
-          {activeTab === 'overview' && (
-            <div className="views-analytics-overview-tab">
-              {/* Stats Cards */}
-              <div className="views-analytics-stats-section">
-                <div className="views-analytics-stats-header">
-                  <span>Analytics Summary</span>
-                </div>
-                
-                <div className="views-analytics-stats-grid">
-                  <div className="views-analytics-stat-card">
-                    <div className="views-analytics-stat-icon">👁️</div>
-                    <div className="views-analytics-stat-content">
-                      <div className="views-analytics-stat-number">{formatNumber(analyticsData.totalViews)}</div>
-                      <div className="views-analytics-stat-label">Total Views</div>
-                    </div>
-                  </div>
-                  
-                  <div className="views-analytics-stat-card">
-                    <div className="views-analytics-stat-icon">👤</div>
-                    <div className="views-analytics-stat-content">
-                      <div className="views-analytics-stat-number">{formatNumber(analyticsData.uniqueViewers)}</div>
-                      <div className="views-analytics-stat-label">Unique Viewers</div>
-                    </div>
-                  </div>
-                  
-                  <div className="views-analytics-stat-card">
-                    <div className="views-analytics-stat-icon">⬇️</div>
-                    <div className="views-analytics-stat-content">
-                      <div className="views-analytics-stat-number">{formatNumber(analyticsData.totalDownloads)}</div>
-                      <div className="views-analytics-stat-label">Downloads</div>
-                    </div>
-                  </div>
-                  
-                  <div className="views-analytics-stat-card">
-                    <div className="views-analytics-stat-icon">📊</div>
-                    <div className="views-analytics-stat-content">
-                      <div className="views-analytics-stat-number">{analyticsData.avgViewsPerUser}</div>
-                      <div className="views-analytics-stat-label">Avg Views/User</div>
-                    </div>
-                  </div>
-                  
-                  <div className="views-analytics-stat-card">
-                    <div className="views-analytics-stat-icon">💯</div>
-                    <div className="views-analytics-stat-content">
-                      <div className="views-analytics-stat-number">{getEngagementRate()}</div>
-                      <div className="views-analytics-stat-label">Engagement Rate</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="views-analytics-quick-actions">
-                <button 
-                  className="views-analytics-action-btn"
-                  onClick={() => setActiveTab('views')}
-                >
-                  View All Viewers
-                </button>
-                <button 
-                  className="views-analytics-action-btn"
-                  onClick={() => setActiveTab('downloads')}
-                >
-                  View All Downloads
-                </button>
-              </div>
-            </div>
+        <div className="fm-stats__panel" role="tabpanel" aria-busy={list.status === "loading"}>
+          {list.status === "loading" && list.items.length === 0 && (
+            <div className="fm-state" role="status"><div className="fm-spinner" /></div>
+          )}
+          {list.status === "error" && <p className="fm-stats__empty">Couldn&apos;t load this list. Try again in a moment.</p>}
+          {list.status === "forbidden" && <p className="fm-stats__empty">Only the artist who posted this can see who listened and downloaded.</p>}
+          {list.status === "signedout" && <p className="fm-stats__empty">Your login has expired. Log in again to see this list.</p>}
+          {list.status === "ready" && list.items.length === 0 && (
+            <p className="fm-stats__empty">{TABS.find((t) => t.key === tab).empty}</p>
           )}
 
-          {activeTab === 'views' && (
-            <div className="views-analytics-views-tab">
-              <div className="views-analytics-tab-header">
-                <div className="views-analytics-tab-controls">
-                  <div className="views-analytics-sort-controls">
-                    <label>Sort by:</label>
-                    <select value={sortBy} onChange={(e) => handleSortChange(e.target.value)}>
-                      <option value="lastView">Last View</option>
-                      <option value="firstView">First View</option>
-                      <option value="viewCount">View Count</option>
-                      <option value="userName">User Name</option>
-                    </select>
-                    <button className="views-analytics-sort-btn" onClick={handleSortOrderToggle}>
-                      {sortOrder === 'desc' ? '↓' : '↑'}
-                    </button>
-                  </div>
-                  
-                  <div className="views-analytics-pagination-controls">
-                    <label>Per page:</label>
-                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="views-analytics-views-list">
-                {loading ? (
-                  <div className="views-analytics-loading-state">Loading viewers...</div>
-                ) : views.length === 0 ? (
-                  <div className="views-analytics-empty-state">No views recorded yet</div>
-                ) : (
-                  views.map((view, index) => (
-                    <div key={index} className="views-analytics-view-item">
-                      <div className="views-analytics-view-user">
-                        <div className="views-analytics-user-avatar">
-                          {view.profilePic ? (
-                            <img 
-                            src={view?.profilePic || "/dpp.jpg"} 
-                            alt={view.userName}
-                            onError={(e) => {
-                              e.target.src = '/dpp.jpg';
-                            }}
-                          />
-                          ) : (
-                            <span>{view.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                          )}
-                        </div>
-                        <div className="views-analytics-user-info">
-                          <div className="views-analytics-username">
-                            {view.userName || 'Unknown User'}
-                            {likerUsernames && likerUsernames.has && likerUsernames.has(view.userName) && (
-                              <span style={{ marginLeft: '8px', color: '#ffa726', fontSize: '0.9rem' }}>❤️</span>
-                            )}
-                          </div>
-                          <div className="views-analytics-user-role">Viewer</div>
-                        </div>
-                      </div>
-                      <div className="views-analytics-view-stats">
-                        <div className="views-analytics-view-count">{view.viewCount || 1} views</div>
-                        <div className="views-analytics-view-times">
-                          <div className="views-analytics-view-time">
-                            <span className="views-analytics-time-label">First:</span>
-                            <span className="views-analytics-time-value">{formatDate(view.firstView)}</span>
-                          </div>
-                          <div className="views-analytics-view-time">
-                            <span className="views-analytics-time-label">Last:</span>
-                            <span className="views-analytics-time-value">{formatDate(view.lastView)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Pagination */}
-              {viewsTotalPages > 1 && (
-                <div className="views-analytics-pagination">
-                  <div className="views-analytics-pagination-info">
-                    Showing {viewsPage * pageSize + 1}-{Math.min((viewsPage + 1) * pageSize, viewsTotalElements)} of {viewsTotalElements} viewers
-                  </div>
-                  <div className="views-analytics-pagination-buttons">
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setViewsPage(Math.max(0, viewsPage - 1))}
-                      disabled={viewsPage === 0}
-                    >
-                      ← Previous
-                    </button>
-                    <span className="views-analytics-page-info">
-                      Page {viewsPage + 1} of {viewsTotalPages}
-                    </span>
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setViewsPage(Math.min(viewsTotalPages - 1, viewsPage + 1))}
-                      disabled={viewsPage >= viewsTotalPages - 1}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'downloads' && (
-            <div className="views-analytics-downloads-tab">
-              <div className="views-analytics-tab-header">
-                <div className="views-analytics-tab-controls">
-                  <div className="views-analytics-pagination-controls">
-                    <label>Per page:</label>
-                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="views-analytics-downloads-list">
-                {loading ? (
-                  <div className="views-analytics-loading-state">Loading downloads...</div>
-                ) : downloads.length === 0 ? (
-                  <div className="views-analytics-empty-state">No downloads recorded yet</div>
-                ) : (
-                  downloads.map((download, index) => (
-                    <div key={index} className="views-analytics-download-item">
-                      <div className="views-analytics-download-user">
-                        <div className="views-analytics-user-avatar">
-                          {download.profilePic ? (
-                            <img src={download.profilePic} alt={download.userName} />
-                          ) : (
-                            <span>{download.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                          )}
-                        </div>
-                        <div className="views-analytics-user-info">
-                          <div className="views-analytics-username">{download.userName || 'Unknown User'}</div>
-                          <div className="views-analytics-user-role">Downloader</div>
-                        </div>
-                      </div>
-                      <div className="views-analytics-download-info">
-                        <div className="views-analytics-download-date">{formatDate(download.downloadTime)}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Pagination */}
-              {downloadsTotalPages > 1 && (
-                <div className="views-analytics-pagination">
-                  <div className="views-analytics-pagination-info">
-                    Showing {downloadsPage * pageSize + 1}-{Math.min((downloadsPage + 1) * pageSize, downloadsTotalElements)} of {downloadsTotalElements} downloads
-                  </div>
-                  <div className="views-analytics-pagination-buttons">
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setDownloadsPage(Math.max(0, downloadsPage - 1))}
-                      disabled={downloadsPage === 0}
-                    >
-                      ← Previous
-                    </button>
-                    <span className="views-analytics-page-info">
-                      Page {downloadsPage + 1} of {downloadsTotalPages}
-                    </span>
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setDownloadsPage(Math.min(downloadsTotalPages - 1, downloadsPage + 1))}
-                      disabled={downloadsPage >= downloadsTotalPages - 1}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'likes' && (
-            <div className="views-analytics-tab views-analytics-likes-tab">
-              <div className="views-analytics-tab-header">
-                <div className="views-analytics-tab-controls">
-                  <div className="views-analytics-pagination-controls">
-                    <label>Per page:</label>
-                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="views-analytics-views-list">
-                {loading ? (
-                  <div className="views-analytics-loading-state">Loading likes...</div>
-                ) : likes.length === 0 ? (
-                  <div className="views-analytics-empty-state">No likes yet</div>
-                ) : (
-                  likes.map((like, index) => (
-                    <div key={index} className="views-analytics-view-item">
-                      <div className="views-analytics-view-user">
-                        <div className="views-analytics-user-avatar">
-                          {like.profilePic ? (
-                            <img 
-                              src={like.profilePic || "/dpp.jpg"} 
-                              alt={like.userName}
-                              onError={(e) => { e.target.src = '/dpp.jpg'; }}
-                            />
-                          ) : (
-                            <span>{like.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                          )}
-                        </div>
-                        <div className="views-analytics-user-info">
-                          <div className="views-analytics-username">{like.userName || 'Unknown User'}</div>
-                          <div className="views-analytics-user-role">Liked</div>
-                        </div>
-                      </div>
-                      <div className="views-analytics-view-stats">
-                        <div className="views-analytics-view-times">
-                          <div className="views-analytics-view-time">
-                            <span className="views-analytics-time-label">Time:</span>
-                            <span className="views-analytics-time-value">{formatDate(like.time)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {likesTotalPages > 1 && (
-                <div className="views-analytics-pagination">
-                  <div className="views-analytics-pagination-info">
-                    Showing {likesPage * pageSize + 1}-{Math.min((likesPage + 1) * pageSize, likesTotalElements)} of {likesTotalElements} likes
-                  </div>
-                  <div className="views-analytics-pagination-buttons">
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setLikesPage(Math.max(0, likesPage - 1))}
-                      disabled={likesPage === 0}
-                    >
-                      ← Previous
-                    </button>
-                    <span className="views-analytics-page-info">
-                      Page {likesPage + 1} of {likesTotalPages}
-                    </span>
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setLikesPage(Math.min(likesTotalPages - 1, likesPage + 1))}
-                      disabled={likesPage >= likesTotalPages - 1}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'comments' && (
-            <div className="views-analytics-tab views-analytics-comments-tab">
-              <div className="views-analytics-tab-header">
-                <div className="views-analytics-tab-controls">
-                  <div className="views-analytics-pagination-controls">
-                    <label>Per page:</label>
-                    <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="views-analytics-views-list">
-                {comments.length === 0 ? (
-                  <div className="views-analytics-empty-state">No comments yet</div>
-                ) : (
-                  comments.map((comment, index) => (
-                    <div key={index} className="views-analytics-view-item">
-                      <div className="views-analytics-view-user">
-                        <div className="views-analytics-user-avatar">
-                          {comment.profilePic ? (
-                            <img src={comment.profilePic || "/dpp.jpg"} alt={comment.userName}
-                              onError={(e) => { e.target.src = '/dpp.jpg'; }} />
-                          ) : (
-                            <span>{comment.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                          )}
-                        </div>
-                        <div className="views-analytics-user-info">
-                          <div className="views-analytics-username">{comment.userName || 'Unknown User'}</div>
-                          <div className="views-analytics-user-role">{formatDate(comment.time)}</div>
-                        </div>
-                      </div>
-                      <div className="views-analytics-view-stats" style={{ alignItems: 'flex-end' }}>
-                        <div style={{ color: '#bfc9d1', maxWidth: '420px' }}>{comment.comment}</div>
-                        {(currentUser?.userName === comment.userName || currentUser?.userName === postAuthor?.userName) && (
-                          <button 
-                            className="views-analytics-pagination-btn" 
-                            style={{ padding: '0.4rem 0.8rem' }}
-                            onClick={() => handleDeleteComment(comment.id)}
-                            disabled={deletingCommentId === comment.id}
-                          >
-                            {deletingCommentId === comment.id ? 'Deleting...' : 'Delete'}
-                          </button>
+          {list.items.length > 0 && (
+            <ul className="fm-stats__people">
+              {list.items.map((item, index) => {
+                const guest = isGuest(item.userName);
+                const name = guest ? "Logged-out listener" : item.userName;
+                let meta = null;
+                if (tab === "views") meta = <>{item.viewCount || 1} {item.viewCount === 1 ? "play" : "plays"} · last {when(item.lastView)}</>;
+                if (tab === "likes") meta = when(item.time);
+                if (tab === "downloads") meta = when(item.downloadTime);
+                if (tab === "comments") meta = when(item.time);
+                return (
+                  <li key={item.id || `${item.userName}-${index}`} className="fm-stats__person">
+                    <img src={item.profilePic || DEFAULT_AVATAR} alt="" onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
+                    <div className="fm-stats__person-body">
+                      <div className="fm-stats__person-top">
+                        {guest ? <span className="fm-stats__name is-guest">{name}</span> : <a href={`/profile/${item.userName}`} className="fm-stats__name">{name}</a>}
+                        {tab === "views" && !guest && list.likers?.has(item.userName) && (
+                          <span className="fm-stats__liked" title="Also liked this"><Icon name="heart" size={12} />Liked</span>
                         )}
+                        <span className="fm-stats__meta">{meta}</span>
                       </div>
+                      {tab === "comments" && <p className="fm-stats__comment">{item.comment}</p>}
                     </div>
-                  ))
-                )}
-              </div>
-
-              {commentsTotalPages > 1 && (
-                <div className="views-analytics-pagination">
-                  <div className="views-analytics-pagination-info">
-                    Showing {commentsPage * pageSize + 1}-{Math.min((commentsPage + 1) * pageSize, commentsTotalElements)} of {commentsTotalElements} comments
-                  </div>
-                  <div className="views-analytics-pagination-buttons">
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setCommentsPage(Math.max(0, commentsPage - 1))}
-                      disabled={commentsPage === 0}
-                    >
-                      ← Previous
-                    </button>
-                    <span className="views-analytics-page-info">
-                      Page {commentsPage + 1} of {commentsTotalPages}
-                    </span>
-                    <button 
-                      className="views-analytics-pagination-btn"
-                      onClick={() => setCommentsPage(Math.min(commentsTotalPages - 1, commentsPage + 1))}
-                      disabled={commentsPage >= commentsTotalPages - 1}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="views-analytics-tab-header" style={{ borderTop: '1px solid rgba(120, 120, 255, 0.2)' }}>
-                <div className="views-analytics-tab-controls" style={{ justifyContent: 'space-between' }}>
-                  <input 
-                    type="text" 
-                    className="views-analytics-comment-input" 
-                    placeholder="Add a comment..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    style={{
-                      flex: 1,
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(120, 120, 255, 0.3)',
-                      borderRadius: '0.8rem',
-                      color: '#f3f3f7',
-                      padding: '0.6rem 0.8rem'
-                    }}
-                  />
-                  <button 
-                    className="views-analytics-pagination-btn"
-                    onClick={handleAddComment}
-                    disabled={postingComment || !newComment.trim()}
-                    style={{ marginLeft: '0.8rem' }}
-                  >
-                    {postingComment ? 'Posting...' : 'Post'}
-                  </button>
-                </div>
-              </div>
-            </div>
+                    {tab === "comments" && canModerate && item.id && (
+                      <button
+                        type="button"
+                        className="fm-icon-btn"
+                        onClick={() => deleteComment(item.id)}
+                        disabled={deletingId === item.id}
+                        aria-label={`Delete ${item.userName}'s comment`}
+                        title="Delete comment"
+                      >
+                        <Icon name="trash" size={16} />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
+
+          <Pagination page={page} totalPages={list.totalPages} onChange={setPage} label={`${TABS.find((t) => t.key === tab).label} pages`} />
         </div>
       </div>
-    </div>
+  );
+}
+
+// Same props as before, so the feed modal and post page keep working
+function ViewsAnalytics({ postId, postTitle, isOpen, onClose, ...rest }) {
+  return (
+    <Dialog open={isOpen} onClose={onClose} title={postTitle ? `Analytics · ${postTitle}` : "Analytics"} size="lg">
+      {isOpen && <PostAnalytics postId={postId} {...rest} />}
+    </Dialog>
   );
 }
 

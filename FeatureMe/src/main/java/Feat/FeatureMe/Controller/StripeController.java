@@ -1,9 +1,16 @@
 package Feat.FeatureMe.Controller;
 
+import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.stripe.Stripe;
+import com.stripe.exception.EventDataObjectDeserializationException;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.StripeObject;
+import java.util.Optional;
 import com.stripe.model.Event;
 import com.stripe.model.Invoice;
 import com.stripe.net.Webhook;
@@ -14,6 +21,10 @@ import com.stripe.model.Subscription;
 import com.stripe.param.CustomerCreateParams;
 
 import Feat.FeatureMe.Entity.User;
+import Feat.FeatureMe.Service.AppleSubscriptionService;
+import Feat.FeatureMe.Service.SubscriptionAccess;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Update;
 import Feat.FeatureMe.Service.UserService;
 
 import java.util.HashMap;
@@ -33,7 +44,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.Base64;
 
 
 @RestController
@@ -41,6 +51,8 @@ import java.util.Base64;
 public class StripeController {
     
     private final UserService userService;
+    private final AppleSubscriptionService appleSubscriptionService;
+    private final SubscriptionAccess subscriptionAccess;
     
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
@@ -54,8 +66,11 @@ public class StripeController {
     //@Value("${https://featureme.co}")
     //private String frontendUrl;
 
-    public StripeController(UserService userService){
+    public StripeController(UserService userService, AppleSubscriptionService appleSubscriptionService,
+            SubscriptionAccess subscriptionAccess){
         this.userService = userService;
+        this.appleSubscriptionService = appleSubscriptionService;
+        this.subscriptionAccess = subscriptionAccess;
     }
     private String frontendUrl = "https://featureme.co";
     
@@ -63,7 +78,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSession() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -88,7 +103,7 @@ public class StripeController {
         }
         
         SessionCreateParams sessionParams = SessionCreateParams.builder()
-            .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+            .addAllowedPaymentMethodType(SessionCreateParams.AllowedPaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
@@ -131,7 +146,7 @@ public class StripeController {
     public Map<String, Object> createCheckoutSessionYearly() throws StripeException {
         // Get the authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (!AuthUtils.isLoggedIn(authentication)) {
             throw new RuntimeException("User not authenticated");
         }
         
@@ -156,7 +171,7 @@ public class StripeController {
         }
         
         SessionCreateParams sessionParams = SessionCreateParams.builder()
-            .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+            .addAllowedPaymentMethodType(SessionCreateParams.AllowedPaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
@@ -200,124 +215,94 @@ public class StripeController {
      * This automatically handles subscription lifecycle events
      */
     @PostMapping("/webhook")
-    public String handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+    public ResponseEntity<String> handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+        Event event;
         try {
-            Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+            event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+        } catch (SignatureVerificationException e) {
+            // Not from Stripe (or the wrong secret): reject it
+            System.err.println("❌ Webhook signature check failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid signature");
+        }
+        try {
             
             System.out.println("Received webhook event: " + event.getType());
-            
-            // Handle successful payment events
-            if ("invoice.payment_succeeded".equals(event.getType())) {
-                Invoice invoice = (Invoice) event.getDataObjectDeserializer().getObject().orElse(null);
-                
-                if (invoice != null) {
-                    String customerId = invoice.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Update user role to USERPLUS
-                            user.setRole("USERPLUS");
-                            user.setSubscriptionStatus("active");
-                            userService.saveUser(user);
-                            
-                            System.out.println("✅ User " + user.getEmail() + " upgraded to USERPLUS! Invoice ID: " + invoice.getId());
-                        } else {
-                            System.out.println("❌ User not found for customer ID: " + customerId);
+
+            switch (event.getType()) {
+                case "invoice.payment_succeeded" -> {
+                    Invoice invoice = (Invoice) eventObject(event);
+                    if (invoice != null) {
+                        stripeUpdate(invoice.getCustomer(), "active", SubscriptionAccess.Access.GRANT, null, "payment succeeded " + invoice.getId());
+                    }
+                }
+                case "customer.subscription.updated" -> {
+                    Subscription subscription = (Subscription) eventObject(event);
+                    if (subscription != null) {
+                        String status = subscription.getStatus();
+                        if ("canceled".equals(status) || "unpaid".equals(status) || "incomplete_expired".equals(status)) {
+                            stripeUpdate(subscription.getCustomer(), status, SubscriptionAccess.Access.REMOVE, null, "subscription " + status);
+                        } else if (Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd())) {
+                            // Still paid until the end of the period
+                            stripeUpdate(subscription.getCustomer(), "cancel_at_period_end", SubscriptionAccess.Access.KEEP, null, "set to cancel at period end");
+                        } else if ("active".equals(status) || "trialing".equals(status)) {
+                            stripeUpdate(subscription.getCustomer(), status, SubscriptionAccess.Access.GRANT, null, "subscription " + status);
                         }
                     }
                 }
-            }
-            
-            // Handle subscription updated events (including cancellations)
-            if ("customer.subscription.updated".equals(event.getType())) {
-                Subscription subscription = (Subscription) event.getDataObjectDeserializer().getObject().orElse(null);
-                
-                if (subscription != null) {
-                    String customerId = subscription.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            String status = subscription.getStatus();
-                            Boolean cancelAtPeriodEnd = subscription.getCancelAtPeriodEnd();
-                            
-                            if ("canceled".equals(status)) {
-                                // Subscription is fully canceled
-                                user.setRole("USER");
-                                user.setSubscriptionStatus("canceled");
-                                System.out.println("❌ User " + user.getEmail() + " subscription canceled! Subscription ID: " + subscription.getId());
-                            } else if (Boolean.TRUE.equals(cancelAtPeriodEnd)) {
-                                // Subscription is set to cancel at period end
-                                user.setSubscriptionStatus("cancel_at_period_end");
-                                System.out.println("⚠️ User " + user.getEmail() + " subscription set to cancel at period end! Subscription ID: " + subscription.getId());
-                            } else if ("active".equals(status)) {
-                                // Subscription is active (might be reactivated)
-                                user.setRole("USERPLUS");
-                                user.setSubscriptionStatus("active");
-                                System.out.println("✅ User " + user.getEmail() + " subscription reactivated! Subscription ID: " + subscription.getId());
-                            }
-                            
-                            userService.saveUser(user);
-                        }
+                case "customer.subscription.deleted" -> {
+                    Subscription subscription = (Subscription) eventObject(event);
+                    if (subscription != null) {
+                        stripeUpdate(subscription.getCustomer(), "canceled", SubscriptionAccess.Access.REMOVE, null, "subscription deleted");
                     }
                 }
-            }
-            
-            // Handle subscription deleted events
-            if ("customer.subscription.deleted".equals(event.getType())) {
-                Subscription subscription = (Subscription) event.getDataObjectDeserializer().getObject().orElse(null);
-                
-                if (subscription != null) {
-                    String customerId = subscription.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Downgrade user to free plan
-                            user.setRole("USER");
-                            user.setSubscriptionStatus("canceled");
-                            userService.saveUser(user);
-                            
-                            System.out.println("❌ User " + user.getEmail() + " downgraded to free plan! Subscription ID: " + subscription.getId());
-                        }
+                case "checkout.session.completed" -> {
+                    Session session = (Session) eventObject(event);
+                    if (session != null && "subscription".equals(session.getMode()) && session.getSubscription() != null) {
+                        stripeUpdate(session.getCustomer(), "active", SubscriptionAccess.Access.GRANT,
+                            new Update().set("stripeSubscriptionId", session.getSubscription()), "checkout completed " + session.getId());
                     }
                 }
+                default -> { }
             }
-            
-            // Handle checkout session completed events
-            if ("checkout.session.completed".equals(event.getType())) {
-                Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
-                
-                if (session != null && session.getMode().equals("subscription")) {
-                    String customerId = session.getCustomer();
-                    String subscriptionId = session.getSubscription();
-                    
-                    if (customerId != null && subscriptionId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Update user with subscription details
-                            user.setRole("USERPLUS");
-                            user.setSubscriptionStatus("active");
-                            user.setStripeSubscriptionId(subscriptionId);
-                            userService.saveUser(user);
-                            
-                            System.out.println("✅ User " + user.getEmail() + " subscription created! Session ID: " + session.getId());
-                        }
-                    }
-                }
-            }
-            
-            return "Success";
+
+            return ResponseEntity.ok("Success");
         } catch (Exception e) {
+            // A 500 makes Stripe retry the event later instead of dropping it
             System.err.println("❌ Webhook error: " + e.getMessage());
             e.printStackTrace();
-            return "Error";
+            return ResponseEntity.internalServerError().body("Error");
         }
+    }
+
+
+    /** Sets the Stripe status (and any extra fields) on the customer's account and gives or takes away Plus */
+    private void stripeUpdate(String customerId, String status, SubscriptionAccess.Access access, Update extra, String what) {
+        if (customerId == null) return;
+        boolean found = subscriptionAccess.apply(Criteria.where("stripeCustomerId").is(customerId),
+            SubscriptionAccess.Store.STRIPE, status, access, extra);
+        System.out.println(found
+            ? "Stripe: " + what + " for customer " + customerId + " -> " + status + " (" + access + ")"
+            : "❌ Stripe: no account for customer " + customerId + " (" + what + ")");
+    }
+
+    /**
+     * The event's object. stripe-java only deserializes events sent in its own
+     * API release (see Stripe.API_VERSION); events from a webhook endpoint
+     * still on an older version would otherwise come back empty and be
+     * silently skipped. The fields read here (customer, status,
+     * cancel_at_period_end, mode, subscription) are the same in both, so fall
+     * back to deserializing anyway and log the mismatch.
+     */
+    static StripeObject eventObject(Event event) throws EventDataObjectDeserializationException {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+        Optional<StripeObject> object = deserializer.getObject();
+        if (object.isPresent()) {
+            return object.get();
+        }
+        System.err.println("⚠️ Stripe event " + event.getId() + " uses API version " + event.getApiVersion()
+            + " but stripe-java expects " + Stripe.API_VERSION
+            + ". Update the webhook endpoint's API version in the Stripe dashboard.");
+        return deserializer.deserializeUnsafe();
     }
     
     
@@ -328,7 +313,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -385,14 +370,15 @@ public class StripeController {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "Stripe cancellation failed");
                 error.put("message", "There was an issue canceling the subscription with Stripe. Please contact support.");
-                error.put("stripe_error", stripeException.getMessage());
                 return error;
             }
             
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to cancel subscription");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -403,7 +389,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "User not authenticated");
                 return error;
@@ -417,6 +403,7 @@ public class StripeController {
             result.put("user", email);
             result.put("role", user.getRole());
             result.put("subscription_status", user.getSubscriptionStatus());
+            result.put("apple_subscription_status", user.getAppleSubscriptionStatus());
             result.put("stripe_customer_id", user.getStripeCustomerId());
             result.put("stripe_subscription_id", user.getStripeSubscriptionId());
             
@@ -425,7 +412,9 @@ public class StripeController {
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to get subscription status");
-            error.put("message", e.getMessage());
+            System.err.println("Payment endpoint error: " + e.getMessage());
+            e.printStackTrace();
+            error.put("message", "Something went wrong. Please try again or contact support.");
             return error;
         }
     }
@@ -438,7 +427,7 @@ public class StripeController {
         try {
             // Get the authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (!AuthUtils.isLoggedIn(authentication)) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
                 error.put("error", "User not authenticated");
@@ -452,107 +441,120 @@ public class StripeController {
             String platform = (String) request.get("platform");
             String receipt = (String) request.get("receipt");
             String productId = (String) request.get("productId");
-            String transactionId = (String) request.get("transactionId");
             
-            if (receipt == null || receipt.isEmpty()) {
+            Object signed = request.get("signedTransaction");
+            if ((receipt == null || receipt.isEmpty()) && !(signed instanceof String text && !text.isBlank())) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
                 error.put("error", "Receipt is required");
                 return error;
             }
             
-            Map<String, Object> validationResult = null;
-            
             if ("ios".equals(platform)) {
-                // Validate Apple receipt and get subscription details
-                validationResult = validateAppleReceipt(receipt, productId);
-            } else if ("android".equals(platform)) {
-                // For Android, you would validate Google Play receipt
-                // For now, we'll accept it if transactionId is provided
-                // You should implement Google Play receipt validation
-                if (transactionId != null && !transactionId.isEmpty()) {
-                    validationResult = new HashMap<>();
-                    validationResult.put("valid", true);
-                } else {
-                    validationResult = new HashMap<>();
-                    validationResult.put("valid", false);
-                    validationResult.put("error", "Transaction ID is required for Android");
+                // StoreKit 2 (current app): Apple's signed transaction, checked locally
+                String signedTransaction = (String) request.get("signedTransaction");
+                if (signedTransaction != null && !signedTransaction.isBlank()) {
+                    return applySignedTransaction(user, signedTransaction);
                 }
-            } else {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("error", "Invalid platform");
-                return error;
+                // Older app builds send a StoreKit 1 receipt (Apple's deprecated verifyReceipt)
+                return applyAppleReceipt(user, receipt, productId);
             }
-            
-            if (validationResult != null && Boolean.TRUE.equals(validationResult.get("valid"))) {
-                // Check if subscription is expired
-                boolean isExpired = false;
-                if ("ios".equals(platform) && validationResult.get("expiresAt") != null) {
-                    Long expiresAt = ((Number) validationResult.get("expiresAt")).longValue();
-                    long currentTime = System.currentTimeMillis();
-                    if (expiresAt < currentTime) {
-                        isExpired = true;
-                        System.out.println("⚠️ Subscription expired for user " + email + ". Expired at: " + expiresAt);
-                    }
-                }
-                
-                if (isExpired) {
-                    // Subscription expired - downgrade user
-                    user.setRole("USER");
-                    user.setSubscriptionStatus("expired");
-                    userService.saveUser(user);
-                    
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("success", false);
-                    result.put("error", "Subscription has expired");
-                    result.put("role", "USER");
-                    System.out.println("❌ User " + email + " subscription expired. Downgraded to USER.");
-                    return result;
-                } else {
-                    // Subscription is active - upgrade user to USERPLUS
-                    user.setRole("USERPLUS");
-                    user.setSubscriptionStatus("active");
-                    
-                    // Store Apple IAP original transaction ID (unique subscription identifier)
-                    if ("ios".equals(platform)) {
-                        String originalTransactionId = (String) validationResult.get("originalTransactionId");
-                        if (originalTransactionId != null) {
-                            user.setAppleOriginalTransactionId(originalTransactionId);
-                        }
-                    }
-                    
-                    userService.saveUser(user);
-                    
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("success", true);
-                    result.put("message", "Subscription activated successfully");
-                    result.put("role", "USERPLUS");
-                    System.out.println("✅ User " + email + " upgraded to USERPLUS via IAP! Product: " + productId);
-                    if ("ios".equals(platform) && validationResult.get("originalTransactionId") != null) {
-                        System.out.println("   Original Transaction ID: " + validationResult.get("originalTransactionId"));
-                    }
-                    return result;
-                }
-            } else {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                String errorMsg = validationResult != null ? 
-                    (String) validationResult.get("error") : "Receipt validation failed";
-                error.put("error", errorMsg);
-                return error;
-            }
-            
+
+            // Android buys Plus through the web (Stripe) checkout; there's no
+            // Google Play subscription to check, so never grant Plus here
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "android".equals(platform)
+                ? "In-app purchases aren't available on Android. Subscribe on featureme.co instead."
+                : "Invalid platform");
+            return error;
+
         } catch (Exception e) {
             System.err.println("❌ Receipt validation error: " + e.getMessage());
             e.printStackTrace();
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
-            error.put("error", "Receipt validation failed: " + e.getMessage());
+            error.put("error", "Receipt validation failed");
             return error;
         }
     }
     
+    /** iOS StoreKit 2 purchase: verify Apple's signed transaction and apply it */
+    private Map<String, Object> applySignedTransaction(User user, String signedTransaction) {
+        Map<String, Object> result = new HashMap<>();
+        AppleSubscriptionService.PurchaseOutcome outcome;
+        try {
+            outcome = appleSubscriptionService.applySignedTransaction(user.getUserName(), signedTransaction, System.currentTimeMillis());
+        } catch (AppleSubscriptionService.RetryLaterException e) {
+            result.put("success", false);
+            result.put("error", "Couldn't check your purchase with Apple right now. Please try again in a moment.");
+            return result;
+        }
+        System.out.println("📱 App Store purchase for " + user.getUserName() + ": " + outcome);
+        switch (outcome) {
+            case ACTIVE -> {
+                result.put("success", true);
+                result.put("message", "Subscription activated successfully");
+                result.put("role", "USERPLUS");
+            }
+            case EXPIRED -> { result.put("success", false); result.put("error", "Subscription has expired"); }
+            case REFUNDED -> { result.put("success", false); result.put("error", "This subscription was refunded"); }
+            case TAKEN -> { result.put("success", false); result.put("error", "This App Store subscription is already linked to another FeatureMe account."); }
+            case NOT_PLUS -> { result.put("success", false); result.put("error", "This purchase isn't a FeatureMe Plus subscription"); }
+            default -> { result.put("success", false); result.put("error", "This purchase couldn't be verified with Apple"); }
+        }
+        return result;
+    }
+
+    /**
+     * iOS, older app builds (StoreKit 1): check the receipt with Apple's
+     * deprecated verifyReceipt, then give Plus while the subscription
+     * is current. A refunded purchase, or one without an expiry date, doesn't
+     * count, and one App Store subscription can't give Plus to several accounts.
+     */
+    private Map<String, Object> applyAppleReceipt(User user, String receipt, String productId) {
+        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> validation = validateAppleReceipt(receipt, productId);
+        if (!Boolean.TRUE.equals(validation.get("valid"))) {
+            result.put("success", false);
+            result.put("error", validation.get("error") != null ? validation.get("error") : "Receipt validation failed");
+            return result;
+        }
+        if (!appleSubscriptionService.isPlusProduct((String) validation.get("productId"))) {
+            result.put("success", false);
+            result.put("error", "This purchase isn't a FeatureMe Plus subscription");
+            return result;
+        }
+        if (!(validation.get("expiresAt") instanceof Number expiresAt)) {
+            result.put("success", false);
+            result.put("error", "This purchase isn't a FeatureMe Plus subscription");
+            return result;
+        }
+        boolean refunded = Boolean.TRUE.equals(validation.get("refunded"));
+        boolean current = !refunded && expiresAt.longValue() > System.currentTimeMillis();
+        String originalTransactionId = (String) validation.get("originalTransactionId");
+
+        AppleSubscriptionService.LinkOutcome outcome =
+            appleSubscriptionService.applyPurchase(user.getUserName(), originalTransactionId, current);
+        if (outcome == AppleSubscriptionService.LinkOutcome.TAKEN) {
+            System.out.println("⚠️ App Store subscription " + originalTransactionId + " is already linked to another account; not applied to " + user.getUserName());
+            result.put("success", false);
+            result.put("error", "This App Store subscription is already linked to another FeatureMe account.");
+            return result;
+        }
+        if (!current) {
+            result.put("success", false);
+            result.put("error", refunded ? "This subscription was refunded" : "Subscription has expired");
+            result.put("role", "USER");
+            return result;
+        }
+        result.put("success", true);
+        result.put("message", "Subscription activated successfully");
+        result.put("role", "USERPLUS");
+        System.out.println("✅ " + user.getUserName() + " has Plus via the App Store (" + productId + ", " + originalTransactionId + ")");
+        return result;
+    }
+
     /**
      * Validate Apple receipt with Apple's servers
      * Returns a Map with validation result and subscription details
@@ -601,6 +603,13 @@ public class StripeController {
             // Status 0 means receipt is valid
             if (status == 0) {
                 JsonNode receiptNode = responseJson.get("receipt");
+                // Receipts from other apps are valid too; only accept this app's
+                String bundleId = receiptNode != null && receiptNode.hasNonNull("bundle_id") ? receiptNode.get("bundle_id").asText() : null;
+                if (!"com.featureme.app".equals(bundleId)) {
+                    result.put("valid", false);
+                    result.put("error", "Receipt is for a different app");
+                    return result;
+                }
                 JsonNode latestReceiptInfo = responseJson.get("latest_receipt_info");
                 
                 // Use latest_receipt_info if available (for subscriptions), otherwise use receipt.in_app
@@ -654,6 +663,11 @@ public class StripeController {
                                 matchingTransaction.get("product_id").asText());
                         }
                         
+                        // Refunded purchases carry a cancellation date
+                        if (matchingTransaction.hasNonNull("cancellation_date_ms")) {
+                            result.put("refunded", true);
+                        }
+
                         // Expiration date (for subscriptions)
                         if (matchingTransaction.has("expires_date_ms")) {
                             result.put("expiresAt", 
@@ -683,195 +697,39 @@ public class StripeController {
             System.err.println("Error validating Apple receipt: " + e.getMessage());
             e.printStackTrace();
             result.put("valid", false);
-            result.put("error", "Error validating receipt: " + e.getMessage());
+            result.put("error", "Error validating receipt");
             return result;
         }
     }
     
     /**
-     * Webhook handler for Apple App Store Server Notifications v2
-     * Handles subscription lifecycle events (renewals, cancellations, expirations, etc.)
-     * 
-     * Apple sends JWT-signed notifications. For production, you should verify the JWT signature
-     * using Apple's public keys from https://api.appstoreconnect.apple.com/v1/certificates
+     * App Store Server Notifications v2 (renewals, cancellations, refunds, ...).
+     * Only notifications Apple signed for this app are applied; see AppleSubscriptionService.
+     * 400 for anything that isn't one, 503/500 so Apple retries when we couldn't process it.
      */
     @PostMapping("/apple-webhook")
-    public Map<String, Object> handleAppleWebhook(@RequestBody String signedPayload) {
+    public ResponseEntity<Map<String, Object>> handleAppleWebhook(@RequestBody(required = false) String body) {
         Map<String, Object> response = new HashMap<>();
-        
         try {
-            System.out.println("📱 Received Apple App Store Server Notification");
-            
-            // Parse JWT without verification for now (production should verify signature)
-            // Apple sends notifications as JWT tokens
-            String[] jwtParts = signedPayload.split("\\.");
-            if (jwtParts.length != 3) {
-                System.err.println("❌ Invalid JWT format");
-                response.put("success", false);
-                response.put("error", "Invalid JWT format");
-                return response;
-            }
-            
-            // Decode the payload (second part of JWT)
-            String payloadJson = new String(Base64.getUrlDecoder().decode(jwtParts[1]));
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode notificationPayload = objectMapper.readTree(payloadJson);
-            
-            // Extract notification data
-            String notificationType = notificationPayload.has("notification_type") 
-                ? notificationPayload.get("notification_type").asText() 
-                : null;
-            
-            JsonNode data = notificationPayload.get("data");
-            if (data == null) {
-                System.err.println("❌ Missing data in notification");
-                response.put("success", false);
-                response.put("error", "Missing data in notification");
-                return response;
-            }
-            
-            // Extract signedTransactionInfo (JWT containing transaction details)
-            String signedTransactionInfo = data.has("signedTransactionInfo") 
-                ? data.get("signedTransactionInfo").asText() 
-                : null;
-            
-            if (signedTransactionInfo == null) {
-                System.err.println("❌ Missing signedTransactionInfo");
-                response.put("success", false);
-                response.put("error", "Missing signedTransactionInfo");
-                return response;
-            }
-            
-            // Parse the transaction info JWT
-            String[] transactionParts = signedTransactionInfo.split("\\.");
-            String transactionPayloadJson = new String(Base64.getUrlDecoder().decode(transactionParts[1]));
-            JsonNode transactionInfo = objectMapper.readTree(transactionPayloadJson);
-            
-            // Extract originalTransactionId (unique subscription identifier)
-            String originalTransactionId = transactionInfo.has("originalTransactionId") 
-                ? transactionInfo.get("originalTransactionId").asText() 
-                : null;
-            
-            if (originalTransactionId == null) {
-                System.err.println("❌ Missing originalTransactionId");
-                response.put("success", false);
-                response.put("error", "Missing originalTransactionId");
-                return response;
-            }
-            
-            // Find user by originalTransactionId
-            User user = userService.findByAppleOriginalTransactionId(originalTransactionId)
-                .orElse(null);
-            
-            if (user == null) {
-                System.out.println("⚠️ User not found for originalTransactionId: " + originalTransactionId);
-                // This might be a new subscription - we'll handle it when they validate receipt
-                response.put("success", true);
-                response.put("message", "User not found - will be handled on next receipt validation");
-                return response;
-            }
-            
-            System.out.println("📱 Processing notification type: " + notificationType + " for user: " + user.getEmail());
-            
-            // Handle different notification types
-            if (notificationType == null) {
-                System.err.println("⚠️ Notification type is null");
-                response.put("success", false);
-                response.put("error", "Notification type is null");
-                return response;
-            }
-            
-            switch (notificationType) {
-                case "INITIAL_BUY":
-                case "DID_RENEW":
-                case "DID_RECOVER":
-                    // Subscription is active
-                    user.setRole("USERPLUS");
-                    user.setSubscriptionStatus("active");
-                    userService.saveUser(user);
-                    System.out.println("✅ User " + user.getEmail() + " subscription active/renewed! Notification: " + notificationType);
-                    break;
-                    
-                case "DID_FAIL_TO_RENEW":
-                    // Subscription failed to renew (payment issue)
-                    // Keep USERPLUS until expiration, but mark status
-                    user.setSubscriptionStatus("payment_failed");
-                    userService.saveUser(user);
-                    System.out.println("⚠️ User " + user.getEmail() + " subscription payment failed! Notification: " + notificationType);
-                    break;
-                    
-                case "DID_CANCEL":
-                    // User canceled subscription - will expire at period end
-                    user.setSubscriptionStatus("cancel_at_period_end");
-                    userService.saveUser(user);
-                    System.out.println("⚠️ User " + user.getEmail() + " subscription canceled (will expire at period end)! Notification: " + notificationType);
-                    break;
-                    
-                case "EXPIRED":
-                    // Subscription expired - downgrade user
-                    user.setRole("USER");
-                    user.setSubscriptionStatus("expired");
-                    userService.saveUser(user);
-                    System.out.println("❌ User " + user.getEmail() + " subscription expired! Downgraded to USER. Notification: " + notificationType);
-                    break;
-                    
-                case "REFUND":
-                    // Subscription refunded - downgrade immediately
-                    user.setRole("USER");
-                    user.setSubscriptionStatus("refunded");
-                    userService.saveUser(user);
-                    System.out.println("❌ User " + user.getEmail() + " subscription refunded! Downgraded to USER. Notification: " + notificationType);
-                    break;
-                    
-                case "REVOKE":
-                    // Subscription revoked (family sharing removed, etc.) - downgrade
-                    user.setRole("USER");
-                    user.setSubscriptionStatus("revoked");
-                    userService.saveUser(user);
-                    System.out.println("❌ User " + user.getEmail() + " subscription revoked! Downgraded to USER. Notification: " + notificationType);
-                    break;
-                    
-                case "GRACE_PERIOD_EXPIRED":
-                    // Grace period expired - downgrade
-                    user.setRole("USER");
-                    user.setSubscriptionStatus("grace_period_expired");
-                    userService.saveUser(user);
-                    System.out.println("❌ User " + user.getEmail() + " grace period expired! Downgraded to USER. Notification: " + notificationType);
-                    break;
-                    
-                case "PRICE_INCREASE":
-                    // Price increase - user needs to consent
-                    user.setSubscriptionStatus("price_increase_consent_required");
-                    userService.saveUser(user);
-                    System.out.println("⚠️ User " + user.getEmail() + " needs to consent to price increase! Notification: " + notificationType);
-                    break;
-                    
-                case "REFUND_DECLINED":
-                    // Refund declined - reactivate subscription
-                    user.setRole("USERPLUS");
-                    user.setSubscriptionStatus("active");
-                    userService.saveUser(user);
-                    System.out.println("✅ User " + user.getEmail() + " refund declined - subscription reactivated! Notification: " + notificationType);
-                    break;
-                    
-                default:
-                    System.out.println("ℹ️ Unhandled notification type: " + notificationType + " for user: " + user.getEmail());
-                    break;
-            }
-            
-            response.put("success", true);
-            response.put("message", "Notification processed successfully");
-            response.put("notification_type", notificationType);
-            return response;
-            
+            AppleSubscriptionService.Result result =
+                appleSubscriptionService.handleNotification(body, System.currentTimeMillis());
+            System.out.println("📱 App Store notification " + result.outcome() + ": " + result.message());
+            response.put("success", result.outcome() != AppleSubscriptionService.Outcome.REJECTED);
+            response.put("message", result.message());
+            return result.outcome() == AppleSubscriptionService.Outcome.REJECTED
+                ? ResponseEntity.badRequest().body(response)
+                : ResponseEntity.ok(response);
+        } catch (AppleSubscriptionService.RetryLaterException e) {
+            System.err.println("App Store notification not processed, Apple will retry: " + e.getMessage());
+            response.put("success", false);
+            response.put("error", "Try again later");
+            return ResponseEntity.status(503).body(response);
         } catch (Exception e) {
             System.err.println("❌ Apple webhook error: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
-            response.put("error", "Error processing notification: " + e.getMessage());
-            return response;
+            response.put("error", "Error processing notification");
+            return ResponseEntity.status(500).body(response);
         }
     }
-    
-
 }

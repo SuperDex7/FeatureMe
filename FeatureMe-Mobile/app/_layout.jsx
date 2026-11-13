@@ -1,5 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -154,26 +153,13 @@ function TokenValidator() {
           // If we get here, token is valid
           return;
         } catch (error) {
-          // Token is invalid (401, 403, or other auth errors)
-          if (error.response?.status === 401 || error.response?.status === 403) {
-            // Clear invalid token and redirect to login
+          // Only a 401 means the saved login is no longer accepted. A 403,
+          // server error or no connection says nothing about the login,
+          // so keep it and let the screens retry.
+          if (error.response?.status === 401) {
             await AsyncStorage.removeItem('authToken');
             delete api.defaults.headers.common['Authorization'];
             router.replace('/login');
-          } else if (error.response?.status === 500) {
-            const errorMessage = error.response.data || '';
-            if (typeof errorMessage === 'string' && (
-              errorMessage.includes('JWT expired') || 
-              errorMessage.includes('JWT token expired') ||
-              errorMessage.includes('ExpiredJwtException') ||
-              errorMessage.includes('Invalid JWT token') ||
-              errorMessage.includes('JWT authentication failed')
-            )) {
-              // Clear invalid token and redirect to login
-              await AsyncStorage.removeItem('authToken');
-              delete api.defaults.headers.common['Authorization'];
-              router.replace('/login');
-            }
           }
         }
       } catch (error) {

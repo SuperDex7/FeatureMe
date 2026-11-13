@@ -3,6 +3,7 @@ package Feat.FeatureMe.Entity;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -16,7 +17,12 @@ public class Chats {
     
     @Indexed
     private List<String> users;
-    private List<ChatMessage> messages;
+    // Messages are stored only in the chat_messages collection. This used to
+    // hold a second copy of every message inside the chat room document,
+    // which grew toward MongoDB's 16 MB document limit. Not saved anymore;
+    // ChatMessageMigration moved and removed the old copies.
+    @Transient
+    private List<ChatMessage> messages = new java.util.ArrayList<>();
     private MostRecentChatDTO mostRecentChat;
 
 

@@ -30,6 +30,10 @@ public class ChatService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private AtomicUpdates atomicUpdates;
+    @Autowired
     private ChatMessageRepository chatMessageRepository;
     @Autowired
     private ChatsRepository chatsRepository;
@@ -147,7 +151,7 @@ public User validateJwtAndGetUser(String jwtToken) {
             user.setChats(new ArrayList<>());
            }
         user.getChats().add(newChat.getChatRoomId());
-        userRepository.save(user);
+        atomicUpdates.addToUserList(user.getUserName(), "chats", newChat.getChatRoomId());
         for(String user2: oUsers){
            User thisUser = userRepository.findByUserName(user2).orElseThrow(() -> new RuntimeException("User not found: " + user2));
            if(thisUser.getChats() ==null){
@@ -155,14 +159,9 @@ public User validateJwtAndGetUser(String jwtToken) {
            }
            
             thisUser.getChats().add(newChat.getChatRoomId());
-            thisUser.getNotifications().add(new NotificationsDTO(
-                newChat.getChatRoomId(), 
-                user.getUserName(), 
-                "Added you to a chat named " + newChat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
-            userRepository.save(thisUser);
+            notificationService.notify(thisUser.getUserName(), newChat.getChatRoomId(), user.getUserName(),
+                "Added you to a chat named " + newChat.getChatName(), NotificationsDTO.NotiType.CHAT);
+            atomicUpdates.addToUserList(thisUser.getUserName(), "chats", newChat.getChatRoomId());
         }
        // users.getChats().add(newChat.getChatRoomId());
 
@@ -177,7 +176,6 @@ public User validateJwtAndGetUser(String jwtToken) {
         chatMessageRepository.save(chatMessage);
         
 
-         newChat.getMessages().add(chatMessage);
          newChat.setMostRecentChat(new MostRecentChatDTO(newChat.getChatRoomId(), newChat.getChatName(), newChat.getChatPhoto(), newChat.getUsers(),chatMessage.getMessage(), Instant.now()));
         chatsRepository.save(newChat);
         
@@ -218,19 +216,10 @@ return newChat;
                 Instant.now(),
                 ChatMessage.MessageType.JOIN
             );
-            chat.getMessages().add(message);
             
             // Add notification to the user being added
-            if (user.getNotifications() == null) {
-                user.setNotifications(new ArrayList<>());
-            }
-            user.getNotifications().add(new NotificationsDTO(
-                chat.getChatRoomId(), 
-                adderUserName, 
-                "Added you to chat: " + chat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
+            notificationService.notify(user.getUserName(), chat.getChatRoomId(), adderUserName,
+                "Added you to chat: " + chat.getChatName(), NotificationsDTO.NotiType.CHAT);
             
             // Update most recent chat
             chat.setMostRecentChat(new MostRecentChatDTO(
@@ -243,7 +232,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(message);
-            userRepository.save(user);
+            atomicUpdates.addToUserList(user.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             return message;
@@ -263,7 +252,6 @@ return newChat;
         chatRoom.setMostRecentChat( new MostRecentChatDTO(chatRoom.getChatRoomId(), chatRoom.getChatName(), chatRoom.getChatPhoto(), chatRoom.getUsers(), chatMessage.getMessage(), Instant.now()));
         chatMessageRepository.save(chatMessage);
 
-        chatRoom.getMessages().add(chatMessage);
         
         chatsRepository.save(chatRoom);
         return chatMessage;
@@ -286,12 +274,11 @@ return newChat;
             Instant.now(),
             ChatMessage.MessageType.LEAVE
         );
-        chat.getMessages().add(message);
         
         chatMessageRepository.save(message);
         chat.setMostRecentChat( new MostRecentChatDTO(chat.getChatRoomId(), chat.getChatName(), chat.getChatPhoto(), chat.getUsers(), message.getMessage(), Instant.now()));
        
-        userRepository.save(user);
+        atomicUpdates.removeFromUserList(user.getUserName(), "chats", chatRoomId);
         chatsRepository.save(chat);
         
         // Check if chat should be deleted (no users remaining)
@@ -403,16 +390,8 @@ return newChat;
             userToAdd.getChats().add(chatRoomId);
             
             // Add notification to the user being added
-            if (userToAdd.getNotifications() == null) {
-                userToAdd.setNotifications(new ArrayList<>());
-            }
-            userToAdd.getNotifications().add(new NotificationsDTO(
-                chatRoomId, 
-                requester.getUserName(), 
-                "Added you to chat: " + chat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
+            notificationService.notify(userToAdd.getUserName(), chatRoomId, requester.getUserName(),
+                "Added you to chat: " + chat.getChatName(), NotificationsDTO.NotiType.CHAT);
             
             // Create join message
             ChatMessage joinMessage = new ChatMessage(
@@ -424,7 +403,6 @@ return newChat;
                 ChatMessage.MessageType.JOIN
             );
             
-            chat.getMessages().add(joinMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -435,7 +413,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(joinMessage);
-            userRepository.save(userToAdd);
+            atomicUpdates.addToUserList(userToAdd.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             return chat;
@@ -484,7 +462,6 @@ return newChat;
                 ChatMessage.MessageType.LEAVE
             );
             
-            chat.getMessages().add(leaveMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -495,7 +472,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(leaveMessage);
-            userRepository.save(userToRemove);
+            atomicUpdates.removeFromUserList(userToRemove.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             // Check if chat should be deleted (no users remaining)
@@ -552,7 +529,6 @@ return newChat;
             );
             
             // Add the message to the chat
-            chat.getMessages().add(photoChangeMessage);
             chatMessageRepository.save(photoChangeMessage);
             
             // Update most recent chat with new photo and message
@@ -622,7 +598,6 @@ return newChat;
             fileMessage.setMessage(user.getUserName() + " sent a file: " + originalFilename + 
                 " | FILE_URL:" + fileUrl + " | FILE_SIZE:" + file.getSize());
             
-            chat.getMessages().add(fileMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -654,12 +629,7 @@ return newChat;
      */
     public ChatMessage getLastMessageForChat(String chatRoomId) {
         try {
-            Chats chat = chatsRepository.findById(chatRoomId).orElse(null);
-            if (chat != null && !chat.getMessages().isEmpty()) {
-                // Return the last message in the chat
-                return chat.getMessages().get(chat.getMessages().size() - 1);
-            }
-            return null;
+            return chatMessageRepository.findFirstByChatRoomIdOrderByTimeDesc(chatRoomId).orElse(null);
         } catch (Exception e) {
             System.err.println("Error getting last message for chat " + chatRoomId + ": " + e.getMessage());
             return null;
@@ -709,11 +679,8 @@ return newChat;
      * @param chat The chat room containing messages with file references
      */
     private void deleteChatFilesFromAWS(Chats chat) {
-        if (chat.getMessages() == null || chat.getMessages().isEmpty()) {
-            return;
-        }
-        
-        for (ChatMessage message : chat.getMessages()) {
+        // Messages live in chat_messages (chat rooms no longer embed a copy)
+        for (ChatMessage message : chatMessageRepository.findByChatRoomIdAndType(chat.getChatRoomId(), ChatMessage.MessageType.FILE)) {
             if (message.getType() == ChatMessage.MessageType.FILE && message.getMessage() != null) {
                 // Extract file URL from message
                 String messageText = message.getMessage();
@@ -777,7 +744,7 @@ return newChat;
                 User user = userRepository.findByUserName(username).orElse(null);
                 if (user != null && user.getChats() != null) {
                     user.getChats().remove(chatRoomId);
-                    userRepository.save(user);
+                    atomicUpdates.removeFromUserList(user.getUserName(), "chats", chatRoomId);
                     System.out.println("Removed chat " + chatRoomId + " from user " + username);
                 }
             } catch (Exception e) {
@@ -823,7 +790,7 @@ return newChat;
     private void sendChatDeletionNotification(String chatRoomId, String chatName) {
         try {
             // Send a general notification to all users about the chat deletion
-            messagingTemplate.convertAndSend("/topic/chat-deletions", Map.of(
+            messagingTemplate.convertAndSend("/topic/chat-deletions", (Object) Map.of(
                 "chatRoomId", chatRoomId,
                 "chatName", chatName,
                 "message", "Chat '" + chatName + "' has been deleted",

@@ -48,6 +48,12 @@ class PostsServiceTest {
     @Mock
     private S3Service s3Service;
 
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private AtomicUpdates atomicUpdates;
+
     @InjectMocks
     private PostsService postsService;
 
@@ -111,7 +117,6 @@ class PostsServiceTest {
             }
             return post;
         });
-        when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
         // Act
         Posts result = postsService.createPost("user123", inputPost);
@@ -121,7 +126,9 @@ class PostsServiceTest {
         assertEquals("post123", result.getId());
         assertEquals("Test Post", result.getTitle());
         verify(postsRepository, times(1)).insert(any(Posts.class));
-        verify(userRepository, times(1)).save(any(User.class));
+        // The post id is added to the author's list atomically, not by saving the whole user
+        verify(atomicUpdates, times(1)).addToUserList(eq("testuser"), eq("posts"), anyString());
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
@@ -174,7 +181,6 @@ class PostsServiceTest {
         when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
         when(userRepository.findById("user123")).thenReturn(Optional.of(mockUser));
         lenient().when(userRepository.findByUserNameIn(anyList())).thenReturn(List.of());
-        when(userRepository.save(any(User.class))).thenReturn(mockUser);
         doNothing().when(postCommentService).deleteCommentsForPost(anyString());
         doNothing().when(postLikeService).deleteLikesForPost(anyString());
         doNothing().when(postViewService).deleteViewsForPost(anyString());
@@ -192,6 +198,7 @@ class PostsServiceTest {
         verify(postCommentService, times(1)).deleteCommentsForPost("post123");
         verify(postLikeService, times(1)).deleteLikesForPost("post123");
         verify(postViewService, times(1)).deleteViewsForPost("post123");
+        verify(atomicUpdates).removeFromUserList("testuser", "posts", "post123");
     }
 
     @Test
@@ -246,5 +253,104 @@ class PostsServiceTest {
         assertTrue(result.getContent().isEmpty(), "Should return empty page");
         verify(postsRepository, times(1)).findByStatusOrderByTimeDesc(eq("PUBLISHED"), any(Pageable.class));
     }
-}
 
+    @Test
+    @DisplayName("a play adds one to the post's counter atomically instead of recounting expired view records")
+    void addViewIncrementsCounter() {
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+
+        postsService.addView("post123", "listener");
+
+        verify(postViewService).addView("post123", "listener");
+        verify(atomicUpdates).incPost("post123", "totalViews", 1);
+        verify(postsRepository, never()).save(any());
+        verify(postViewService, never()).getTotalViews(anyString());
+    }
+
+    @Test
+    @DisplayName("the view summary never reports fewer plays than the post's counter")
+    void summaryUsesCounterWhenRecordsAreMissing() {
+        mockPost.setTotalViews(500);
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+        when(postViewService.getViewSummary("post123")).thenReturn(new PostViewService.PostViewSummary(3, 2, 1.5));
+
+        PostViewService.PostViewSummary summary = postsService.getPostViewSummary("post123");
+
+        assertEquals(500, summary.getTotalViews());
+        assertEquals(2, summary.getUniqueViewers());
+        assertEquals(250.0, summary.getAvgViewsPerUser());
+    }
+
+    @Test
+    @DisplayName("public post responses don't include who listened")
+    void postDtoHasNoListeners() {
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+
+        PostsDTO dto = postsService.getPostById("post123");
+
+        assertTrue(dto.views().isEmpty());
+        verify(postViewService, never()).getRecentViews(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("a page of posts loads all its authors in one query")
+    void authorsBatched() {
+        User bob = new User();
+        bob.setId("bob-id");
+        bob.setUserName("bob");
+        Posts second = new Posts();
+        second.setId("post456");
+        second.setAuthor(bob);
+        when(userRepository.findAllById(anyIterable())).thenReturn(List.of(mockUser, bob));
+
+        List<PostsDTO> dtos = postsService.toDTOs(List.of(mockPost, second));
+
+        verify(userRepository, times(1)).findAllById(anyIterable());
+        assertEquals("testuser", dtos.get(0).author().userName());
+        assertEquals("bob", dtos.get(1).author().userName());
+    }
+
+    @Test
+    @DisplayName("post responses carry the real like count, not the size of the 10-like preview")
+    void totalLikesInDto() {
+        mockPost.setTotalLikes(250);
+        when(userRepository.findAllById(anyIterable())).thenReturn(List.of(mockUser));
+        assertEquals(250, postsService.toDTOs(List.of(mockPost)).get(0).totalLikes());
+    }
+
+    @Test
+    @DisplayName("liked posts come back in the order they were liked")
+    void likedPostsInLikeOrder() {
+        Posts older = new Posts();
+        older.setId("older");
+        older.setAuthor(mockUser);
+        Feat.FeatureMe.Entity.PostLike recent = new Feat.FeatureMe.Entity.PostLike("post123", "testuser", Instant.now());
+        Feat.FeatureMe.Entity.PostLike earlier = new Feat.FeatureMe.Entity.PostLike("older", "testuser", Instant.now().minusSeconds(60));
+        when(postLikeService.getLikesByUser("testuser", 0, 12)).thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(recent, earlier)));
+        // the database returns them in a different order
+        when(postsRepository.findAllById(anyIterable())).thenReturn(List.of(older, mockPost));
+        when(userRepository.findAllById(anyIterable())).thenReturn(List.of(mockUser));
+
+        PagedModel<PostsDTO> page = postsService.getLikedPosts("testuser", 0, 12);
+
+        assertEquals(List.of("post123", "older"), page.getContent().stream().map(PostsDTO::id).toList());
+    }
+
+    @Test
+    @DisplayName("liking updates single fields, never saving the whole post or user")
+    void likeIsAtomic() {
+        User liker = new User();
+        liker.setUserName("liker");
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+        when(userRepository.findByUserName("liker")).thenReturn(Optional.of(liker));
+        when(postLikeService.toggleLike("post123", "liker")).thenReturn(true);
+        when(postLikeService.getTotalLikes("post123")).thenReturn(7L);
+
+        postsService.addLike("post123", "liker");
+
+        verify(atomicUpdates).setPost("post123", "totalLikes", 7);
+        verify(atomicUpdates).addToUserList("liker", "likedPosts", "post123");
+        verify(postsRepository, never()).save(any());
+        verify(userRepository, never()).save(any());
+    }
+}

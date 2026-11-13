@@ -35,6 +35,7 @@ import Feat.FeatureMe.Dto.UserPostsDTO;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
     private final UserRelationService userRelationService;
     private final PostsRepository postsRepository;
     private final DemoRepository demoRepository;
@@ -52,7 +53,8 @@ public class UserService {
                       PostLikeRepository postLikeRepository, PostCommentRepository postCommentRepository,
                       PostViewRepository postViewRepository, PostDownloadRepository postDownloadRepository,
                       UserRelationRepository userRelationRepository, ChatsRepository chatsRepository,
-                      PasswordEncoder passwordEncoder, S3Service s3Service) {
+                      PasswordEncoder passwordEncoder, S3Service s3Service, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
         this.postsRepository = postsRepository;
@@ -72,10 +74,7 @@ public class UserService {
     }
 
     public void clearNotifications(User user) {
-        if (user.getNotifications() != null && !user.getNotifications().isEmpty()) {
-            user.setNotifications(new java.util.ArrayList<>());
-            userRepository.save(user);
-        }
+        notificationService.clear(user.getUserName());
     }
 
     public User createUser(User user) {
@@ -106,43 +105,43 @@ public class UserService {
         return true;
     }
 
+    /**
+     * Profile edits: only the fields a user may change about themselves (the
+     * same ones the web and mobile editors send). Picture uploads are handled
+     * by the controller. Everything else (role, email, user name, password,
+     * Stripe/Apple ids, counts, lists) is never taken from the request.
+     *
+     * This used to rebuild the whole User from the request, which let anyone
+     * set their own role (free Plus) or email, and wiped the fields its
+     * constructor doesn't cover (Stripe ids, subscription status, follower
+     * counts, createdAt) on every profile edit.
+     */
     public void updateUser(String id, User updatedUser) {
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        user = new User(
-            user.getId(),
-            updatedUser.getUserName() != null && !updatedUser.getUserName().isBlank() ? updatedUser.getUserName() : user.getUserName(),
-            updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank() ? passwordEncoder.encode(updatedUser.getPassword()) : user.getPassword(),
-            updatedUser.getEmail() != null && !updatedUser.getEmail().isBlank() ? updatedUser.getEmail() : user.getEmail(),
-            updatedUser.getRole() != null && !updatedUser.getRole().isBlank() ? updatedUser.getRole() : user.getRole(),
-            updatedUser.getBio() != null && !updatedUser.getBio().isBlank() ? updatedUser.getBio() : user.getBio(),
-            updatedUser.getAbout() != null && !updatedUser.getAbout().isBlank() ? updatedUser.getAbout() : user.getAbout(),
-            updatedUser.getProfilePic() != null && !updatedUser.getProfilePic().isBlank() ? updatedUser.getProfilePic() : user.getProfilePic(),
-            updatedUser.getBanner() != null && !updatedUser.getBanner().isBlank() ? updatedUser.getBanner() : user.getBanner(),
-            updatedUser.getLocation() != null && !updatedUser.getLocation().isBlank() ? updatedUser.getLocation() : user.getLocation(),
-            updatedUser.getSocialMedia() != null && !updatedUser.getSocialMedia().isEmpty() ? updatedUser.getSocialMedia() : user.getSocialMedia(),
-            updatedUser.getBadges() != null && !updatedUser.getBadges().isEmpty() ? updatedUser.getBadges() : user.getBadges(),
-            updatedUser.getDemo() != null && !updatedUser.getDemo().isEmpty() ? updatedUser.getDemo() : user.getDemo(),
-            updatedUser.getFeaturedOn() != null && !updatedUser.getFeaturedOn().isEmpty() ? updatedUser.getFeaturedOn() : user.getFeaturedOn(),
-            updatedUser.getLikedPosts() != null && !updatedUser.getLikedPosts().isEmpty() ? updatedUser.getLikedPosts() : user.getLikedPosts(),
-            updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
-            updatedUser.getChats() != null && !updatedUser.getChats().isEmpty() ? updatedUser.getChats() : user.getChats(),
-            updatedUser.getNotifications() != null && !updatedUser.getNotifications().isEmpty() ? updatedUser.getNotifications() : user.getNotifications(),
-            updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments()
-        );
+        // null = not sent (keep); "" = cleared
+        if (updatedUser.getBio() != null) user.setBio(limit(updatedUser.getBio(), 50));
+        if (updatedUser.getAbout() != null) user.setAbout(limit(updatedUser.getAbout(), 250));
+        if (updatedUser.getLocation() != null) user.setLocation(limit(updatedUser.getLocation(), 50));
+        if (updatedUser.getSocialMedia() != null) {
+            user.setSocialMedia(updatedUser.getSocialMedia().stream()
+                .filter(link -> link != null && !link.isBlank())
+                .map(link -> limit(link, 300))
+                .limit(10)
+                .toList());
+        }
         userRepository.save(user);
-        
+    }
+
+    private static String limit(String value, int max) {
+        String trimmed = value.trim();
+        return trimmed.length() > max ? trimmed.substring(0, max) : trimmed;
     }
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll()
         .stream()
         .map(u -> {
             // Sort notifications by time in descending order (newest first)
-            List<NotificationsDTO> sortedNotifications = u.getNotifications();
-            if (sortedNotifications != null) {
-                sortedNotifications = new ArrayList<>(sortedNotifications); // Create a copy to avoid modifying original
-                sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-            }
+            List<NotificationsDTO> sortedNotifications = notificationService.recent(u.getUserName());
             
             // Sort posts by ID (assuming newer posts have higher IDs)
             List<String> sortedPosts = u.getPosts();
@@ -203,11 +202,7 @@ public class UserService {
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         // Sort notifications by time in descending order (newest first)
-        List<NotificationsDTO> sortedNotifications = user.getNotifications();
-        if (sortedNotifications != null) {
-            sortedNotifications = new ArrayList<>(sortedNotifications);
-            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
+        List<NotificationsDTO> sortedNotifications = notificationService.recent(user.getUserName());
         
         // Sort posts by ID (assuming newer posts have higher IDs or you can sort by creation time)
         List<String> sortedPosts = user.getPosts();
@@ -436,6 +431,7 @@ public class UserService {
         }
         
         // 10. Finally, delete the user profile
+        notificationService.clear(user.getUserName());
         userRepository.deleteById(id);
     }
     
@@ -481,11 +477,7 @@ public class UserService {
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         // Sort notifications by time in descending order (newest first)
-        List<NotificationsDTO> sortedNotifications = user.getNotifications();
-        if (sortedNotifications != null) {
-            sortedNotifications = new ArrayList<>(sortedNotifications);
-            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
+        List<NotificationsDTO> sortedNotifications = notificationService.recent(user.getUserName());
         
         // Sort posts by ID (assuming newer posts have higher IDs)
         List<String> sortedPosts = user.getPosts();
@@ -538,16 +530,9 @@ public class UserService {
         );
     }
 
+    /** The 30 newest notifications (older ones are reachable through paging) */
     public List<NotificationsDTO> getNoti(String userName){
-        Optional<User> user = userRepository.findByUserName(userName);
-        List<NotificationsDTO> notifications = user.get().getNotifications();
-        
-        // Sort notifications by time in descending order (newest first)
-        if (notifications != null) {
-            notifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
-        
-        return notifications;
+        return notificationService.recent(userName);
     }
     
 

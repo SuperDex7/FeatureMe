@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { downloadPost, trackDownload } from "../services/PostsService";
 import { getCurrentUser } from "../services/AuthService";
+import Icon from "./ui/Icon";
 import "../Styling/AudioPlayer2.css";
 
 function formatTime(secs) {
@@ -22,7 +23,6 @@ function AudioPlayer2({ src, onClose, title, postId, freeDownload = false }) {
   const [previousVolume, setPreviousVolume] = useState(1);
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
@@ -195,148 +195,87 @@ function AudioPlayer2({ src, onClose, title, postId, freeDownload = false }) {
     }
   };
 
-  const getVolumeIcon = () => {
-    if (isMuted || volume === 0) return '🔇';
-    if (volume < 0.3) return '🔉';
-    if (volume < 0.7) return '🔊';
-    return '🔊';
-  };
-
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const volumePercentage = (isMuted ? 0 : volume) * 100;
 
   return (
-    <div className={`posts-audio-player ${fadeIn ? 'posts-fade-in' : ''}${fadeOut ? 'posts-fade-out' : ''}`}>
-      <div className="posts-audio-container">
-        {/* Header */}
-        <div className="posts-audio-header">
-          <div className="posts-audio-track-info">
-            <h3 className="posts-audio-title">{title}</h3>
-            <div className="posts-audio-time">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
-          </div>
-          
-          <div className="posts-audio-actions">
-            {freeDownload && (
-              <button 
-                className={`posts-download-btn ${isDownloading ? 'posts-loading' : ''}`}
-                onClick={handleDownload} 
-                disabled={isDownloading}
-                title="Download track"
-              >
-                {isDownloading ? (
-                  <span className="posts-download-spinner"></span>
-                ) : (
-                  <span className="posts-download-icon">⬇</span>
-                )}
-              </button>
-            )}
-            <button className="posts-close-btn" onClick={handleClose} title="Close player">
-              <span className="posts-close-icon">×</span>
-            </button>
-          </div>
+    <div
+      className={`fm-player${fadeIn ? ' is-in' : ''}${fadeOut ? ' is-out' : ''}`}
+      role="group"
+      aria-label={`Player: ${title}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="fm-player__play"
+        onClick={togglePlay}
+        disabled={isLoading}
+        aria-label={isLoading ? "Loading" : playing ? `Pause ${title}` : `Play ${title}`}
+      >
+        {isLoading ? (
+          <span className="fm-player__spinner" aria-hidden="true" />
+        ) : (
+          <Icon name={playing ? "pause" : "play"} size={18} />
+        )}
+      </button>
+
+      <div className="fm-player__track">
+        <div className="fm-player__meta">
+          <span className="fm-player__title">{title}</span>
+          <span className="fm-player__time">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
-
-        {/* Progress Bar */}
-        <div className="posts-audio-progress-container">
-          <div className="posts-progress-track">
-            <div 
-              className="posts-progress-fill" 
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            value={currentTime}
-            onChange={handleSeek}
-            className="posts-progress-input"
-            disabled={isLoading}
-          />
-        </div>
-
-         {/* Controls */}
-         <div className="posts-audio-controls">
-           <div className="posts-main-controls">
-             <button 
-               className="posts-play-btn" 
-               onClick={togglePlay} 
-               disabled={isLoading}
-               title={playing ? "Pause" : "Play"}
-             >
-               {isLoading ? (
-                 <span className="posts-loading-spinner"></span>
-               ) : playing ? (
-                 <span className="posts-pause-icon">⏸</span>
-               ) : (
-                 <span className="posts-play-icon">▶</span>
-               )}
-             </button>
-           </div>
-
-           {/* Volume Control Section */}
-           <div className="posts-volume-section">
-             <div className="posts-volume-controls">
-               <button 
-                 className="posts-volume-btn" 
-                 onClick={toggleMute}
-                 title={isMuted ? "Unmute" : "Mute"}
-               >
-                 <span className="posts-volume-icon">{getVolumeIcon()}</span>
-               </button>
-               
-               {/* Always Visible Volume Slider */}
-               <div className="posts-volume-slider-always-visible">
-                 <input
-                   type="range"
-                   min="0"
-                   max="1"
-                   step="0.01"
-                   value={volume}
-                   onChange={handleVolumeChange}
-                   className="posts-volume-slider-main"
-                   title="Adjust volume"
-                 />
-               </div>
-             </div>
-             
-             {/* Hidden Volume Slider for Hover Effect */}
-             <div 
-               className={`posts-volume-slider-container ${showVolumeSlider ? 'posts-show' : ''}`}
-               onMouseEnter={() => setShowVolumeSlider(true)}
-               onMouseLeave={() => setShowVolumeSlider(false)}
-             >
-               <input
-                 type="range"
-                 min="0"
-                 max="1"
-                 step="0.01"
-                 value={volume}
-                 onChange={handleVolumeChange}
-                 className="posts-volume-slider"
-                 title="Adjust volume"
-               />
-             </div>
-           </div>
-         </div>
-
-        {/* Waveform Visualization */}
-        <div className="posts-audio-waveform">
-          <div className="posts-waveform-bars">
-            {Array.from({ length: 20 }, (_, i) => (
-              <div 
-                key={i} 
-                className={`posts-wave-bar ${playing ? 'posts-animate' : ''}`}
-                style={{ 
-                  animationDelay: `${i * 0.1}s`,
-                  height: `${Math.random() * 60 + 20}%`
-                }}
-              ></div>
-            ))}
-          </div>
-        </div>
+        <input
+          type="range"
+          className="fm-player__seek"
+          min="0"
+          max={duration || 0}
+          step="0.1"
+          value={currentTime}
+          onChange={handleSeek}
+          disabled={isLoading}
+          aria-label="Seek"
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+          style={{ "--fm-fill": `${progressPercentage}%` }}
+        />
       </div>
+
+      <div className="fm-player__volume">
+        <button
+          type="button"
+          className="fm-player__icon-btn"
+          onClick={toggleMute}
+          aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+        >
+          <Icon name={isMuted || volume === 0 ? "volumeOff" : "volume"} size={18} />
+        </button>
+        <input
+          type="range"
+          className="fm-player__volume-slider"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={handleVolumeChange}
+          aria-label="Volume"
+          style={{ "--fm-fill": `${volumePercentage}%` }}
+        />
+      </div>
+
+      {freeDownload && (
+        <button
+          type="button"
+          className="fm-player__icon-btn"
+          onClick={handleDownload}
+          disabled={isDownloading}
+          aria-label={isDownloading ? "Downloading" : `Download ${title}`}
+        >
+          {isDownloading ? <span className="fm-player__spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
+        </button>
+      )}
+
+      <button type="button" className="fm-player__icon-btn" onClick={handleClose} aria-label="Close player">
+        <Icon name="close" size={18} />
+      </button>
     </div>
   );
 }

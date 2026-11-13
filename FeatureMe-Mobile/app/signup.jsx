@@ -42,7 +42,8 @@ export default function SignupPage() {
   
   // Email verification state
   const [verificationCode, setVerificationCode] = useState("");
-  const [encryptedCode, setEncryptedCode] = useState("");
+  // One-time token from the server after the emailed code is checked; /auth/create needs it
+  const [verificationToken, setVerificationToken] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   
@@ -219,8 +220,8 @@ export default function SignupPage() {
       
       // Send verification email
       try {
-        const response = await api.get(`/user/auth/email/${encodeURIComponent(formData.email)}`);
-        setEncryptedCode(response.data);
+        await api.post('/user/auth/email-verification/send', { email: formData.email.trim() });
+        setVerificationToken("");
         Alert.alert(
           "Verification Email Sent",
           `We've sent a verification code to ${formData.email}`,
@@ -266,17 +267,8 @@ export default function SignupPage() {
     }
   };
 
-  const decryptCode = (encryptedCode) => {
-    try {
-      // Decode base64 string
-      return atob(encryptedCode);
-    } catch (error) {
-      console.error("Error decrypting code:", error);
-      return null;
-    }
-  };
-
-  const handleVerifyCode = () => {
+  // The server checks the code (5 tries per code) and returns a one-time token
+  const handleVerifyCode = async () => {
     if (!verificationCode.trim()) {
       setVerificationError("Please enter the verification code");
       return;
@@ -284,26 +276,24 @@ export default function SignupPage() {
 
     setIsVerifying(true);
     setVerificationError("");
-
-    // Decrypt the stored encrypted code
-    const decryptedCode = decryptCode(encryptedCode);
-    
-    if (decryptedCode && verificationCode.trim() === decryptedCode) {
-      // Code matches, proceed to next step
+    try {
+      const response = await api.post('/user/auth/email-verification/verify', {
+        email: formData.email.trim(),
+        code: verificationCode.trim(),
+      });
+      setVerificationToken(response.data.verificationToken);
       setStep(3);
-      setIsVerifying(false);
-      setVerificationError("");
-    } else {
-      // Code doesn't match
-      setVerificationError("Invalid verification code. Please try again.");
+    } catch (error) {
+      setVerificationError(error.response?.data?.error || "Invalid verification code. Please try again.");
+    } finally {
       setIsVerifying(false);
     }
   };
 
   const handleResendCode = async () => {
     try {
-      const response = await api.get(`/user/auth/email/${encodeURIComponent(formData.email)}`);
-      setEncryptedCode(response.data);
+      await api.post('/user/auth/email-verification/send', { email: formData.email.trim() });
+      setVerificationToken("");
       Alert.alert("Code Resent", "A new verification code has been sent to your email.");
     } catch (error) {
       console.error("Error resending verification email:", error);
@@ -380,6 +370,7 @@ export default function SignupPage() {
       
       // Append user data as JSON string
       submitData.append('user', JSON.stringify(userData));
+      submitData.append('verificationToken', verificationToken);
       
       // Append profile picture if selected
       if (profilePicFile) {
@@ -426,7 +417,15 @@ export default function SignupPage() {
       
       let errorMessage = "Failed to create account. Please try again.";
       
-      if (error.response?.status === 409) {
+      if (error.response?.status === 403) {
+        // The email check expired (30 minutes); verify again
+        setVerificationToken("");
+        setVerificationCode("");
+        setStep(2);
+        setIsSubmitting(false);
+        Alert.alert("Verify Your Email Again", "Your email check expired. Tap Resend Code to get a new one.");
+        return;
+      } else if (error.response?.status === 409) {
         errorMessage = "Email or username already exists. Please try different credentials.";
       } else if (error.response?.data) {
         errorMessage = error.response.data.error || error.response.data;
@@ -590,12 +589,13 @@ export default function SignupPage() {
             style={[styles.input, verificationError ? styles.errorInput : null]}
             value={verificationCode}
             onChangeText={(value) => {
-              setVerificationCode(value);
+              setVerificationCode(value.replace(/\D/g, "").slice(0, 6));
               setVerificationError("");
             }}
-            placeholder="Enter the verification code"
-            autoCapitalize="none"
-            maxLength={20}
+            placeholder="6-digit code"
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
           />
           {verificationError && <Text style={styles.errorText}>{verificationError}</Text>}
         </View>

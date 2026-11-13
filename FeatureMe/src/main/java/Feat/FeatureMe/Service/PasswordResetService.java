@@ -7,7 +7,10 @@ import Feat.FeatureMe.Repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,7 +24,7 @@ public class PasswordResetService {
     // Rate limiting: max 3 attempts per email per hour
     private static final int MAX_ATTEMPTS_PER_HOUR = 3;
     private static final int CODE_EXPIRY_MINUTES = 15;
-    private static final int MAX_ATTEMPT_COUNT = 3;
+    private static final int MAX_ATTEMPT_COUNT = 5; // wrong guesses per code
     
     public PasswordResetService(PasswordResetCodeRepository passwordResetCodeRepository, 
                               UserRepository userRepository, 
@@ -66,58 +69,54 @@ public class PasswordResetService {
      * Verify reset code
      */
     public boolean verifyResetCode(String email, String code) {
-        Optional<PasswordResetCode> resetCodeOpt = passwordResetCodeRepository
-            .findByCodeAndEmailAndUsedFalse(code, email);
-        
-        if (resetCodeOpt.isEmpty()) {
-            return false;
+        return checkCode(email, code).isPresent();
+    }
+
+    /**
+     * Finds the email's current code and checks the guess against it. Every
+     * wrong guess counts; after MAX_ATTEMPT_COUNT the code is deleted, so codes
+     * can't be guessed by trying many values.
+     */
+    private Optional<PasswordResetCode> checkCode(String email, String code) {
+        if (email == null || code == null) {
+            return Optional.empty();
         }
-        
-        PasswordResetCode resetCode = resetCodeOpt.get();
-        
-        // Check if code is expired
-        if (resetCode.isExpired()) {
+        Optional<PasswordResetCode> current = passwordResetCodeRepository
+            .findByEmailAndUsedFalseOrderByCreatedAtDesc(email).stream().findFirst();
+        if (current.isEmpty()) {
+            return Optional.empty();
+        }
+
+        PasswordResetCode resetCode = current.get();
+        if (resetCode.isExpired() || resetCode.getAttemptCount() >= MAX_ATTEMPT_COUNT) {
             passwordResetCodeRepository.delete(resetCode);
-            return false;
+            return Optional.empty();
         }
-        
-        // Increment attempt count
-        resetCode.incrementAttemptCount();
-        
-        // Check if too many attempts
-        if (resetCode.getAttemptCount() > MAX_ATTEMPT_COUNT) {
-            passwordResetCodeRepository.delete(resetCode);
-            return false;
+
+        boolean matches = MessageDigest.isEqual(
+            resetCode.getCode().getBytes(StandardCharsets.UTF_8),
+            code.trim().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+        if (!matches) {
+            resetCode.incrementAttemptCount();
+            if (resetCode.getAttemptCount() >= MAX_ATTEMPT_COUNT) {
+                passwordResetCodeRepository.delete(resetCode);
+            } else {
+                passwordResetCodeRepository.save(resetCode);
+            }
+            return Optional.empty();
         }
-        
-        passwordResetCodeRepository.save(resetCode);
-        return true;
+        return Optional.of(resetCode);
     }
     
     /**
      * Reset password with code
      */
     public boolean resetPassword(String email, String code, String newPassword) {
-        Optional<PasswordResetCode> resetCodeOpt = passwordResetCodeRepository
-            .findByCodeAndEmailAndUsedFalse(code, email);
-        
+        Optional<PasswordResetCode> resetCodeOpt = checkCode(email, code);
         if (resetCodeOpt.isEmpty()) {
             return false;
         }
-        
         PasswordResetCode resetCode = resetCodeOpt.get();
-        
-        // Check if code is expired
-        if (resetCode.isExpired()) {
-            passwordResetCodeRepository.delete(resetCode);
-            return false;
-        }
-        
-        // Check if too many attempts
-        if (resetCode.getAttemptCount() > MAX_ATTEMPT_COUNT) {
-            passwordResetCodeRepository.delete(resetCode);
-            return false;
-        }
         
         // Validate new password
         if (newPassword == null || newPassword.length() < 6) {

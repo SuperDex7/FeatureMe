@@ -1,260 +1,292 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Notifications from "./Notifications";
+import Icon from "./ui/Icon";
 import "./Header.css";
-import api, { logout, getCurrentUserSafe } from "../services/AuthService";
-import { clearMyNotifications } from "../services/UserService";
+import { logout, getCurrentUserSafe, peekCurrentUser } from "../services/AuthService";
+import useNotifications from "../hooks/useNotifications";
 
+const NAV_LINKS = [
+  { href: "/home", label: "Home", icon: "home" },
+  { href: "/feed", label: "Feed", icon: "feed" },
+  { href: "/trending", label: "Trending", icon: "trending" },
+  { href: "/messages", label: "Messages", icon: "message" },
+  { href: "/pending-features", label: "Requests", icon: "music" },
+];
+
+// Main app header for logged-in pages.
+// Responsive: full search + labelled Create above 1100px; icon buttons below;
+// nav links move into a menu below 760px (see Header.css).
 function Header() {
-  const [displayNoti, setDisplayNoti] = useState(false);
-  const [displayUserMenu, setDisplayUserMenu] = useState(false);
-  const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
-  const [noti, setNoti] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  
-  const userMenuRef = useRef(null);
-  const mobileMenuRef = useRef(null);
-  const notiRef = useRef(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const showNoti = () => setDisplayNoti((v) => !v);
-  const toggleUserMenu = () => setDisplayUserMenu((v) => !v);
-  const toggleMobileMenu = () => {
-    setDisplayMobileMenu((v) => !v);
-    window.dispatchEvent(new CustomEvent('mobileMenuToggle'));
-  };
-  
+  // Only one menu open at a time: "noti" | "user" | "nav" | null
+  const [openMenu, setOpenMenu] = useState(null);
+  // Known right away when moving between pages; otherwise checked below
+  const [currentUser, setCurrentUser] = useState(() => peekCurrentUser() ?? null);
+  const [userChecked, setUserChecked] = useState(() => peekCurrentUser() !== undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const headerRef = useRef(null);
+
+  const toggleMenu = (name) => setOpenMenu((current) => (current === name ? null : name));
+  const closeMenus = () => setOpenMenu(null);
+
   const handleLogout = async () => {
     await logout();
   };
 
-  const handleClearNotifications = async () => {
-    try {
-      await clearMyNotifications();
-      setNoti([]);
-    } catch (e) {
-      console.error("Failed to clear notifications", e);
-    }
-  };
 
+  const handleSearch = (event) => {
+    event.preventDefault();
+    const term = searchTerm.trim();
+    closeMenus();
+    navigate(term ? `/user-search?q=${encodeURIComponent(term)}` : "/user-search");
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
       const user = await getCurrentUserSafe();
       setCurrentUser(user);
+      setUserChecked(true);
     };
     fetchUser();
   }, []);
-  
-  useEffect(() => {
-    if (currentUser && currentUser.userName) {
-      api.get(`user/get/notifications/${currentUser.userName}`).then(res => {
-        setNoti(res.data);
-      }).catch(err => {
-        console.error('Error fetching notifications:', err);
-      });
-    }
-  }, [currentUser]);
-  
-  // Close menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setDisplayUserMenu(false);
-      }
-      if (notiRef.current && !notiRef.current.contains(event.target)) {
-        setDisplayNoti(false);
-      }
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
-        setDisplayMobileMenu(false);
-      }
-    };
-    
-    if (displayUserMenu || displayMobileMenu || displayNoti) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [displayUserMenu, displayMobileMenu, displayNoti]);
 
-  return (
-    <header className="header">
-      <div className="header-container">
-        {/* Logo Section */}
-        <div className="header-logo">
-          <a href="/home" className="header-logo-link">
-            <img 
-              src="/SVGs/Logo Lockup Gradient.svg" 
-              alt="FeatureMe Logo" 
-              className="header-logo-icon"
-            />
+  // Shared with the home dashboard; loads once the user is known
+  const notifications = useNotifications(Boolean(currentUser?.userName));
+
+  // Close menus on outside click or Escape
+  useEffect(() => {
+    if (!openMenu) return undefined;
+    const handleClickOutside = (event) => {
+      if (headerRef.current && !headerRef.current.contains(event.target)) {
+        closeMenus();
+      }
+    };
+    const handleKey = (event) => {
+      if (event.key === "Escape") closeMenus();
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [openMenu]);
+
+  // Close menus after navigating
+  useEffect(() => {
+    closeMenus();
+  }, [location.pathname]);
+
+  const isActive = (href) => location.pathname === href || location.pathname.startsWith(`${href}/`);
+  const notiCount = notifications.total;
+  const userName = currentUser?.userName || "";
+  const avatar = currentUser?.profilePic || "/dpp.jpg";
+
+  // Still finding out who you are: just the logo, so neither the logged-in
+  // links nor the Log in / Sign up buttons flash up and then disappear
+  if (!userChecked) {
+    return (
+      <header className="fm-header" ref={headerRef}>
+        <div className="fm-header__bar">
+          <a href="/" className="fm-header__logo">
+            <img src="/SVGs/Logo Lockup Gradient.svg" alt="FeatureMe" />
           </a>
         </div>
+      </header>
+    );
+  }
 
-        {/* Mobile Menu Toggle */}
-        <button 
-          className="header-mobile-toggle" 
-          onClick={toggleMobileMenu}
-          aria-label="Toggle menu"
-        >
-          <span className={`header-hamburger ${displayMobileMenu ? 'active' : ''}`}>
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
-        </button>
+  // Logged-out visitors (public pages like a shared post) get a minimal bar
+  if (!currentUser) {
+    return (
+      <header className="fm-header" ref={headerRef}>
+        <div className="fm-header__bar">
+          <a href="/" className="fm-header__logo">
+            <img src="/SVGs/Logo Lockup Gradient.svg" alt="FeatureMe" />
+          </a>
+          <div className="fm-header__actions fm-header__guest">
+            <a href="/login" className="fm-btn fm-btn--secondary">Log in</a>
+            <a href="/signup" className="fm-btn fm-btn--primary">Sign up</a>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
-        {/* Navigation */}
-        <nav className={`header-nav ${displayMobileMenu ? 'active' : ''}`}>
-          <a href="/feed" className="header-nav-link" onClick={() => setDisplayMobileMenu(false)}>
-            <span className="header-nav-icon">📱</span>
-            <span className="header-nav-text">Feed</span>
-          </a>
-          <a href="/user-search" className="header-nav-link" onClick={() => setDisplayMobileMenu(false)}>
-            <span className="header-nav-icon">🔍</span>
-            <span className="header-nav-text">Search</span>
-          </a>
-          <a href="/create-post" className="header-nav-link header-nav-cta" onClick={() => setDisplayMobileMenu(false)}>
-            <span className="header-nav-icon">➕</span>
-            <span className="header-nav-text">Create</span>
-          </a>
+  return (
+    <header className="fm-header" ref={headerRef}>
+      <div className="fm-header__bar">
+        <a href="/home" className="fm-header__logo">
+          <img src="/SVGs/Logo Lockup Gradient.svg" alt="FeatureMe home" />
+        </a>
+
+        <nav className="fm-header__nav" aria-label="Main">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className={`fm-header__link${isActive(link.href) ? " is-active" : ""}`}
+              aria-current={isActive(link.href) ? "page" : undefined}
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
 
-        {/* Actions Section */}
-        <div className="header-actions">
+        <div className="fm-header__actions">
+          <form className="fm-header__search" role="search" onSubmit={handleSearch}>
+            <Icon name="search" size={18} />
+            <label className="fm-visually-hidden" htmlFor="fm-header-search">Search artists</label>
+            <input
+              id="fm-header-search"
+              type="search"
+              placeholder="Search artists"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </form>
 
-          {/* Notifications */}
-          <div className="header-notifications" ref={notiRef}>
-            <button 
-              className="header-action-btn header-noti-btn" 
-              onClick={showNoti}
-              aria-label="Notifications"
+          <a href="/user-search" className="fm-header__icon-btn fm-header__search-btn" aria-label="Search artists">
+            <Icon name="search" />
+          </a>
+
+          <div className="fm-header__menu-anchor">
+            <button
+              type="button"
+              className="fm-header__icon-btn"
+              onClick={() => toggleMenu("noti")}
+              aria-label={notiCount > 0 ? `Notifications, ${notiCount} new` : "Notifications"}
+              aria-expanded={openMenu === "noti"}
+              aria-haspopup="true"
             >
-              <span className="header-action-icon">🔔</span>
-              {noti && Array.isArray(noti) && noti.length > 0 && (
-                <span className="header-noti-badge">{noti.length}</span>
+              <Icon name="bell" />
+              {notiCount > 0 && (
+                <span className="fm-header__badge" aria-hidden="true">{notiCount > 9 ? "9+" : notiCount}</span>
               )}
             </button>
-            
-            {displayNoti && (
-              <div className="header-noti-dropdown">
-                <div className="header-noti-header">
-                  <h3 className="header-noti-title">Notifications</h3>
-                  {noti && Array.isArray(noti) && noti.length > 0 && (
-                    <button className="header-noti-clear" onClick={handleClearNotifications}>
-                      Clear All
+
+            {openMenu === "noti" && (
+              <div className="fm-header__panel fm-header__panel--noti">
+                <div className="fm-header__panel-head">
+                  <h2>Notifications</h2>
+                  {notiCount > 0 && (
+                    <button type="button" className="fm-header__text-btn" onClick={notifications.clearAll}>
+                      Clear all
                     </button>
                   )}
                 </div>
-                <div className="header-noti-content">
-                  {noti && Array.isArray(noti) && noti.length > 0 ? (
-                    <Notifications notifications={noti} className="header-noti-list"/>
+                <div className="fm-header__noti-body">
+                  {notiCount > 0 ? (
+                    <>
+                      <Notifications notifications={notifications.items} className="fm-header__noti-list" onDelete={notifications.remove} />
+                      {notifications.hasMore && (
+                        <div className="notifications-more">
+                          <button type="button" className="fm-btn fm-btn--secondary" onClick={notifications.loadMore} disabled={notifications.status === "loadingMore"}>
+                            {notifications.status === "loadingMore" ? "Loading…" : "Load more"}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="header-noti-empty">
-                      <span className="header-noti-empty-icon">🔔</span>
-                      <p className="header-noti-empty-text">No notifications yet</p>
-                    </div>
+                    <p className="fm-header__empty">No notifications yet</p>
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* User Menu */}
-          <div className="header-user-menu" ref={userMenuRef}>
-            <button 
-              className="header-user-btn" 
-              onClick={toggleUserMenu}
-              aria-label="User menu"
+          <a href="/create-post" className="fm-header__create" aria-label="Create post">
+            <Icon name="plus" size={18} strokeWidth={2} />
+            <span className="fm-header__create-label">Create post</span>
+          </a>
+
+          <div className="fm-header__menu-anchor">
+            <button
+              type="button"
+              className="fm-header__avatar-btn"
+              onClick={() => toggleMenu("user")}
+              aria-label="Account menu"
+              aria-expanded={openMenu === "user"}
+              aria-haspopup="true"
             >
-              <img 
-                src={currentUser?.profilePic || '/dpp.jpg'} 
-                alt={currentUser?.userName || 'User'} 
-                className="header-user-avatar"
-              />
-              <span className="header-user-name">{currentUser?.userName || 'User'}</span>
-              <span className={`header-user-arrow ${displayUserMenu ? 'active' : ''}`}>▼</span>
+              <img src={avatar} alt="" />
             </button>
-            
-            {displayUserMenu && (
-              <div className="header-user-dropdown">
-                <div className="header-user-info">
-                  <img 
-                    src={currentUser?.profilePic || '/dpp.jpg'} 
-                    alt={currentUser?.userName || 'User'} 
-                    className="header-dropdown-avatar"
-                  />
-                  <div className="header-dropdown-info">
-                    <span className="header-dropdown-name">{currentUser?.userName || 'User'}</span>
-                    <span className="header-dropdown-role">{currentUser?.role || 'USER'}</span>
+
+            {openMenu === "user" && (
+              <div className="fm-header__panel fm-header__panel--user">
+                <div className="fm-header__account">
+                  <img src={avatar} alt="" />
+                  <div>
+                    <div className="fm-header__account-name">{userName || "Your account"}</div>
+                    <div className="fm-header__account-plan">
+                      {currentUser?.role === "USERPLUS" ? "Plus member" : "Free plan"}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="header-dropdown-divider"></div>
-                
-                <div className="header-dropdown-menu">
-                  <a 
-                    href={`/profile/${currentUser?.userName || ''}`} 
-                    className="header-dropdown-item" 
-                    onClick={() => setDisplayUserMenu(false)}
-                  >
-                    <span className="header-dropdown-icon">👤</span>
-                    <span className="header-dropdown-label">View Profile</span>
-                  </a>
-                  
-                  <a 
-                    href="/pending-features" 
-                    className="header-dropdown-item" 
-                    onClick={() => setDisplayUserMenu(false)}
-                  >
-                    <span className="header-dropdown-icon">⏳</span>
-                    <span className="header-dropdown-label">Feature Requests</span>
-                  </a>
-                  
-                  <a 
-                    href="/create-post" 
-                    className="header-dropdown-item" 
-                    onClick={() => setDisplayUserMenu(false)}
-                  > 
-                    <span className="header-dropdown-icon">✍️</span>
-                    <span className="header-dropdown-label">Create Post</span>
-                  </a>
-                  
-                  <a 
-                    href="/messages" 
-                    className="header-dropdown-item" 
-                    onClick={() => setDisplayUserMenu(false)}
-                  >
-                    <span className="header-dropdown-icon">💬</span>
-                    <span className="header-dropdown-label">Messaging</span>
-                  </a>
-                  
-                  <a 
-                    href="/subscription" 
-                    className="header-dropdown-item" 
-                    onClick={() => setDisplayUserMenu(false)}
-                  >
-                    <span className="header-dropdown-icon">⭐</span>
-                    <span className="header-dropdown-label">
-                      {currentUser?.role === 'USER' ? 'Upgrade Plan' : 'Your Plan'}
-                    </span>
-                  </a>
+                <ul className="fm-header__menu-list">
+                  <li><a href={`/profile/${userName}`}><Icon name="user" size={18} />View profile</a></li>
+                  <li><a href="/create-post"><Icon name="plus" size={18} />Create post</a></li>
+                  <li><a href="/messages"><Icon name="message" size={18} />Messages</a></li>
+                  <li><a href="/pending-features"><Icon name="music" size={18} />Feature requests</a></li>
+                  <li>
+                    <a href="/subscription">
+                      <Icon name="star" size={18} />
+                      {currentUser?.role === "USER" ? "Upgrade plan" : "Your plan"}
+                    </a>
+                  </li>
+                </ul>
+                <div className="fm-header__menu-footer">
+                  <button type="button" className="fm-header__logout" onClick={handleLogout}>
+                    <Icon name="logout" size={18} />
+                    Log out
+                  </button>
                 </div>
-                
-                <div className="header-dropdown-divider"></div>
-                
-                <button 
-                  className="header-dropdown-item header-dropdown-logout" 
-                  onClick={handleLogout}
-                >
-                  <span className="header-dropdown-icon">🚪</span>
-                  <span className="header-dropdown-label">Logout</span>
-                </button>
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            className="fm-header__icon-btn fm-header__nav-toggle"
+            onClick={() => toggleMenu("nav")}
+            aria-label={openMenu === "nav" ? "Close menu" : "Open menu"}
+            aria-expanded={openMenu === "nav"}
+            aria-controls="fm-header-mobile-nav"
+          >
+            <Icon name={openMenu === "nav" ? "close" : "menu"} />
+          </button>
         </div>
       </div>
+
+      {openMenu === "nav" && (
+        <nav id="fm-header-mobile-nav" className="fm-header__mobile-nav" aria-label="Main">
+          <form className="fm-header__mobile-search" role="search" onSubmit={handleSearch}>
+            <Icon name="search" size={18} />
+            <label className="fm-visually-hidden" htmlFor="fm-header-mobile-search">Search artists</label>
+            <input
+              id="fm-header-mobile-search"
+              type="search"
+              placeholder="Search artists"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </form>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className={`fm-header__mobile-link${isActive(link.href) ? " is-active" : ""}`}
+              aria-current={isActive(link.href) ? "page" : undefined}
+            >
+              <Icon name={link.icon} />
+              {link.label}
+            </a>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

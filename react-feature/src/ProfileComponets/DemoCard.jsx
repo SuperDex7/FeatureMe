@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import './DemoCard.css';
+import { useState, useRef } from 'react';
+import Icon from '../Components/ui/Icon';
+import '../Styling/Demos.css';
 
 function DemoCard({ demo, onDelete, canDelete = false }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -55,10 +56,7 @@ function DemoCard({ demo, onDelete, canDelete = false }) {
 
   const handleSeek = (e) => {
     if (audioRef.current) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const width = rect.width;
-      const newTime = (clickX / width) * duration;
+      const newTime = parseFloat(e.target.value);
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
     }
@@ -76,135 +74,74 @@ function DemoCard({ demo, onDelete, canDelete = false }) {
     setCurrentTime(0);
   };
 
-  const getWaveformAnimation = () => {
-    return (
-      <div className="waveform">
-        <div className={`wave-bar ${isPlaying ? 'playing' : ''}`}></div>
-        <div className={`wave-bar ${isPlaying ? 'playing' : ''}`}></div>
-        <div className={`wave-bar ${isPlaying ? 'playing' : ''}`}></div>
-        <div className={`wave-bar ${isPlaying ? 'playing' : ''}`}></div>
-        <div className={`wave-bar ${isPlaying ? 'playing' : ''}`}></div>
-      </div>
-    );
-  };
+  const progress = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="demo-card-new">
-      <div className="demo-card-background">
-        <div className="demo-gradient-overlay"></div>
-      </div>
-      
-      <div className="demo-card-content">
-        <div className="demo-card-header-new">
-          <div className="demo-title-section-new">
-            <div className="demo-title-wrapper">
-              <h4 className="demo-title-new">{demo.title}</h4>
-              <div className="demo-status">
-                <div className={`status-indicator ${isPlaying ? 'playing' : 'paused'}`}>
-                  <div className="status-dot"></div>
-                </div>
-                <span className="status-text">
-                  {isPlaying ? 'Playing' : 'Ready'}
-                </span>
-              </div>
-            </div>
-            {canDelete && (
-              <button 
-                className="demo-delete-btn-new"
-                onClick={() => onDelete && onDelete(demo.id)}
-                title="Delete demo"
-              >
-                <svg className="delete-icon" viewBox="0 0 24 24" fill="none">
-                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            )}
-          </div>
-          
+    <article className="fm-demo">
+      <div className="fm-demo__head">
+        <div className="fm-demo__titles">
+          <h3 className="fm-demo__title">{demo.title}</h3>
           {demo.features && demo.features.length > 0 && (
-            <div className="featured-artists-new">
-              <div className="feat-icon">🎵</div>
-              <div className="feat-content">
-                <span className="feat-label-new">Featured Artists</span>
-                <span className="artists-list-new">
-                  {demo.features.join(', ')}
-                </span>
-              </div>
-            </div>
+            <p className="fm-demo__features">feat. {demo.features.join(', ')}</p>
           )}
         </div>
-        
-        <div className="demo-player-new">
-          <div className="play-controls">
-            <button 
-              className={`play-button-new ${isPlaying ? 'playing' : ''}`}
-              onClick={togglePlay}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              <div className="play-icon">
-                {isPlaying ? (
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="4" width="4" height="16"/>
-                    <rect x="14" y="4" width="4" height="16"/>
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5,3 19,12 5,21"/>
-                  </svg>
-                )}
-              </div>
-            </button>
-            
-            <div className="waveform-container">
-              {getWaveformAnimation()}
-            </div>
-          </div>
-          
-          <div className="progress-section">
-            <div className="progress-container-new" onClick={handleSeek}>
-              <div className="progress-bar-new">
-                <div 
-                  className="progress-fill-new" 
-                  style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
-                ></div>
-                <div className="progress-handle"></div>
-              </div>
-            </div>
-            
-            <div className="time-display-new">
-              <span className="current-time-new">{formatTime(currentTime)}</span>
-              <span className="duration-new">{formatTime(duration)}</span>
-            </div>
-          </div>
-          
-          <div className="volume-controls">
-            <button 
-              className={`volume-button ${isMuted ? 'muted' : ''}`}
-              onClick={toggleMute}
-              aria-label={isMuted ? 'Unmute' : 'Mute'}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                {isMuted ? (
-                  <path d="M11 5L6 9H2v6h4l5 4V5zM22 9l-3 3 3 3M17 12l3-3-3-3"/>
-                ) : (
-                  <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                )}
-              </svg>
-            </button>
-            
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              className="volume-slider"
-            />
-          </div>
-        </div>
+        {canDelete && (
+          <button
+            type="button"
+            className="fm-icon-btn fm-demo__delete"
+            onClick={() => onDelete && onDelete(demo.id)}
+            aria-label={`Delete demo ${demo.title}`}
+          >
+            <Icon name="trash" size={18} />
+          </button>
+        )}
       </div>
-      
+
+      <div className="fm-demo__player">
+        <button
+          type="button"
+          className="fm-demo__play"
+          onClick={togglePlay}
+          aria-label={isPlaying ? `Pause ${demo.title}` : `Play ${demo.title}`}
+        >
+          <Icon name={isPlaying ? 'pause' : 'play'} size={18} />
+        </button>
+        <div className="fm-demo__track">
+          <input
+            type="range"
+            className="fm-player__seek"
+            min="0"
+            max={duration || 0}
+            step="0.1"
+            value={currentTime}
+            onChange={handleSeek}
+            aria-label="Seek"
+            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+            style={{ '--fm-fill': `${progress}%` }}
+          />
+          <span className="fm-demo__time">{formatTime(currentTime)} / {formatTime(duration)}</span>
+        </div>
+        <button
+          type="button"
+          className="fm-icon-btn fm-demo__mute"
+          onClick={toggleMute}
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          <Icon name={isMuted ? 'volumeOff' : 'volume'} size={18} />
+        </button>
+        <input
+          type="range"
+          className="fm-player__volume-slider fm-demo__volume"
+          min="0"
+          max="1"
+          step="0.05"
+          value={isMuted ? 0 : volume}
+          onChange={handleVolumeChange}
+          aria-label="Volume"
+          style={{ '--fm-fill': `${(isMuted ? 0 : volume) * 100}%` }}
+        />
+      </div>
+
       <audio
         ref={audioRef}
         src={demo.songUrl}
@@ -213,7 +150,7 @@ function DemoCard({ demo, onDelete, canDelete = false }) {
         onEnded={handleEnded}
         preload="metadata"
       />
-    </div>
+    </article>
   );
 }
 

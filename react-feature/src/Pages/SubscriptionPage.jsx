@@ -1,381 +1,252 @@
-import React, { useState, useEffect } from 'react';
-import Header from '../Components/Header';
-import Footer from '../Components/Footer';
-import '../Styling/Subscription.css';
-import { loadStripe } from "@stripe/stripe-js";
+import { useEffect, useState } from "react";
+import Header from "../Components/Header";
+import Footer from "../Components/Footer";
+import Dialog from "../Components/ui/Dialog";
+import Icon from "../Components/ui/Icon";
+import PlusBadge from "../Components/ui/PlusBadge";
 import api from "../services/AuthService";
+import "../Styling/SubscriptionPage.css";
 
-// Initialize Stripe with your publishable key
-const stripePromise = loadStripe("pk_live_51S5y09LFlQ9r3bfIljUeY5CMdPOtEbcM3q7UBPMb2ZBvs7hkK80XwYPcg4BJ3kkIzwl3dHGGSzskWtONywgXzNy6006TRFEfri");
+// Stripe publishable key (public by design). Only loaded if the server
+// doesn't hand back a checkout URL.
+const STRIPE_KEY = "pk_live_51S5y09LFlQ9r3bfIljUeY5CMdPOtEbcM3q7UBPMb2ZBvs7hkK80XwYPcg4BJ3kkIzwl3dHGGSzskWtONywgXzNy6006TRFEfri";
+const BILLING_PORTAL = "https://billing.stripe.com/p/login/3cIaEY72cf217ov7bFg7e00";
 
-const SubscriptionPage = () => {
-  const [billingCycle, setBillingCycle] = useState('monthly');
-  const [currentPlan, setCurrentPlan] = useState('free');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+const PRICES = { monthly: 5, yearly: 50 };
+const YEARLY_SAVING = PRICES.monthly * 12 - PRICES.yearly;
+
+// One row per feature: what Free gets, what Plus gets
+const COMPARISON = [
+  { label: "Audio uploads", free: "MP3, up to 15 MB", plus: "MP3 and WAV, up to 90 MB" },
+  { label: "Profile demos", free: "Up to 3", plus: "Up to 6" },
+  { label: "Views analytics", free: false, plus: "Who's listening, liking and downloading" },
+  { label: "Plus Spotlight on Trending", free: false, plus: true },
+  { label: "GIF profile picture and banner", free: false, plus: true },
+  { label: "Social links on your profile", free: false, plus: true },
+  { label: "Plus logo next to your name", free: false, plus: true },
+];
+
+const FAQ = [
+  { q: "Can I cancel any time?", a: "Yes. You keep Plus until the end of the period you've paid for, then your account moves to Free. Your posts and demos stay up." },
+  { q: "What happens to my WAV uploads if I cancel?", a: "Tracks you've already posted stay as they are. New uploads follow the Free limits." },
+  { q: "How do I pay?", a: "Checkout is handled by Stripe, which takes all major cards. FeatureMe never sees your card details." },
+  { q: "I subscribed in the iPhone app. Where do I manage it?", a: "Subscriptions bought in the app are managed in your Apple ID settings, not here." },
+];
+
+function Cell({ value }) {
+  if (value === true) return <><Icon name="check" size={18} strokeWidth={2.4} className="fm-plans__yes" /><span className="fm-visually-hidden">Included</span></>;
+  if (value === false) return <><span className="fm-plans__no" aria-hidden="true">—</span><span className="fm-visually-hidden">Not included</span></>;
+  return <span>{value}</span>;
+}
+
+function SubscriptionPage() {
+  const params = new URLSearchParams(window.location.search);
+  const [plan, setPlan] = useState(null); // 'free' | 'plus'
+  const [status, setStatus] = useState("loading");
+  const [billing, setBilling] = useState("yearly");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(
+    params.get("success") ? { tone: "success", text: "Welcome to FeatureMe Plus! It can take a minute for everything to switch on." }
+      : params.get("canceled") ? { tone: "info", text: "Checkout was canceled. You haven't been charged." }
+        : null,
+  );
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
-    // Simple user role check - webhooks handle subscription status automatically
-    const checkUserRole = async () => {
-      try {
-        const response = await api.get('/user/me');
-        const userRole = response.data?.role;
-        
-        if (userRole === 'USERPLUS') {
-          setCurrentPlan('plus');
-          setMessage("✅ You are subscribed to FeatureMe Plus!");
-        } else {
-          setCurrentPlan('free');
-        }
-      } catch (err) {
-        console.error("Error checking user role:", err);
-        setCurrentPlan('free');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Handle redirect messages from checkout
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("success")) {
-      setMessage("🎉 Subscription successful! Welcome to FeatureMe Plus!");
-      setCurrentPlan('plus');
-    } else if (query.get("canceled")) {
-      setMessage("❌ Subscription canceled. You can try again anytime!");
-    }
-
-    checkUserRole();
+    api.get("/user/me")
+      .then(({ data }) => {
+        setPlan(data?.role === "USERPLUS" || params.get("success") ? "plus" : "free");
+        setStatus("ready");
+      })
+      .catch((err) => {
+        console.error("Error checking plan:", err);
+        setStatus("error");
+      });
+    // Read once on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const plans = {
-    free: {
-      name: 'Free',
-      price: { monthly: 0, yearly: 0 },
-      description: 'Perfect for getting started',
-      features: [
-        'Basic profile features',
-        'Community access'
-       
-      ],
-      limitations: [
-        'No advanced analytics',
-        'No GIF uploads for profile/banner',
-        'Basic discovery features',
-        '3 Profile Demo Limit',
-        'Won\'t Appear In Spotlight Section',
-        '15mb file upload limit | MP3 only'
-      ],
-      buttonText: currentPlan === 'free' ? 'Current Plan' : 'Downgrade',
-      popular: false,
-      color: 'rgba(255, 255, 255, 0.1)'
-    },
-    plus: {
-      name: 'Plus',
-      price: { monthly: 5.00, yearly: 50.00 },
-      description: 'For serious creators and artists',
-      features: [
-        'Advanced Views Analytics',
-        'Upload GIFs for profile picture & banner',
-        'Display Social Links On Profile',
-        'Spotlight Page Appearences',
-        'Up To 6 Profile Demos',
-        '90mb file upload limit | MP3 and Wave File Uploads'
-      ],
-      comingSoon: [
-        'Spotlight Page Upgrades',
-        'TBD',
-       
-      ],
-      buttonText: getPlusButtonText(),
-      popular: true,
-      color: 'linear-gradient(135deg, #4f8cff 0%, #a084e8 100%)'
-    }
-  };
-
-  function getPlusButtonText() {
-    return currentPlan === 'plus' ? 'Current Plan' : 'Upgrade Now';
-  }
-
-  function isButtonDisabled(planType) {
-    if (planType === 'free') {
-      return currentPlan === 'free';
-    } else if (planType === 'plus') {
-      return currentPlan === 'plus';
-    }
-    return false;
-  }
-  
-
-  const handleCheckout = async () => {
+  const checkout = async () => {
+    setBusy(true);
+    setNotice(null);
     try {
-        // Determine which endpoint to call based on billing cycle
-        const endpoint = billingCycle === 'yearly' 
-            ? "/payment/create-checkout-session-yearly"
-            : "/payment/create-checkout-session";
-            
-        // Call your backend to create checkout session
-        const response = await api.post(endpoint);
-        const stripe = await stripePromise;
-        
-        if (stripe) {
-            const { error } = await stripe.redirectToCheckout({
-                sessionId: response.data.id
-            });
-            
-            if (error) {
-                console.error("Stripe error:", error);
-                alert("Error: " + error.message);
-            }
-        }
+      const endpoint = billing === "yearly" ? "/payment/create-checkout-session-yearly" : "/payment/create-checkout-session";
+      const { data } = await api.post(endpoint);
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      const { loadStripe } = await import("@stripe/stripe-js");
+      const stripe = await loadStripe(STRIPE_KEY);
+      const { error } = await stripe.redirectToCheckout({ sessionId: data.id });
+      if (error) throw error;
     } catch (err) {
-        console.error("Checkout error:", err);
-        alert("Error: " + (err.response?.data?.message || err.message));
+      console.error("Checkout error:", err);
+      setNotice({ tone: "error", text: err.response?.data?.message || "Couldn't open checkout. Try again in a moment." });
+      setBusy(false);
     }
-};
-
-const handlePlanAction = async (planType) => {
-    if (planType === 'free' && currentPlan === 'plus') {
-        // Show confirmation alert for downgrade
-        const confirmed = window.confirm(
-            "Are you sure you want to downgrade to the Free plan?\n\n" +
-            "⚠️ You will keep your FeatureMe Plus features until the end of your current billing cycle.\n" +
-            "After that, you'll be moved to the Free plan.\n\n" +
-            "Do you want to continue with the downgrade?"
-        );
-        
-        if (!confirmed) {
-            return; // User cancelled
-        }
-        
-        // Downgrade to free - webhook will handle the actual status change
-        try {
-            const response = await api.get("/payment/cancel-subscription");
-            
-            if (response.data.success) {
-                setMessage("✅ " + response.data.message);
-                // Don't immediately change state - let webhook handle it
-            } else {
-                setMessage("❌ Downgrade failed: " + response.data.message);
-            }
-        } catch (err) {
-            console.error("Downgrade error:", err);
-            setMessage("❌ Downgrade error: " + (err.response?.data?.message || err.message));
-        }
-    } else if (planType === 'plus' && currentPlan === 'free') {
-        // Upgrade to plus
-        handleCheckout();
-    }
-    // If already on the same plan, do nothing (button is disabled)
-};
-  
-  const getSavingsText = () => {
-    if (billingCycle === 'yearly') {
-      const monthlyTotal = plans.plus.price.monthly * 12;
-      const savings = monthlyTotal - plans.plus.price.yearly;
-      return `Save $${savings.toFixed(2)} per year`;
-    }
-    return '';
   };
 
-  if (loading) {
-    return (
-      <div className="subscription-page">
-        <Header />
-        <div className="subscription-container" style={{ textAlign: 'center', padding: '50px' }}>
-          <h2>Loading subscription status...</h2>
-        </div>
-      </div>
-    );
-  }
+  const cancelPlus = async () => {
+    setBusy(true);
+    try {
+      const { data } = await api.get("/payment/cancel-subscription");
+      setNotice(data?.success
+        ? { tone: "success", text: data.message || "Your subscription will end at the close of this billing period." }
+        : { tone: "error", text: data?.message || "Couldn't cancel. Try the billing portal instead." });
+    } catch (err) {
+      console.error("Cancel error:", err);
+      setNotice({ tone: "error", text: err.response?.data?.message || "Couldn't cancel. Try the billing portal instead." });
+    } finally {
+      setBusy(false);
+      setCancelOpen(false);
+    }
+  };
+
+  const isPlus = plan === "plus";
+  const price = PRICES[billing];
 
   return (
-    <div className="subscription-page">
+    <div className="fm-page">
       <Header />
-      
-      <div className="subscription-container">
-        
-        {/* Hero Section */}
-        <div className="subscription-hero">
-          <h1 className="subscription-title">Choose Your Plan</h1>
-          <p className="subscription-subtitle">
-            Unlock your full potential as a creator with the right plan for you
-          </p>
-          
-          {/* Billing Toggle */}
-          <div className="billing-toggle">
-            <span className={billingCycle === 'monthly' ? 'active' : ''}>Monthly</span>
-            <button 
-              className="toggle-switch"
-              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-            >
-              <div className={`toggle-slider ${billingCycle === 'yearly' ? 'yearly' : 'monthly'}`}></div>
-            </button>
-            <span className={billingCycle === 'yearly' ? 'active' : ''}>
-              Yearly
-              {billingCycle === 'yearly' && <span className="savings-badge">Save 17%</span>}
-            </span>
-          </div>
-        </div>
-        {/* Success/Error Messages */}
-        {message && (
-          <div style={{  
-            padding: '15px', 
-            borderRadius: '8px',
-            border: '1px solid #e0e0e0',
-            marginBottom: '50px',
-            textAlign: 'center'
-          }}>
-            <p style={{ fontSize: '16px', margin: '0' }}>{message}</p>
-          </div>
-        )}
 
-        {/* Pricing Cards */}
-        <div className="pricing-cards">
-          {Object.entries(plans).map(([planType, plan]) => (
-            <div 
-              key={planType}
-              className={`pricing-card ${plan.popular ? 'popular' : ''} ${currentPlan === planType ? 'current' : ''}`}
-            >
-              {plan.popular && <div className="popular-badge">Most Popular</div>}
-              
-              <div className="card-header">
-                <h3 className="plan-name">{plan.name}</h3>
-                <div className="price-section">
-                  <span className="currency">$</span>
-                  <span className="price">{plan.price[billingCycle]}</span>
-                  <span className="period">
-                    {plan.price[billingCycle] === 0 ? 'Forever' : `/${billingCycle === 'monthly' ? 'mo' : 'yr'}`}
-                  </span>
-                </div>
-                {billingCycle === 'yearly' && planType === 'plus' && (
-                  <div className="savings-text">{getSavingsText()}</div>
-                )}
-                <p className="plan-description">{plan.description}</p>
+      <main className="fm-page__main">
+        <div className="fm-plans">
+          <section className="fm-plans__hero" aria-labelledby="fm-plans-title">
+            <PlusBadge size={56} className="fm-plans__logo" />
+            <h1 id="fm-plans-title" className="fm-plans__title">FeatureMe Plus</h1>
+            <p className="fm-plans__subtitle">Bigger uploads, real analytics and a spot on Trending, for the price of a coffee.</p>
+          </section>
+
+          {notice && (
+            <div className={`fm-plans__notice fm-plans__notice--${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>
+              <Icon name={notice.tone === "error" ? "info" : "check"} size={18} />
+              <span>{notice.text}</span>
+              <button type="button" className="fm-icon-btn" onClick={() => setNotice(null)} aria-label="Dismiss"><Icon name="close" size={16} /></button>
+            </div>
+          )}
+
+          {status === "loading" && (
+            <div className="fm-state" role="status"><div className="fm-spinner" /><p>Checking your plan…</p></div>
+          )}
+          {status === "error" && (
+            <div className="fm-state" role="alert">
+              <h3>Couldn&apos;t load your plan</h3>
+              <p>Check your connection and try again.</p>
+              <button type="button" className="fm-btn fm-btn--secondary" onClick={() => window.location.reload()}>Retry</button>
+            </div>
+          )}
+
+          {status === "ready" && isPlus && (
+            <section className="fm-card fm-plans__member" aria-labelledby="fm-plans-member">
+              <div>
+                <h2 id="fm-plans-member" className="fm-plans__card-title">You&apos;re on Plus <PlusBadge size={22} /></h2>
+                <p className="fm-plans__muted">Update your card, see invoices or switch between monthly and yearly in the billing portal.</p>
               </div>
-
-              <div className="card-body">
-                <div className="features-section2">
-                  <h4>What's included:</h4>
-                  <ul className="features-list">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="feature-item">
-                        <span className="check-icon">✓</span>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {plan.comingSoon && (
-                  <div className="coming-soon-section">
-                    <h4>Coming Soon:</h4>
-                    <ul className="coming-soon-list">
-                      {plan.comingSoon.map((feature, index) => (
-                        <li key={index} className="coming-soon-item">
-                          <span className="soon-icon">🚀</span>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {plan.limitations && (
-                  <div className="limitations-section">
-                    <h4>Limitations:</h4>
-                    <ul className="limitations-list">
-                      {plan.limitations.map((limitation, index) => (
-                        <li key={index} className="limitation-item">
-                          <span className="limit-icon">⚠️</span>
-                          {limitation}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              <div className="fm-plans__member-actions">
+                <a href={BILLING_PORTAL} target="_blank" rel="noopener noreferrer" className="fm-btn fm-btn--primary">
+                  Manage billing
+                  <Icon name="link" size={16} />
+                </a>
+                <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setCancelOpen(true)} disabled={busy}>Cancel Plus</button>
               </div>
+            </section>
+          )}
 
-              <div className="card-footer">
-                <button 
-                  className={`plan-button ${planType} ${currentPlan === planType ? 'current' : ''}`}
-                  onClick={() => handlePlanAction(planType)}
-                  disabled={isButtonDisabled(planType)}
-                >
-                  {plan.buttonText}
+          {status === "ready" && !isPlus && (
+            <section className="fm-plans__pick" aria-label="Choose billing">
+              <div className="fm-segmented fm-plans__billing" role="radiogroup" aria-label="Billing period">
+                <button type="button" role="radio" aria-checked={billing === "monthly"} className={`fm-segment${billing === "monthly" ? " is-active" : ""}`} onClick={() => setBilling("monthly")}>
+                  Monthly
+                </button>
+                <button type="button" role="radio" aria-checked={billing === "yearly"} className={`fm-segment${billing === "yearly" ? " is-active" : ""}`} onClick={() => setBilling("yearly")}>
+                  Yearly <span className="fm-plans__save">Save ${YEARLY_SAVING}</span>
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Customer Portal Section */}
-        {currentPlan === 'plus' && (
-          <div className="customer-portal-section">
-            <h2>Manage Your Subscription</h2>
-            <p className="portal-description">
-              Access your billing information, update payment methods, and manage your subscription
-            </p>
-            <a 
-              href="https://billing.stripe.com/p/login/3cIaEY72cf217ov7bFg7e00" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="portal-button"
-            >
-              <span className="portal-icon">⚙️</span>
-              Open Customer Portal
-              <span className="external-link-icon">↗</span>
-            </a>
-          </div>
-        )}
+              <div className="fm-plans__cards">
+                <article className="fm-card fm-plans__plan" aria-labelledby="fm-plan-free">
+                  <h2 id="fm-plan-free" className="fm-plans__plan-name">Free</h2>
+                  <p className="fm-plans__price"><strong>$0</strong></p>
+                  <p className="fm-plans__muted">Everything you need to share music and find collaborators.</p>
+                  <span className="fm-btn fm-btn--secondary fm-plans__current" aria-disabled="true">Your current plan</span>
+                </article>
 
-        {/* FAQ Section */}
-        <div className="faq-section">
-          <h2>Frequently Asked Questions</h2>
-          <div className="faq-grid">
-            <div className="faq-item">
-              <h3>Can I change my plan anytime?</h3>
-              <p>Yes! You can upgrade or downgrade your plan at any time. Changes are processed automatically.</p>
-            </div>
-            <div className="faq-item">
-              <h3>What happens when I cancel?</h3>
-              <p>Your subscription will remain active until the end of your billing period, then automatically downgrade to free.</p>
-            </div>
-            <div className="faq-item">
-              <h3>What payment methods do you accept?</h3>
-              <p>We accept all major credit cards through our secure Stripe payment system.</p>
-            </div>
-          </div>
-        </div>
+                <article className="fm-card fm-plans__plan fm-plans__plan--plus" aria-labelledby="fm-plan-plus">
+                  <h2 id="fm-plan-plus" className="fm-plans__plan-name">Plus <PlusBadge size={22} /></h2>
+                  <p className="fm-plans__price">
+                    <strong>${price}</strong>
+                    <span>/{billing === "yearly" ? "year" : "month"}</span>
+                  </p>
+                  <p className="fm-plans__muted">
+                    {billing === "yearly" ? `That's about $${(PRICES.yearly / 12).toFixed(2)} a month, billed once a year.` : "Billed monthly. Cancel any time."}
+                  </p>
+                  <button type="button" className="fm-btn fm-btn--primary fm-plans__cta" onClick={checkout} disabled={busy}>
+                    {busy ? "Opening checkout…" : `Get Plus ${billing === "yearly" ? "yearly" : "monthly"}`}
+                  </button>
+                </article>
+              </div>
+            </section>
+          )}
 
-        {/* Trust Indicators */}
-        <div className="trust-section">
-          <div className="trust-item">
-            <span className="trust-icon">🔒</span>
-            <h4>Secure Payments</h4>
-            <p>SSL encrypted and PCI compliant</p>
-          </div>
-          <div className="trust-item">
-            <span className="trust-icon">⚡</span>
-            <h4>Instant Access</h4>
-            <p>Upgrade takes effect immediately</p>
-          </div>
-          <div className="trust-item">
-            <span className="trust-icon">🎯</span>
-            <h4>No Hidden Fees</h4>
-            <p>What you see is what you pay</p>
-          </div>
-          {/*
-          <div className="trust-item">
-            <span className="trust-icon">💬</span>
-            <h4>24/7 Support</h4>
-            <p>We're here to help anytime</p>
-          </div>
-          */}
+          {status === "ready" && (
+            <section className="fm-card fm-plans__compare" aria-labelledby="fm-plans-compare">
+              <h2 id="fm-plans-compare" className="fm-plans__card-title">What you get</h2>
+              <table className="fm-plans__table">
+                <thead>
+                  <tr>
+                    <th scope="col"><span className="fm-visually-hidden">Feature</span></th>
+                    <th scope="col">Free</th>
+                    <th scope="col" className="fm-plans__plus-col">Plus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARISON.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row">{row.label}</th>
+                      <td><Cell value={row.free} /></td>
+                      <td className="fm-plans__plus-col"><Cell value={row.plus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          <section className="fm-plans__faq" aria-labelledby="fm-plans-faq">
+            <h2 id="fm-plans-faq" className="fm-plans__card-title">Questions</h2>
+            {FAQ.map((item) => (
+              <details key={item.q} className="fm-plans__question">
+                <summary>{item.q}<Icon name="chevronDown" size={18} /></summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
+            <p className="fm-plans__muted fm-plans__secure"><Icon name="info" size={16} />Payments are processed securely by Stripe.</p>
+          </section>
         </div>
-      </div>
+      </main>
+
       <Footer />
+
+      <Dialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        closeDisabled={busy}
+        title="Cancel Plus?"
+        size="sm"
+        footer={(
+          <>
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={() => setCancelOpen(false)} disabled={busy}>Keep Plus</button>
+            <button type="button" className="fm-btn fm-btn--danger" onClick={cancelPlus} disabled={busy}>{busy ? "Canceling…" : "Cancel Plus"}</button>
+          </>
+        )}
+      >
+        <p className="fm-plans__dialog-text">
+          You&apos;ll keep Plus until the end of this billing period. After that you&apos;ll move to Free: uploads go back to MP3 up to 15 MB, analytics turn off and you&apos;ll leave the Plus Spotlight.
+        </p>
+      </Dialog>
     </div>
   );
-};
+}
 
 export default SubscriptionPage;

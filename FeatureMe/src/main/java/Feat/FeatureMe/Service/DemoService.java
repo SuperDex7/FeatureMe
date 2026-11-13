@@ -20,8 +20,10 @@ public class DemoService {
     private final UserRepository userRepository;
     private final DemoRepository demoRepository;
     private final S3Service s3Service;
+    private final AtomicUpdates atomicUpdates;
     
-    public DemoService(UserRepository userRepository, DemoRepository demoRepository, S3Service s3Service){
+    public DemoService(UserRepository userRepository, DemoRepository demoRepository, S3Service s3Service, AtomicUpdates atomicUpdates){
+        this.atomicUpdates = atomicUpdates;
         this.userRepository = userRepository;
         this.demoRepository = demoRepository;
         this.s3Service = s3Service;
@@ -35,7 +37,7 @@ public class DemoService {
             author.setDemo(new ArrayList<>());
         }
         author.getDemo().add(demos.getId());
-        userRepository.save(author);
+        atomicUpdates.addToUserList(author.getUserName(), "demo", demos.getId());
 
         return demos;
     
@@ -79,7 +81,7 @@ public class DemoService {
         
         // Remove demo from user's demo list
         user.getDemo().remove(demoId);
-        userRepository.save(user);
+        atomicUpdates.removeFromUserList(user.getUserName(), "demo", demoId);
         
         // Delete the demo from database
         demoRepository.deleteById(demoId);

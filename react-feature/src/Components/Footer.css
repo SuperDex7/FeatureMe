@@ -1,239 +1,122 @@
-/* Modern Footer Styles */
-.footer {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
-  color: #f3f3f7;
-  margin-top: auto;
-  border-top: 1px solid rgba(100,125,222,0.2);
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-  margin-bottom: -10px;
+/* Site footer (Components/Footer.jsx). Values from tokens.css. */
+
+.fm-footer {
+  border-top: 1px solid var(--fm-border);
+  background: var(--fm-bar);
+  color: var(--fm-muted);
+  font-family: var(--fm-font-body);
+  font-size: var(--fm-text-md);
 }
 
-.footer-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 3rem 2rem 1.5rem 2rem;
+.fm-footer a {
+  color: var(--fm-text-2);
+  text-decoration: none;
 }
 
-.footer-main {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 3rem;
-  margin-bottom: 2rem;
+.fm-footer a:hover {
+  color: var(--fm-text);
+  text-decoration: underline;
 }
 
-.footer-brand {
-  max-width: 400px;
+.fm-footer a:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--fm-focus-ring);
 }
 
-.footer-logo-container {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.footer-logo-symbol {
-  height: 40px;
-  width: auto;
-  filter: drop-shadow(0 2px 4px rgba(127, 83, 172, 0.3));
-  transition: all 0.3s ease;
-}
-
-.footer-logo-symbol:hover {
-  transform: scale(1.1);
-  filter: drop-shadow(0 4px 8px rgba(127, 83, 172, 0.4));
-}
-
-.footer-logo {
-  font-size: 2rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #7f53ac 0%, #647dee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-  letter-spacing: 1px;
-}
-
-.footer-tagline {
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: #bfc9d1;
-  margin: 0;
-  opacity: 0.9;
-}
-
-.footer-links {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-}
-
-.footer-column {
-  display: flex;
-  flex-direction: column;
-}
-
-.footer-column-title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #7f53ac;
-  margin: 0 0 1rem 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.footer-link-list {
+.fm-footer ul {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
+}
+
+.fm-footer__inner {
+  max-width: var(--fm-content-max);
+  margin: 0 auto;
+  padding: var(--fm-space-10) var(--fm-space-6) var(--fm-space-8);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--fm-space-8);
+}
+
+.fm-footer__brand {
+  flex: 1 1 260px;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--fm-space-3);
 }
 
-.footer-link {
-  color: #bfc9d1;
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  padding: 0.25rem 0;
-  border-radius: 0.25rem;
-  cursor: pointer;
+.fm-footer__logo img {
+  display: block;
+  height: 36px;
 }
 
-.footer-link:hover {
-  color: #7f53ac;
-  transform: translateX(4px);
+.fm-footer__tagline {
+  margin: 0;
+  line-height: 1.55;
 }
 
-.footer-bottom {
+.fm-footer__social {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--fm-space-2) var(--fm-space-4);
+}
+
+.fm-footer__social a {
+  font-weight: 600;
+}
+
+.fm-footer__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fm-space-8) var(--fm-space-12);
+}
+
+.fm-footer__column ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-2);
+}
+
+.fm-footer__title {
+  margin: 0 0 var(--fm-space-3);
+  color: var(--fm-text);
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-text-md);
+  font-weight: 600;
+}
+
+.fm-footer__bottom {
+  max-width: var(--fm-content-max);
+  margin: 0 auto;
+  padding: var(--fm-space-4) var(--fm-space-6) var(--fm-space-6);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  padding-top: 2rem;
-  border-top: 1px solid rgba(100,125,222,0.1);
+  gap: var(--fm-space-2) var(--fm-space-4);
+  border-top: 1px solid var(--fm-border);
+  font-size: var(--fm-text-sm);
 }
 
-.footer-social {
-  display: flex;
-  gap: 1rem;
-}
-
-.footer-social-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: rgba(100,125,222,0.1);
-  border: 1px solid rgba(100,125,222,0.2);
-  border-radius: 50%;
-  color: #bfc9d1;
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.footer-social-link:hover {
-  background: rgba(100,125,222,0.2);
-  border-color: rgba(100,125,222,0.4);
-  color: #7f53ac;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100,125,222,0.2);
-}
-
-.footer-social-icon {
-  font-size: 1.2rem;
-}
-
-.footer-copyright {
-  color: #8a9ba8;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.footer-copyright p {
+.fm-footer__bottom p {
   margin: 0;
 }
 
-/* Responsive Design */
-@media (max-width: 1024px) {
-  .footer-main {
-    grid-template-columns: 1fr;
-    gap: 2rem;
+@media (max-width: 560px) {
+  .fm-footer__inner {
+    padding: var(--fm-space-8) var(--fm-space-4) var(--fm-space-6);
+    gap: var(--fm-space-6);
   }
-  
-  .footer-links {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-  }
-}
 
-@media (max-width: 768px) {
-  .footer-container {
-    padding: 2rem 1rem 1rem 1rem;
+  .fm-footer__nav {
+    gap: var(--fm-space-6) var(--fm-space-8);
   }
-  
-  .footer-main {
-    gap: 1.5rem;
-  }
-  
-  .footer-links {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  .footer-bottom {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-  
-  .footer-social {
-    justify-content: center;
-  }
-  
-  .footer-logo-symbol {
-    height: 35px;
-  }
-  
-  .footer-logo {
-    font-size: 1.75rem;
-  }
-  
-  .footer-tagline {
-    font-size: 1rem;
-  }
-}
 
-@media (max-width: 480px) {
-  .footer-container {
-    padding: 1.5rem 0.75rem 1rem 0.75rem;
-  }
-  
-  .footer-logo-symbol {
-    height: 30px;
-  }
-  
-  .footer-logo {
-    font-size: 1.5rem;
-  }
-  
-  .footer-column-title {
-    font-size: 1.1rem;
-  }
-  
-  .footer-link {
-    font-size: 0.95rem;
-  }
-  
-  .footer-social-link {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .footer-social-icon {
-    font-size: 1rem;
+  .fm-footer__bottom {
+    padding: var(--fm-space-4);
   }
 }

@@ -7,7 +7,6 @@
     "icon": "./assets/images/PNGs/Logo-Gradient.png",
     "scheme": "featurememobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.featureme.app",
@@ -21,7 +20,9 @@
         "NSPhotoLibraryAddUsageDescription": "This app needs access to save images to your photo library.",
         "NSCameraUsageDescription": "This app needs access to your camera to take photos for your profile.",
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for audio features.",
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -32,7 +33,6 @@
         "backgroundImage": "./assets/images/Jpgs/Asset14.jpg",
         "monochromeImage": "./assets/images/Jpgs/Asset13.jpg"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -52,7 +52,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

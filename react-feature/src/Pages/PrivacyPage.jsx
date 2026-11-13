@@ -1,15 +1,18 @@
-import React from 'react';
+import Header from "../Components/Header";
+import Footer from "../Components/Footer";
 import '../Styling/PrivacyPage.css';
-import Header2 from "../Components/Header2";
+
+// Change this whenever the policy text changes
+const LAST_UPDATED = "November 13, 2026";
 
 function PrivacyPage() {
   return (
-    <div className="privacy-page">
-      <Header2 />
-      <div className="privacy-container">
-        <div className="privacy-content">
+    <div className="fm-page">
+      <Header />
+      <main className="fm-page__main">
+        <article className="fm-legal">
           <h1>Privacy Policy</h1>
-          <p className="last-updated">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="fm-legal__updated">Last updated: {LAST_UPDATED}</p>
           
           <section>
             <h2>1. Introduction</h2>
@@ -129,7 +132,6 @@ function PrivacyPage() {
             <ul>
               <li><strong>User-Generated Content:</strong> All posts, music, images, comments, and messages on our platform are created and uploaded by users. We do not create or control this content, but we provide the platform for users to share it.</li>
               <li><strong>External Links:</strong> Users may include links to their social media profiles (YouTube, Spotify, SoundCloud, Instagram, TikTok, etc.) in their profiles. These links are user-provided and we do not control the content on those external sites.</li>
-              <li><strong>Third-Party Images:</strong> Our homepage displays record label logos for informational purposes. These images are loaded from external sources and we do not control their content or availability.</li>
               <li><strong>External Services:</strong> We provide links to third-party services such as Stripe for payment processing and our own social media profiles.</li>
             </ul>
             <p>
@@ -161,8 +163,9 @@ function PrivacyPage() {
               <strong>Website:</strong> <a href="https://featureme.co">https://featureme.co</a>
             </p>
           </section>
-        </div>
-      </div>
+        </article>
+      </main>
+      <Footer />
     </div>
   );
 }
