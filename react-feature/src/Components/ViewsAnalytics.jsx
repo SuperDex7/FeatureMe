@@ -103,7 +103,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
       .catch((err) => {
         console.error(`Error loading ${tab}:`, err);
         const code = err.response?.status;
-        if (!cancelled) setList({ items: [], totalPages: 0, totalElements: 0, status: code === 401 || code === 403 ? "forbidden" : "error" });
+        if (!cancelled) setList({ items: [], totalPages: 0, totalElements: 0, status: code === 401 ? "signedout" : code === 403 ? "forbidden" : "error" });
       });
     return () => { cancelled = true; };
   }, [isOpen, postId, tab, page]);
@@ -171,6 +171,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
           )}
           {list.status === "error" && <p className="fm-stats__empty">Couldn&apos;t load this list. Try again in a moment.</p>}
           {list.status === "forbidden" && <p className="fm-stats__empty">Only the artist who posted this can see who listened and downloaded.</p>}
+          {list.status === "signedout" && <p className="fm-stats__empty">Your login has expired. Log in again to see this list.</p>}
           {list.status === "ready" && list.items.length === 0 && (
             <p className="fm-stats__empty">{TABS.find((t) => t.key === tab).empty}</p>
           )}

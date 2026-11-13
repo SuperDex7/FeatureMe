@@ -98,7 +98,6 @@ public class OptimizedJwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
-            filterChain.doFilter(request, response);
         } catch (ExpiredJwtException e) {
             // JWT token has expired
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -115,6 +114,10 @@ public class OptimizedJwtAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write("JWT authentication failed");
             return;
         }
+
+        // Outside the try: errors from the rest of the request (controllers,
+        // services) must not be reported as login failures
+        filterChain.doFilter(request, response);
     }
     
     /**

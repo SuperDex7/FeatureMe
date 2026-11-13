@@ -49,8 +49,7 @@ public class PostDownloadService {
         
         return downloads.stream().map(download -> {
             // Get current user profile pic
-            String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).orElse("../public/dpp.jpg");
+            String profilePic = profilePicFor(download);
             
             return new PostDownloadDTO(
                 download.getId(),
@@ -73,8 +72,7 @@ public class PostDownloadService {
         
         List<PostDownloadDTO> downloads = downloadPage.getContent().stream().map(download -> {
             // Get current user profile pic
-            String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).orElse("../public/dpp.jpg");
+            String profilePic = profilePicFor(download);
             
             return new PostDownloadDTO(
                 download.getId(),
@@ -100,8 +98,7 @@ public class PostDownloadService {
         
         return downloads.stream().map(download -> {
             // Get current user profile pic
-            String profilePic = userRepository.findById(download.getUserId())
-                .map(User::getProfilePic).orElse("../public/dpp.jpg");
+            String profilePic = profilePicFor(download);
                 
             
             return new PostDownloadDTO(
@@ -113,5 +110,23 @@ public class PostDownloadService {
                 download.getDownloadTime()
             );
         }).toList();
+    }
+
+    /**
+     * The downloader's current profile picture, or null for the default.
+     * Older records can have a null or "unknown" userId (they were saved from
+     * a client-supplied userName), so fall back to the name, and never pass
+     * null to findById, which throws.
+     */
+    private String profilePicFor(PostDownload download) {
+        String userId = download.getUserId();
+        if (userId != null && !userId.isBlank() && !"unknown".equals(userId)) {
+            return userRepository.findById(userId).map(User::getProfilePic).orElse(null);
+        }
+        String userName = download.getUserName();
+        if (userName != null && !userName.isBlank() && !"unknown".equals(userName)) {
+            return userRepository.findByUserName(userName).map(User::getProfilePic).orElse(null);
+        }
+        return null;
     }
 }
