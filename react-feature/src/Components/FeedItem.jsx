@@ -98,7 +98,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
 
   const handleAnalytics = () => {
     if (currentUser?.role === "USERPLUS") setShowViewsAnalytics(true);
-    else alert("Get a Plus Membership to view analytics");
+    else window.location.href = "/subscription";
   };
 
   return (
