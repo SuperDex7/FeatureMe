@@ -206,4 +206,24 @@ class PostsControllerAnalyticsTest {
         mockMvc.perform(get("/api/posts/liked")).andExpect(status().is4xxClientError());
         verify(postsService, never()).getLikedPosts(anyString(), anyInt(), anyInt());
     }
+
+    @Test
+    @DisplayName("an expired login still lets you browse public pages, and a page that needs a login says TOKEN_EXPIRED")
+    void expiredSession() throws Exception {
+        when(jwtService.extractUsername("old")).thenThrow(new io.jsonwebtoken.ExpiredJwtException(null, null, "expired"));
+        jakarta.servlet.http.Cookie old = new jakarta.servlet.http.Cookie("sessionToken", "old");
+
+        mockMvc.perform(get("/api/posts/views/p1/summary").cookie(old)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/posts/liked").cookie(old))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("TOKEN_EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("never logged in: NOT_LOGGED_IN")
+    void neverLoggedIn() throws Exception {
+        mockMvc.perform(get("/api/posts/liked"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("NOT_LOGGED_IN"));
+    }
 }

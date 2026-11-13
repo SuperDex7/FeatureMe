@@ -1,5 +1,6 @@
 package Feat.FeatureMe.config;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -67,17 +68,13 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
             .addFilterBefore(optimizedJwtAuthenticationFilter(cachedUserDetailsService), UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exception -> exception
             .authenticationEntryPoint((request, response, authException) -> {
-                // Redirect to React login page
+                // Not logged in. "code" tells clients whether a session just ended
+                // (TOKEN_EXPIRED / TOKEN_INVALID) or there never was one (NOT_LOGGED_IN)
+                Object reason = request.getAttribute(OptimizedJwtAuthenticationFilter.AUTH_ERROR);
+                String code = reason != null ? reason.toString() : "NOT_LOGGED_IN";
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
-                
-                // Get frontend URL from environment or use default
-                String frontendUrl = System.getenv("FRONTEND_URL");
-                if (frontendUrl == null || frontendUrl.isEmpty()) {
-                    frontendUrl = "https://featureme.co"; // Default to production domain
-                }
-                
-                response.getWriter().write("{\"error\":\"Authentication required\",\"redirect\":\"" + frontendUrl + "/login\"}");
+                response.getWriter().write("{\"error\":\"Authentication required\",\"code\":\"" + code + "\"}");
             })
         )
         .build();
@@ -129,5 +126,13 @@ public class SecurityConfig /*extends WebSecurityConfigurationAdapter*/ {
     @Bean
     public OptimizedJwtAuthenticationFilter optimizedJwtAuthenticationFilter(CachedUserDetailsService cachedUserDetailsService) {
         return new OptimizedJwtAuthenticationFilter(jwtService, cachedUserDetailsService);
+    }
+
+    /** Spring Boot would also run every Filter bean on its own, outside the security chain */
+    @Bean
+    public FilterRegistrationBean<OptimizedJwtAuthenticationFilter> jwtFilterOnlyInSecurityChain(OptimizedJwtAuthenticationFilter filter) {
+        FilterRegistrationBean<OptimizedJwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 }

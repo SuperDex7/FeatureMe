@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 // API Configuration for React Native
 const API_BASE_URL = __DEV__ 
@@ -60,53 +61,47 @@ api.interceptors.response.use(
   },
    
   async (error) => {
-    if (error.response) {
-      const url = error.config?.url || '';
-      const isPublicEndpoint = url.includes('/posts/get/') || 
-                              url.includes('/posts/view/') || 
-                              url.includes('/posts/download/') ||
-                              url.includes('/posts/views/') || 
-                              url.includes('/posts/downloads/') ||
-                              url.includes('/posts/comments/') || 
-                              url.includes('/posts/likes/');
-      
-      const isAuthCheck = url.includes('/user/me');
-      
-      // Handle 401 Unauthorized (JWT expired or invalid)
-      if (error.response.status === 401 && !isPublicEndpoint && !isAuthCheck) {
-        // Clear stored token and redirect to login
-        await AsyncStorage.removeItem('authToken');
-        // You can dispatch a navigation action here if using Redux/Context
-        return Promise.reject(error);
-      }
-      
-      // Handle 403 Forbidden
-      if (error.response.status === 403 && !isPublicEndpoint && !isAuthCheck) {
-        await AsyncStorage.removeItem('authToken');
-        return Promise.reject(error);
-      }
-      
-      // Handle 500 Internal Server Error that might be JWT-related
-      if (error.response.status === 500) {
-        const errorMessage = error.response.data || '';
-        if (typeof errorMessage === 'string' && (
-          errorMessage.includes('JWT expired') || 
-          errorMessage.includes('JWT token expired') ||
-          errorMessage.includes('ExpiredJwtException') ||
-          errorMessage.includes('Invalid JWT token') ||
-          errorMessage.includes('JWT authentication failed')
-        ) && !isPublicEndpoint && !isAuthCheck) {
-          await AsyncStorage.removeItem('authToken');
-          return Promise.reject(error);
-        }
-      }
+    // 401 on a request that carried a token = the server no longer accepts it
+    // (expired, or the account is gone). Every other error (403 "not allowed",
+    // 404, 500, no connection) belongs to the screen that made the request
+    // and must not log anyone out.
+    const url = error.config?.url || '';
+    const sentToken = Boolean(error.config?.headers?.Authorization);
+    // (/user/me at startup is handled by TokenValidator in app/_layout.jsx)
+    if (error.response?.status === 401 && sentToken && !url.includes('/user/auth/') && !url.includes('/user/me')) {
+      await endSession();
     }
-    
     return Promise.reject(error);
-    
   }
-
 );
+
+// Several requests can fail at once when a session ends; react once
+let endingSession = false;
+async function endSession() {
+  if (endingSession) return;
+  endingSession = true;
+  try {
+    await AsyncStorage.removeItem('authToken');
+    delete api.defaults.headers.common['Authorization'];
+    Alert.alert('Your session expired', 'Log in again to pick up where you left off.', [
+      { text: 'Not now', style: 'cancel' },
+      {
+        text: 'Log in',
+        onPress: async () => {
+          try {
+            const { router } = await import('expo-router');
+            router.push('/login');
+          } catch (e) {
+            // The auth guard will send them to login
+          }
+        },
+      },
+    ]);
+  } finally {
+    // Allow the prompt again after the next login
+    setTimeout(() => { endingSession = false; }, 5000);
+  }
+}
 
 // Helper functions
 export const isAuthenticated = async () => {

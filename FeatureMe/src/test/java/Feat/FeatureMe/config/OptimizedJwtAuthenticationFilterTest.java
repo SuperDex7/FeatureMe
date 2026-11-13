@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,10 +15,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 
@@ -25,8 +28,8 @@ import jakarta.servlet.http.Cookie;
 class OptimizedJwtAuthenticationFilterTest {
 
     private final JwtService jwtService = mock(JwtService.class);
-    private final OptimizedJwtAuthenticationFilter filter =
-        new OptimizedJwtAuthenticationFilter(jwtService, mock(CachedUserDetailsService.class));
+    private final CachedUserDetailsService users = mock(CachedUserDetailsService.class);
+    private final OptimizedJwtAuthenticationFilter filter = new OptimizedJwtAuthenticationFilter(jwtService, users);
 
     @AfterEach
     void clear() {
@@ -73,15 +76,72 @@ class OptimizedJwtAuthenticationFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication().getName()).isEqualTo("alice@example.com");
     }
 
-    @Test
-    @DisplayName("an expired token is still a 401")
-    void expiredTokenIs401() throws Exception {
-        when(jwtService.extractUsername("token")).thenThrow(new ExpiredJwtException(null, null, "expired"));
+    private MockHttpServletResponse run(MockHttpServletRequest request, FilterChain chain) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chain);
+        return response;
+    }
 
-        filter.doFilter(requestWithToken(), response, mock(FilterChain.class));
+    @Test
+    @DisplayName("an expired token carries on as a visitor, marked TOKEN_EXPIRED, and the cookie is cleared")
+    void expiredTokenContinuesAsVisitor() throws Exception {
+        when(jwtService.extractUsername("token")).thenThrow(new ExpiredJwtException(null, null, "expired"));
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletRequest request = requestWithToken();
 
-        assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getContentAsString()).isEqualTo("JWT token expired");
+        MockHttpServletResponse response = run(request, chain);
+
+        verify(chain).doFilter(any(), any());
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute(OptimizedJwtAuthenticationFilter.AUTH_ERROR)).isEqualTo("TOKEN_EXPIRED");
+        assertThat(response.getHeader("Set-Cookie")).startsWith("sessionToken=;").contains("Max-Age=0");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("a forged or broken token is TOKEN_INVALID")
+    void badSignature() throws Exception {
+        when(jwtService.extractUsername("token")).thenThrow(new SignatureException("bad signature"));
+        MockHttpServletRequest request = requestWithToken();
+        run(request, mock(FilterChain.class));
+        assertThat(request.getAttribute(OptimizedJwtAuthenticationFilter.AUTH_ERROR)).isEqualTo("TOKEN_INVALID");
+    }
+
+    @Test
+    @DisplayName("a token for a deleted account is TOKEN_INVALID")
+    void deletedAccount() throws Exception {
+        when(jwtService.extractUsername("token")).thenReturn("gone@example.com");
+        when(users.loadUserByUsername("gone@example.com")).thenThrow(new UsernameNotFoundException("gone"));
+        MockHttpServletRequest request = requestWithToken();
+        run(request, mock(FilterChain.class));
+        assertThat(request.getAttribute(OptimizedJwtAuthenticationFilter.AUTH_ERROR)).isEqualTo("TOKEN_INVALID");
+    }
+
+    @Test
+    @DisplayName("if the login can't be checked (database down) it's a 503, not a logout")
+    void databaseDownIs503() throws Exception {
+        when(jwtService.extractUsername("token")).thenReturn("alice@example.com");
+        when(users.loadUserByUsername("alice@example.com")).thenThrow(new RuntimeException("timeout"));
+        FilterChain chain = mock(FilterChain.class);
+
+        MockHttpServletResponse response = run(requestWithToken(), chain);
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("AUTH_UNAVAILABLE");
+        assertThat(response.getHeader("Set-Cookie")).isNull();
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    @Test
+    @DisplayName("an expired app token (Authorization header) doesn't touch cookies")
+    void headerTokenNoCookie() throws Exception {
+        when(jwtService.extractUsername("token")).thenThrow(new ExpiredJwtException(null, null, "expired"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/posts/liked");
+        request.addHeader("Authorization", "Bearer token");
+
+        MockHttpServletResponse response = run(request, mock(FilterChain.class));
+
+        assertThat(request.getAttribute(OptimizedJwtAuthenticationFilter.AUTH_ERROR)).isEqualTo("TOKEN_EXPIRED");
+        assertThat(response.getHeader("Set-Cookie")).isNull();
     }
 }

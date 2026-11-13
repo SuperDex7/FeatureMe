@@ -213,7 +213,7 @@ public class UserController {
      * The web client's JWT cookie. HttpOnly so scripts can't read it, Secure so it only
      * travels over HTTPS, and SameSite=Lax so other sites can't send it with their requests.
      */
-    static ResponseCookie sessionCookie(String value, Duration maxAge) {
+    public static ResponseCookie sessionCookie(String value, Duration maxAge) {
         return ResponseCookie.from("sessionToken", value)
             .httpOnly(true)
             .secure(true)

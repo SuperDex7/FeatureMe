@@ -1,23 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { isAuthenticated } from '../services/AuthService';
+import { checkLogin, consumeSessionExpired } from '../services/AuthService';
 
 const ProtectedRoute = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
+  const [status, setStatus] = useState('loading'); // loading | in | out | error
+  const [notice, setNotice] = useState();
   const location = useLocation();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const authenticated = await isAuthenticated();
-      setIsAuth(authenticated);
-      setIsLoading(false);
-    };
-
-    checkAuth();
+  const check = useCallback(async () => {
+    setStatus('loading');
+    const result = await checkLogin();
+    if (result === 'out' && consumeSessionExpired()) {
+      setNotice("Your session expired. Log in again to continue.");
+    }
+    setStatus(result);
   }, []);
 
-  if (isLoading) {
+  useEffect(() => {
+    check();
+  }, [check]);
+
+  if (status === 'loading') {
     return (
       <div className="fm-page fm-route-loading">
         <div className="fm-state" role="status">
@@ -28,10 +31,22 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!isAuth) {
-    // Redirect to login page with the current location as state
-    // This allows the login page to redirect back after successful login
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (status === 'error') {
+    // Server down or no connection: not a reason to log you out
+    return (
+      <div className="fm-page fm-route-loading">
+        <div className="fm-state" role="alert">
+          <h3>Can&apos;t reach FeatureMe</h3>
+          <p>Check your connection and try again.</p>
+          <button type="button" className="fm-btn fm-btn--primary" onClick={check}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'out') {
+    // Back to this page after logging in
+    return <Navigate to="/login" state={{ from: location, notice }} replace />;
   }
 
   return children;

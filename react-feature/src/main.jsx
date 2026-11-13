@@ -15,6 +15,7 @@ import SignupPage from './Pages/SignupPage.jsx'
 import LoginPage from './Pages/LoginPage.jsx'
 import ForgotPasswordPage from './Pages/ForgotPasswordPage.jsx'
 import ProtectedRoute from './Components/ProtectedRoute.jsx'
+import SessionExpiredDialog from './Components/SessionExpiredDialog.jsx'
 import Trending from './Pages/Trending.jsx'
 import Post from './Pages/Post.jsx'
 import PendingFeatures from './Components/PendingFeatures.jsx'
@@ -48,6 +49,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
         <RouterProvider router={router}/>
+        <SessionExpiredDialog router={router}/>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { apiConfig } from '../config/api';
+import { invalidate } from '../utils/requestCache';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -19,7 +20,42 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle JWT expiration and banned users
+// When a request fails because the login itself ended (token expired, or the
+// server no longer accepts it) the app shows a "session expired" prompt
+// (Components/SessionExpiredDialog). Every other error (403 "not allowed",
+// 404, 500, network trouble) is left to the page that made the request and
+// never logs anyone out.
+let signedIn = false;
+let sessionExpired = false;
+const sessionListeners = new Set();
+
+/** Calls listener() when a logged-in session ends unexpectedly; returns an unsubscribe function */
+export function onSessionExpired(listener) {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+/** True once after the session expired (lets the login page explain why you're there) */
+export function consumeSessionExpired() {
+  const was = sessionExpired;
+  sessionExpired = false;
+  return was;
+}
+
+// Sent by the server when the request carried a login it no longer accepts.
+// It clears the cookie in the same response, so this arrives once per session
+// (and works even right after a page load, when signedIn isn't known yet).
+const ENDED_CODES = ['TOKEN_EXPIRED', 'TOKEN_INVALID'];
+
+function endSession(code) {
+  if (!signedIn && !ENDED_CODES.includes(code)) return; // a visitor, or already handled
+  signedIn = false;
+  sessionExpired = true;
+  meCache = null;
+  invalidate(''); // cached pages belonged to the old session
+  sessionListeners.forEach((listener) => listener());
+}
+
 api.interceptors.response.use(
   (response) => {
     // Check if user is banned - logout silently if so
@@ -29,71 +65,38 @@ api.interceptors.response.use(
     }
     return response;
   },
-  
   (error) => {
-    if (error.response) {
-      // Don't redirect to login for public endpoints or when checking authentication
-      const url = error.config?.url || '';
-      const isPublicEndpoint = url.includes('/posts/get/') || 
-                              url.includes('/posts/view/') || 
-                              url.includes('/posts/download/') ||
-                              url.includes('/posts/views/') ||
-                              url.includes('/posts/downloads/') ||
-                              url.includes('/posts/comments/') ||
-                              url.includes('/posts/likes/');
-      
-      const isAuthCheck = url.includes('/user/me');
-      
-      // Handle 401 Unauthorized (JWT expired or invalid)
-      if (error.response.status === 401 && !isPublicEndpoint && !isAuthCheck) {
-        // Redirect to login page
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-      
-      // Handle 403 Forbidden
-      if (error.response.status === 403 && !isPublicEndpoint && !isAuthCheck) {
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-      
-      // Handle 500 Internal Server Error that might be JWT-related
-      if (error.response.status === 500) {
-        const errorMessage = error.response.data || '';
-        if (typeof errorMessage === 'string' && (
-          errorMessage.includes('JWT expired') || 
-          errorMessage.includes('JWT token expired') ||
-          errorMessage.includes('ExpiredJwtException') ||
-          errorMessage.includes('Invalid JWT token') ||
-          errorMessage.includes('JWT authentication failed')
-        ) && !isPublicEndpoint && !isAuthCheck) {
-          
-          // Redirect to login page
-          window.location.href = '/login';
-          return Promise.reject(error);
-        }
-      }
+    const url = error.config?.url || '';
+    // 401 = the server doesn't see a login. Login/signup forms handle their own 401s.
+    if (error.response?.status === 401 && !url.includes('/user/auth/')) {
+      endSession(error.response.data?.code);
     }
-    
     return Promise.reject(error);
   }
-  
 );
 
 // Helper functions
-export const isAuthenticated = async () => {
+/**
+ * "in", "out", or "error" when the server couldn't be reached or failed
+ * (that says nothing about your login, so callers shouldn't log you out)
+ */
+export const checkLogin = async () => {
   try {
     // Shares the /user/me request with getCurrentUser (see fetchMe)
     await fetchMe();
-    return true;
-  } catch {
-    return false;
+    return 'in';
+  } catch (error) {
+    return error.response?.status === 401 ? 'out' : 'error';
   }
 };
+
+export const isAuthenticated = async () => (await checkLogin()) === 'in';
 
 export const logout = async () => {
   try {
     meCache = null;
+    signedIn = false;
+    invalidate('');
     // Call logout endpoint to clear server-side cookies
     await api.post('/user/auth/logout');
   } catch (error) {
@@ -117,6 +120,7 @@ function fetchMe() {
   meRequest = api.get('/user/me')
     .then((response) => {
       meCache = { data: response.data, at: Date.now() };
+      signedIn = true;
       return response.data;
     })
     .finally(() => { meRequest = null; });
