@@ -26,9 +26,11 @@ public class UserRelationService {
     private final UserRepository userRepository;
     
     private final NotificationService notificationService;
+    private final AtomicUpdates atomicUpdates;
 
-    public UserRelationService(UserRelationRepository userRelationRepository, UserRepository userRepository, NotificationService notificationService) {
+    public UserRelationService(UserRelationRepository userRelationRepository, UserRepository userRepository, NotificationService notificationService, AtomicUpdates atomicUpdates) {
         this.notificationService = notificationService;
+        this.atomicUpdates = atomicUpdates;
         this.userRelationRepository = userRelationRepository;
         this.userRepository = userRepository;
     }
@@ -56,11 +58,9 @@ public class UserRelationService {
             userRelationRepository.deleteByFollowerUserNameAndFollowingUserNameAndStatus(
                 followerUserName, followingUserName, UserRelation.RelationStatus.ACTIVE);
             
-            // Update counters
-            following.setFollowersCount(Math.max(0, following.getFollowersCount() - 1));
-            follower.setFollowingCount(Math.max(0, follower.getFollowingCount() - 1));
-            userRepository.save(following);
-            userRepository.save(follower);
+            // Update counters (atomic: saving whole users loses concurrent follows)
+            atomicUpdates.incUser(followingUserName, "followersCount", -1);
+            atomicUpdates.incUser(followerUserName, "followingCount", -1);
             
             // Remove notification
             removeFollowNotification(following, followerUserName);
@@ -79,11 +79,9 @@ public class UserRelationService {
             
             userRelationRepository.save(newRelation);
             
-            // Update counters
-            following.setFollowersCount(following.getFollowersCount() + 1);
-            follower.setFollowingCount(follower.getFollowingCount() + 1);
-            userRepository.save(following);
-            userRepository.save(follower);
+            // Update counters (atomic: saving whole users loses concurrent follows)
+            atomicUpdates.incUser(followingUserName, "followersCount", 1);
+            atomicUpdates.incUser(followerUserName, "followingCount", 1);
             
             // Add notification
             addFollowNotification(following, followerUserName);

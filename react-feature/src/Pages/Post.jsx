@@ -124,6 +124,9 @@ function Post() {
   const pending = Array.isArray(post.pendingFeatures) ? post.pendingFeatures : [];
   const isOwner = currentUser?.userName === author.userName;
   const isPlus = currentUser?.role === "USERPLUS";
+  // post.likes is only the 10 most recent; adjust the real total by what changed on this page
+  const initialLikes = Array.isArray(post.likes) ? post.likes.length : 0;
+  const likeTotal = Math.max(0, (post.totalLikes ?? initialLikes) + likes.length - initialLikes);
   const statusLabel = STATUS_LABELS[post.status];
   const totalComments = post.totalComments ?? comments.length;
 
@@ -231,7 +234,7 @@ function Post() {
 
           {/* Stats */}
           <ul className="fm-track__stats" aria-label="Track stats">
-            <li><Icon name="heart" size={18} /><strong>{likes.length}</strong> {likes.length === 1 ? "like" : "likes"}</li>
+            <li><Icon name="heart" size={18} /><strong>{likeTotal}</strong> {likeTotal === 1 ? "like" : "likes"}</li>
             <li><Icon name="message" size={18} /><strong>{totalComments}</strong> {totalComments === 1 ? "comment" : "comments"}</li>
             <li><Icon name="eye" size={18} /><strong>{post.totalViews || 0}</strong> {post.totalViews === 1 ? "view" : "views"}</li>
             {post.time && (

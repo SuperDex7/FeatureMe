@@ -14,6 +14,7 @@ import { getPostsByUser } from '../services/PostsService';
 import api, { getCurrentUser } from '../services/AuthService';
 import { bannerStyle } from '../utils/banner';
 import '../Styling/HomeDashboard.css';
+import { likeCount } from '../utils/likes';
 
 const DEFAULT_AVATAR = '/dpp.jpg';
 const LATEST_COUNT = 2;
@@ -233,9 +234,9 @@ function Homepage2() {
                             <span className="fm-home__trend-title">{post.title}</span>
                             <span className="fm-home__trend-artist">{post.author?.userName}</span>
                           </span>
-                          <span className="fm-home__trend-likes" aria-label={`${post.likes?.length || 0} likes`}>
+                          <span className="fm-home__trend-likes" aria-label={`${likeCount(post)} likes`}>
                             <Icon name="heart" size={14} />
-                            {post.likes?.length || 0}
+                            {likeCount(post)}
                           </span>
                         </a>
                       </li>

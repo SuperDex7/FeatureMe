@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -53,7 +54,8 @@ public class PostCommentService {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostComment> commentsPage = postCommentRepository.findByPostIdOrderByTimeDesc(postId, pageable);
         
-        return commentsPage.map(this::convertToCommentDTO);
+        Map<String, String> pics = profilePicsFor(commentsPage.getContent());
+        return commentsPage.map(item -> convertToCommentDTO(item, pics));
     }
     
     /**
@@ -70,9 +72,10 @@ public class PostCommentService {
         Pageable pageable = PageRequest.of(0, limit);
         Page<PostComment> commentsPage = postCommentRepository.findByPostIdOrderByTimeDesc(postId, pageable);
         
+        Map<String, String> pics = profilePicsFor(commentsPage.getContent());
         return commentsPage.getContent()
                 .stream()
-                .map(this::convertToCommentDTO)
+                .map(item -> convertToCommentDTO(item, pics))
                 .collect(Collectors.toList());
     }
     
@@ -110,25 +113,33 @@ public class PostCommentService {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostComment> commentsPage = postCommentRepository.findByUserNameOrderByTimeDesc(userName, pageable);
         
-        return commentsPage.map(this::convertToCommentDTO);
+        Map<String, String> pics = profilePicsFor(commentsPage.getContent());
+        return commentsPage.map(item -> convertToCommentDTO(item, pics));
     }
     
     /**
      * Convert PostComment entity to CommentDTO
      */
-    private CommentDTO convertToCommentDTO(PostComment postComment) {
-        // Fetch current profile picture from User entity
-        String profilePic = userRepository.findByUserName(postComment.getUserName())
-            .map(User::getProfilePic)
-            .orElse(null); // Fallback to null if user not found
-        
+    private CommentDTO convertToCommentDTO(PostComment postComment, Map<String, String> pics) {
         return new CommentDTO(
             postComment.getId(),
             postComment.getUserName(),
-            profilePic,
+            pics.get(postComment.getUserName()),
             postComment.getComment(),
             postComment.getTime()
         );
+    }
+
+    /** Everyone's current profile picture in one query, instead of one per item */
+    private Map<String, String> profilePicsFor(java.util.Collection<PostComment> items) {
+        List<String> names = items.stream().map(PostComment::getUserName).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<String, String> pics = new java.util.HashMap<>();
+        if (!names.isEmpty()) {
+            for (User user : userRepository.findByUserNameIn(names)) {
+                pics.put(user.getUserName(), user.getProfilePic());
+            }
+        }
+        return pics;
     }
     
 }

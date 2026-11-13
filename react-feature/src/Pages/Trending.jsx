@@ -10,6 +10,7 @@ import { MUSIC_GENRES } from "../constants/genres";
 import { bannerStyle } from "../utils/banner";
 import { recordView } from "../utils/views";
 import "../Styling/TrendingPage.css";
+import { likeCount } from "../utils/likes";
 
 const DEFAULT_AVATAR = "/dpp.jpg";
 const TOP_COUNT = 10;
@@ -199,7 +200,7 @@ function FeaturedTrack({ post, isPlaying, onPlay }) {
             <Icon name={isPlaying ? "volume" : "play"} size={18} />
             {isPlaying ? "Playing" : "Play"}
           </button>
-          <span className="fm-featured__stat"><Icon name="heart" size={18} />{post.likes?.length || 0}</span>
+          <span className="fm-featured__stat"><Icon name="heart" size={18} />{likeCount(post)}</span>
           <span className="fm-featured__stat"><Icon name="eye" size={18} />{post.totalViews || 0}</span>
         </div>
       </div>
@@ -227,9 +228,9 @@ function ChartRow({ post, rank, isPlaying, onPlay }) {
         </a>
       </span>
       {genres[0] && <span className="fm-tag fm-chart__genre">{genres[0]}</span>}
-      <span className="fm-chart__likes" aria-label={`${post.likes?.length || 0} likes`}>
+      <span className="fm-chart__likes" aria-label={`${likeCount(post)} likes`}>
         <Icon name="heart" size={16} />
-        {post.likes?.length || 0}
+        {likeCount(post)}
       </span>
     </li>
   );

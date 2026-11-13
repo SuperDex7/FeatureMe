@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -91,7 +92,8 @@ public class PostLikeService {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostLike> likesPage = postLikeRepository.findByPostIdOrderByLikedAtDesc(postId, pageable);
         
-        return likesPage.map(this::convertToLikesDTO);
+        Map<String, String> pics = profilePicsFor(likesPage.getContent());
+        return likesPage.map(item -> convertToLikesDTO(item, pics));
     }
     
     /**
@@ -120,13 +122,19 @@ public class PostLikeService {
     /**
      * Get recent likes for a post (for post DTOs)
      */
+    /** A user's likes, most recent first */
+    public Page<PostLike> getLikesByUser(String userName, int page, int size) {
+        return postLikeRepository.findByUserNameOrderByLikedAtDesc(userName, PageRequest.of(page, size));
+    }
+
     public List<LikesDTO> getRecentLikes(String postId, int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         Page<PostLike> likesPage = postLikeRepository.findByPostIdOrderByLikedAtDesc(postId, pageable);
         
+        Map<String, String> pics = profilePicsFor(likesPage.getContent());
         return likesPage.getContent()
                 .stream()
-                .map(this::convertToLikesDTO)
+                .map(item -> convertToLikesDTO(item, pics))
                 .collect(Collectors.toList());
     }
     
@@ -144,23 +152,31 @@ public class PostLikeService {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostLike> likesPage = postLikeRepository.findByUserNameOrderByLikedAtDesc(userName, pageable);
         
-        return likesPage.map(this::convertToLikesDTO);
+        Map<String, String> pics = profilePicsFor(likesPage.getContent());
+        return likesPage.map(item -> convertToLikesDTO(item, pics));
     }
     
     /**
      * Convert PostLike entity to LikesDTO
      */
-    private LikesDTO convertToLikesDTO(PostLike postLike) {
-        // Fetch current profile picture from User entity
-        String profilePic = userRepository.findByUserName(postLike.getUserName())
-            .map(User::getProfilePic)
-            .orElse(null); // Fallback to null if user not found
-        
+    private LikesDTO convertToLikesDTO(PostLike postLike, Map<String, String> pics) {
         return new LikesDTO(
             postLike.getUserName(),
-            profilePic,
+            pics.get(postLike.getUserName()),
             postLike.getLikedAt()
         );
+    }
+
+    /** Everyone's current profile picture in one query, instead of one per item */
+    private Map<String, String> profilePicsFor(java.util.Collection<PostLike> items) {
+        List<String> names = items.stream().map(PostLike::getUserName).filter(java.util.Objects::nonNull).distinct().toList();
+        Map<String, String> pics = new java.util.HashMap<>();
+        if (!names.isEmpty()) {
+            for (User user : userRepository.findByUserNameIn(names)) {
+                pics.put(user.getUserName(), user.getProfilePic());
+            }
+        }
+        return pics;
     }
     
     /**

@@ -193,16 +193,17 @@ class PostsControllerAnalyticsTest {
         User bob = user("bob", "bob-id");
         bob.setLikedPosts(List.of("l1", "l2"));
         when(userService.findByUsernameOrEmail("bob@example.com")).thenReturn(Optional.of(bob));
-        when(postsService.getAllByIdSortedByTime(any(), anyInt(), anyInt())).thenReturn(new PagedModel<>(new PageImpl<PostsDTO>(List.of())));
+        when(postsService.getLikedPosts(anyString(), anyInt(), anyInt())).thenReturn(new PagedModel<>(new PageImpl<PostsDTO>(List.of())));
 
-        mockMvc.perform(get("/api/posts/liked")).andExpect(status().isOk());
-        verify(postsService).getAllByIdSortedByTime(List.of("l1", "l2"), 0, 12);
+        mockMvc.perform(get("/api/posts/liked").param("size", "500")).andExpect(status().isOk());
+        // Read from post_likes for the logged-in user, page size capped
+        verify(postsService).getLikedPosts("bob", 0, 50);
     }
 
     @Test
     @DisplayName("liked posts need a login")
     void likedNeedsLogin() throws Exception {
         mockMvc.perform(get("/api/posts/liked")).andExpect(status().is4xxClientError());
-        verify(postsService, never()).getAllByIdSortedByTime(any(), anyInt(), anyInt());
+        verify(postsService, never()).getLikedPosts(anyString(), anyInt(), anyInt());
     }
 }

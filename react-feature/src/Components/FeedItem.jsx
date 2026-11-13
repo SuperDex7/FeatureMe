@@ -54,11 +54,13 @@ function FeaturedArtists({ features, limit }) {
   );
 }
 
-function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0, totalDownloads = 0, freeDownload = false }) {
+function FeedItemModal({ open, onClose, id, author, description, time, title, features, genre, music, comments, likes, onAddComment, currentUser, totalViews = 0, totalComments = 0, totalDownloads = 0, totalLikes, freeDownload = false }) {
   const { userName, profilePic, role } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [localLikes, setLocalLikes] = useState(likes || []);
+  // likes is only the 10 most recent: start from the real total and add what changed here
+  const likeTotal = Math.max(0, (totalLikes ?? (likes || []).length) + localLikes.length - (likes || []).length);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showViewsAnalytics, setShowViewsAnalytics] = useState(false);
   const closeRef = useRef(null);
@@ -164,7 +166,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
               onClick={() => setShowComments(false)}
             >
               <Icon name="heart" size={16} />
-              {localLikes.length} {localLikes.length === 1 ? "like" : "likes"}
+              {likeTotal} {likeTotal === 1 ? "like" : "likes"}
             </button>
             <button
               type="button"
@@ -239,7 +241,7 @@ function FeedItemModal({ open, onClose, id, author, description, time, title, fe
   );
 }
 
-function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, totalDownloads = 0, freeDownload = false, currentUser: currentUserProp }) {
+function FeedItem({ id, author, description, time, title, features, genre, music, comments = [], likes = [], totalViews = 0, totalComments = 0, totalDownloads = 0, totalLikes, freeDownload = false, currentUser: currentUserProp }) {
   const { userName, profilePic, role } = author ?? {};
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -320,9 +322,9 @@ function FeedItem({ id, author, description, time, title, features, genre, music
               {genres.length > 2 && <span className="fm-tag">+{genres.length - 2}</span>}
             </div>
             <div className="fm-post-card__stats">
-              <span className="fm-post__stat" aria-label={`${likes.length} likes`}>
+              <span className="fm-post__stat" aria-label={`${totalLikes ?? likes.length} likes`}>
                 <Icon name="heart" size={16} />
-                {likes.length}
+                {totalLikes ?? likes.length}
               </span>
               <button
                 type="button"
@@ -360,6 +362,7 @@ function FeedItem({ id, author, description, time, title, features, genre, music
         totalViews={totalViews}
         totalComments={totalComments}
         totalDownloads={totalDownloads}
+        totalLikes={totalLikes}
         freeDownload={freeDownload}
       />
     </>

@@ -32,6 +32,8 @@ public class ChatService {
     @Autowired
     private NotificationService notificationService;
     @Autowired
+    private AtomicUpdates atomicUpdates;
+    @Autowired
     private ChatMessageRepository chatMessageRepository;
     @Autowired
     private ChatsRepository chatsRepository;
@@ -149,7 +151,7 @@ public User validateJwtAndGetUser(String jwtToken) {
             user.setChats(new ArrayList<>());
            }
         user.getChats().add(newChat.getChatRoomId());
-        userRepository.save(user);
+        atomicUpdates.addToUserList(user.getUserName(), "chats", newChat.getChatRoomId());
         for(String user2: oUsers){
            User thisUser = userRepository.findByUserName(user2).orElseThrow(() -> new RuntimeException("User not found: " + user2));
            if(thisUser.getChats() ==null){
@@ -159,7 +161,7 @@ public User validateJwtAndGetUser(String jwtToken) {
             thisUser.getChats().add(newChat.getChatRoomId());
             notificationService.notify(thisUser.getUserName(), newChat.getChatRoomId(), user.getUserName(),
                 "Added you to a chat named " + newChat.getChatName(), NotificationsDTO.NotiType.CHAT);
-            userRepository.save(thisUser);
+            atomicUpdates.addToUserList(thisUser.getUserName(), "chats", newChat.getChatRoomId());
         }
        // users.getChats().add(newChat.getChatRoomId());
 
@@ -230,7 +232,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(message);
-            userRepository.save(user);
+            atomicUpdates.addToUserList(user.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             return message;
@@ -276,7 +278,7 @@ return newChat;
         chatMessageRepository.save(message);
         chat.setMostRecentChat( new MostRecentChatDTO(chat.getChatRoomId(), chat.getChatName(), chat.getChatPhoto(), chat.getUsers(), message.getMessage(), Instant.now()));
        
-        userRepository.save(user);
+        atomicUpdates.removeFromUserList(user.getUserName(), "chats", chatRoomId);
         chatsRepository.save(chat);
         
         // Check if chat should be deleted (no users remaining)
@@ -411,7 +413,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(joinMessage);
-            userRepository.save(userToAdd);
+            atomicUpdates.addToUserList(userToAdd.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             return chat;
@@ -470,7 +472,7 @@ return newChat;
             ));
             
             chatMessageRepository.save(leaveMessage);
-            userRepository.save(userToRemove);
+            atomicUpdates.removeFromUserList(userToRemove.getUserName(), "chats", chatRoomId);
             chatsRepository.save(chat);
             
             // Check if chat should be deleted (no users remaining)
@@ -742,7 +744,7 @@ return newChat;
                 User user = userRepository.findByUserName(username).orElse(null);
                 if (user != null && user.getChats() != null) {
                     user.getChats().remove(chatRoomId);
-                    userRepository.save(user);
+                    atomicUpdates.removeFromUserList(user.getUserName(), "chats", chatRoomId);
                     System.out.println("Removed chat " + chatRoomId + " from user " + username);
                 }
             } catch (Exception e) {

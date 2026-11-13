@@ -426,7 +426,7 @@ public class PostsController {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Log in to see your liked posts");
         }
-        return postsByIds(user.getLikedPosts(), page, size);
+        return postsService.getLikedPosts(user.getUserName(), Math.max(0, page), clampSize(size));
     }
 
     @GetMapping("/get/all/id/{ids}/sorted")

@@ -6,6 +6,7 @@ import { getCurrentUser } from "../services/AuthService";
 import { getPostsByUser } from "../services/PostsService";
 import { bannerStyle } from "../utils/banner";
 import "./ViewsAnalyticsCard.css";
+import { likeCount } from "../utils/likes";
 
 const PER_PAGE = 6;
 
@@ -106,7 +107,7 @@ function ViewsAnalyticsCard() {
               <span className="fm-stats-picker__title">{post.title}</span>
               <span className="fm-stats-picker__nums">
                 <span><Icon name="play" size={12} />{compact(post.totalViews)}</span>
-                <span><Icon name="heart" size={12} />{compact(post.likes?.length)}</span>
+                <span><Icon name="heart" size={12} />{compact(likeCount(post))}</span>
                 <span><Icon name="message" size={12} />{compact(post.totalComments)}</span>
               </span>
             </button>
