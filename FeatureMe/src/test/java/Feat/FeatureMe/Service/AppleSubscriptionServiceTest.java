@@ -115,7 +115,7 @@ class AppleSubscriptionServiceTest {
         tx.put("originalTransactionId", "1000");
         tx.put("transactionId", "1001");
         tx.put("bundleId", BUNDLE);
-        tx.put("productId", "featureme_plus_monthly");
+        tx.put("productId", "com.featureme.app.plus.monthly");
         tx.put("type", "Auto-Renewable Subscription");
         tx.put("environment", environment);
         tx.put("expiresDate", expires);
@@ -306,5 +306,54 @@ class AppleSubscriptionServiceTest {
     void realRootCertificate() throws Exception {
         AppleSubscriptionService real = new AppleSubscriptionService(mongo, access, BUNDLE, APP_ID, false);
         assertThat(real.handleNotification(renewal(), NOW).outcome()).isEqualTo(AppleSubscriptionService.Outcome.REJECTED);
+    }
+
+    @Test
+    @DisplayName("StoreKit 2 purchase from the app: Apple-signed and current gives Plus")
+    void signedPurchaseActive() throws Exception {
+        String jws = apple.sign(transaction("Production", NOW + 30 * DAY));
+        assertThat(service.applySignedTransaction("bob", jws, NOW)).isEqualTo(AppleSubscriptionService.PurchaseOutcome.ACTIVE);
+        Applied applied = applied();
+        assertThat(applied.access()).isEqualTo(SubscriptionAccess.Access.GRANT);
+        assertThat(applied.extra().getUpdateObject().toJson()).contains("\"appleOriginalTransactionId\": \"1000\"");
+    }
+
+    @Test
+    @DisplayName("StoreKit 2: forged, other products, lapsed and refunded purchases don't give Plus")
+    void signedPurchaseRefused() throws Exception {
+        Chain impostor = new Chain();
+        assertThat(service.applySignedTransaction("bob", impostor.sign(transaction("Production", NOW + DAY)), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.INVALID);
+        assertThat(service.applySignedTransaction("bob", "garbage", NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.INVALID);
+
+        Map<String, Object> otherProduct = transaction("Production", NOW + DAY);
+        otherProduct.put("productId", "com.featureme.app.coins");
+        assertThat(service.applySignedTransaction("bob", apple.sign(otherProduct), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.NOT_PLUS);
+
+        Map<String, Object> otherApp = transaction("Production", NOW + DAY);
+        otherApp.put("bundleId", "com.someone.else");
+        assertThat(service.applySignedTransaction("bob", apple.sign(otherApp), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.INVALID);
+        nothingApplied();
+
+        assertThat(service.applySignedTransaction("bob", apple.sign(transaction("Production", NOW - DAY)), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.EXPIRED);
+        Map<String, Object> refunded = transaction("Sandbox", NOW + DAY);
+        refunded.put("revocationDate", NOW - 1000);
+        assertThat(service.applySignedTransaction("bob", apple.sign(refunded), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.REFUNDED);
+        verify(access, org.mockito.Mockito.times(2)).apply(any(Criteria.class), eq(SubscriptionAccess.Store.APPLE),
+            eq("expired"), eq(SubscriptionAccess.Access.REMOVE), any());
+    }
+
+    @Test
+    @DisplayName("StoreKit 2: a subscription already linked to another account isn't applied")
+    void signedPurchaseTaken() throws Exception {
+        when(mongo.exists(any(Query.class), eq(User.class))).thenReturn(true);
+        assertThat(service.applySignedTransaction("bob", apple.sign(transaction("Production", NOW + DAY)), NOW))
+            .isEqualTo(AppleSubscriptionService.PurchaseOutcome.TAKEN);
+        nothingApplied();
     }
 }

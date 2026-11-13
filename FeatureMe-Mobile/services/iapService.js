@@ -26,7 +26,7 @@ class IAPService {
   constructor() {
     this.products = [];
     this.purchaseUpdateSubscription = null;
-    this.purchaseErrorSubscription = null;
+    this.purchaseInProgress = false;
     this.isInitialized = false;
   }
 
@@ -61,6 +61,11 @@ class IAPService {
 
       // Connect to store with timeout
       console.log('[IAP] Connecting to App Store...');
+      // StoreKit 2: every purchase comes with Apple's signed transaction,
+      // which the server verifies itself (no deprecated receipt check)
+      if (Platform.OS === 'ios') {
+        RNIap.setup({ storekitMode: 'STOREKIT2_MODE' });
+      }
       const connectionPromise = RNIap.initConnection();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000)
@@ -71,7 +76,9 @@ class IAPService {
 
       // Load available products with timeout
       console.log('[IAP] Fetching products from App Store...');
-      const productsPromise = RNIap.getProducts(productIds);
+      const productsPromise = RNIap.getSubscriptions({ skus: productIds })
+        // StoreKit 2 calls the name "title"; the screen reads localizedTitle
+        .then((items) => items.map((item) => ({ ...item, localizedTitle: item.localizedTitle || item.title })));
       const productsTimeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Products fetch timeout after 10s')), 10000)
       );
@@ -94,6 +101,7 @@ class IAPService {
       
       this.products = products;
       this.isInitialized = true;
+      this.listenForTransactions();
 
       if (products.length === 0) {
         console.warn('[IAP] ⚠️ No IAP products found. Make sure:');
@@ -170,87 +178,82 @@ class IAPService {
   }
 
   /**
-   * Purchase a subscription
-   * Returns a promise that resolves when purchase is completed and validated
+   * Purchase a subscription.
+   * Resolves { success: true } once the server has verified the purchase and
+   * given Plus; { success: false, cancelled: true } if the user backs out.
    */
-  async purchaseSubscription(productId, billingCycle) {
-    return new Promise(async (resolve, reject) => {
+  async purchaseSubscription(productId) {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    if (!this.getProduct(productId)) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    let purchase;
+    this.purchaseInProgress = true;
+    try {
+      // StoreKit 2 returns the finished purchase directly
+      purchase = await RNIap.requestSubscription({ sku: productId });
+    } catch (error) {
+      if (error.code === 'E_USER_CANCELLED') {
+        return { success: false, error: 'Purchase cancelled', cancelled: true };
+      }
+      if (error.code === 'E_NETWORK_ERROR') throw new Error('Network error. Please check your connection.');
+      if (error.code === 'E_SERVICE_ERROR') throw new Error('Service error. Please try again later.');
+      throw new Error(error.message || 'Purchase failed');
+    } finally {
+      this.purchaseInProgress = false;
+    }
+    if (!purchase) {
+      // Pending (e.g. Ask to Buy): it arrives later through the transaction listener
+      return { success: false, error: 'Purchase is pending approval', pending: true };
+    }
+
+    const result = await this.deliver(purchase);
+    if (!result.success) {
+      throw new Error(result.error || 'Purchase could not be verified');
+    }
+    return { success: true, purchase };
+  }
+
+  /**
+   * Send a purchase to the server and, once it has given Plus, tell the App
+   * Store it's delivered. Unverified purchases stay unfinished so StoreKit
+   * offers them again next time.
+   */
+  async deliver(purchase) {
+    const validationResult = await this.validateReceipt(purchase);
+    if (validationResult.success) {
       try {
-        if (!this.isInitialized) {
-          await this.initialize();
-        }
-
-        const product = this.getProduct(productId);
-        if (!product) {
-          reject(new Error(`Product ${productId} not found`));
-          return;
-        }
-
-        // Set up one-time purchase listener
-        const purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(
-          async (purchase) => {
-            try {
-              // Remove listener immediately
-              purchaseUpdateSubscription.remove();
-              
-              const receipt = purchase.transactionReceipt || purchase.purchaseToken;
-              
-              // Validate receipt with backend
-              const validationResult = await this.validateReceipt(receipt, purchase);
-              
-              if (validationResult.success) {
-                // Acknowledge purchase to complete transaction
-                if (purchase.transactionReceipt) {
-                  // iOS
-                  await RNIap.finishTransactionIOS(purchase.transactionId);
-                } else if (purchase.purchaseToken) {
-                  // Android
-                  await RNIap.finishTransaction({ purchase }, false);
-                }
-                
-                resolve({ success: true, purchase });
-              } else {
-                // Don't finish transaction if validation failed
-                reject(new Error(validationResult.error || 'Receipt validation failed'));
-              }
-            } catch (error) {
-              purchaseUpdateSubscription.remove();
-              reject(error);
-            }
-          }
-        );
-
-        // Set up error listener
-        const purchaseErrorSubscription = RNIap.purchaseErrorListener(
-          (error) => {
-            purchaseUpdateSubscription.remove();
-            purchaseErrorSubscription.remove();
-            
-            if (error.code === 'E_USER_CANCELLED') {
-              resolve({ success: false, error: 'Purchase cancelled', cancelled: true });
-            } else if (error.code === 'E_NETWORK_ERROR') {
-              reject(new Error('Network error. Please check your connection.'));
-            } else if (error.code === 'E_SERVICE_ERROR') {
-              reject(new Error('Service error. Please try again later.'));
-            } else {
-              reject(new Error(error.message || 'Purchase failed'));
-            }
-          }
-        );
-
-        // Request purchase (this will trigger the listeners)
-        await RNIap.requestSubscription(productId, false);
-        
-        // Note: The actual result will come through the purchaseUpdatedListener
+        await RNIap.finishTransaction({ purchase, isConsumable: false });
       } catch (error) {
-        console.error('Purchase initiation error:', error);
-        reject(error);
+        console.warn('[IAP] finishTransaction failed:', error?.message);
+      }
+    }
+    return validationResult;
+  }
+
+  /**
+   * Purchases that complete outside the purchase sheet (Ask to Buy approval,
+   * a purchase interrupted by the app closing, renewals while the app runs).
+   */
+  listenForTransactions() {
+    if (this.purchaseUpdateSubscription) return;
+    this.purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(async (purchase) => {
+      // The purchase sheet handles its own result
+      if (this.purchaseInProgress) return;
+      try {
+        await this.deliver(purchase);
+      } catch (error) {
+        console.warn('[IAP] Background purchase not delivered:', error?.message);
       }
     });
   }
 
   /**
-   * Restore previous purchases
+   * Restore previous purchases: the current App Store entitlements, each with
+   * Apple's signed transaction
    */
   async restorePurchases() {
     try {
@@ -258,20 +261,22 @@ class IAPService {
         await this.initialize();
       }
 
-      // Get available purchases
       const purchases = await RNIap.getAvailablePurchases();
-      
-      // Validate each purchase with backend
+
       const validatedPurchases = [];
+      let lastError = null;
       for (const purchase of purchases) {
-        const receipt = purchase.transactionReceipt || purchase.purchaseToken;
-        const validationResult = await this.validateReceipt(receipt, purchase);
-        
+        const validationResult = await this.deliver(purchase);
         if (validationResult.success) {
           validatedPurchases.push(purchase);
+        } else {
+          lastError = validationResult.error;
         }
       }
 
+      if (purchases.length > 0 && validatedPurchases.length === 0 && lastError) {
+        return { success: false, error: lastError, purchases: [] };
+      }
       return { success: true, purchases: validatedPurchases };
     } catch (error) {
       console.error('Restore purchases error:', error);
@@ -280,20 +285,21 @@ class IAPService {
   }
 
   /**
-   * Validate receipt with backend
+   * Ask the server to verify a purchase and give Plus
    */
-  async validateReceipt(receipt, purchase) {
+  async validateReceipt(purchase) {
     try {
-      if (!receipt) {
-        return { success: false, error: 'Receipt is missing' };
+      // StoreKit 2: Apple's signed transaction (JWS), verified by the server
+      const signedTransaction = purchase?.verificationResultIOS;
+      if (!signedTransaction) {
+        return { success: false, error: 'Purchase is missing its App Store signature' };
       }
 
       const response = await api.post('/payment/validate-receipt', {
-        receipt: receipt,
+        platform: Platform.OS,
+        signedTransaction,
         productId: purchase.productId,
         transactionId: purchase.transactionId,
-        platform: Platform.OS,
-        purchaseToken: purchase.purchaseToken, // Android
       });
 
       if (response.data && response.data.success) {
@@ -357,6 +363,8 @@ class IAPService {
    * Clean up listeners and close connection
    */
   cleanup() {
+    this.purchaseUpdateSubscription?.remove();
+    this.purchaseUpdateSubscription = null;
     if (this.isInitialized) {
       RNIap.endConnection();
       this.isInitialized = false;

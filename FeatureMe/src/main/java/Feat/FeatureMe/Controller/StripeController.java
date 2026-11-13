@@ -442,7 +442,8 @@ public class StripeController {
             String receipt = (String) request.get("receipt");
             String productId = (String) request.get("productId");
             
-            if (receipt == null || receipt.isEmpty()) {
+            Object signed = request.get("signedTransaction");
+            if ((receipt == null || receipt.isEmpty()) && !(signed instanceof String text && !text.isBlank())) {
                 Map<String, Object> error = new HashMap<>();
                 error.put("success", false);
                 error.put("error", "Receipt is required");
@@ -450,6 +451,12 @@ public class StripeController {
             }
             
             if ("ios".equals(platform)) {
+                // StoreKit 2 (current app): Apple's signed transaction, checked locally
+                String signedTransaction = (String) request.get("signedTransaction");
+                if (signedTransaction != null && !signedTransaction.isBlank()) {
+                    return applySignedTransaction(user, signedTransaction);
+                }
+                // Older app builds send a StoreKit 1 receipt (Apple's deprecated verifyReceipt)
                 return applyAppleReceipt(user, receipt, productId);
             }
 
@@ -472,8 +479,36 @@ public class StripeController {
         }
     }
     
+    /** iOS StoreKit 2 purchase: verify Apple's signed transaction and apply it */
+    private Map<String, Object> applySignedTransaction(User user, String signedTransaction) {
+        Map<String, Object> result = new HashMap<>();
+        AppleSubscriptionService.PurchaseOutcome outcome;
+        try {
+            outcome = appleSubscriptionService.applySignedTransaction(user.getUserName(), signedTransaction, System.currentTimeMillis());
+        } catch (AppleSubscriptionService.RetryLaterException e) {
+            result.put("success", false);
+            result.put("error", "Couldn't check your purchase with Apple right now. Please try again in a moment.");
+            return result;
+        }
+        System.out.println("📱 App Store purchase for " + user.getUserName() + ": " + outcome);
+        switch (outcome) {
+            case ACTIVE -> {
+                result.put("success", true);
+                result.put("message", "Subscription activated successfully");
+                result.put("role", "USERPLUS");
+            }
+            case EXPIRED -> { result.put("success", false); result.put("error", "Subscription has expired"); }
+            case REFUNDED -> { result.put("success", false); result.put("error", "This subscription was refunded"); }
+            case TAKEN -> { result.put("success", false); result.put("error", "This App Store subscription is already linked to another FeatureMe account."); }
+            case NOT_PLUS -> { result.put("success", false); result.put("error", "This purchase isn't a FeatureMe Plus subscription"); }
+            default -> { result.put("success", false); result.put("error", "This purchase couldn't be verified with Apple"); }
+        }
+        return result;
+    }
+
     /**
-     * iOS: check the receipt with Apple, then give Plus while the subscription
+     * iOS, older app builds (StoreKit 1): check the receipt with Apple's
+     * deprecated verifyReceipt, then give Plus while the subscription
      * is current. A refunded purchase, or one without an expiry date, doesn't
      * count, and one App Store subscription can't give Plus to several accounts.
      */
@@ -483,6 +518,11 @@ public class StripeController {
         if (!Boolean.TRUE.equals(validation.get("valid"))) {
             result.put("success", false);
             result.put("error", validation.get("error") != null ? validation.get("error") : "Receipt validation failed");
+            return result;
+        }
+        if (!appleSubscriptionService.isPlusProduct((String) validation.get("productId"))) {
+            result.put("success", false);
+            result.put("error", "This purchase isn't a FeatureMe Plus subscription");
             return result;
         }
         if (!(validation.get("expiresAt") instanceof Number expiresAt)) {
@@ -563,6 +603,13 @@ public class StripeController {
             // Status 0 means receipt is valid
             if (status == 0) {
                 JsonNode receiptNode = responseJson.get("receipt");
+                // Receipts from other apps are valid too; only accept this app's
+                String bundleId = receiptNode != null && receiptNode.hasNonNull("bundle_id") ? receiptNode.get("bundle_id").asText() : null;
+                if (!"com.featureme.app".equals(bundleId)) {
+                    result.put("valid", false);
+                    result.put("error", "Receipt is for a different app");
+                    return result;
+                }
                 JsonNode latestReceiptInfo = responseJson.get("latest_receipt_info");
                 
                 // Use latest_receipt_info if available (for subscriptions), otherwise use receipt.in_app

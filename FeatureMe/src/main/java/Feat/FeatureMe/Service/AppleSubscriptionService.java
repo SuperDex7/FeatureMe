@@ -67,7 +67,11 @@ public class AppleSubscriptionService {
     private final MongoTemplate mongoTemplate;
     private final SubscriptionAccess subscriptionAccess;
     private final List<SignedDataVerifier> verifiers;
+    private final Set<String> plusProductIds;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** The App Store products that are FeatureMe Plus */
+    static final Set<String> DEFAULT_PLUS_PRODUCTS = Set.of("com.featureme.app.plus.monthly", "com.featureme.app.plus.yearly");
 
     @Autowired
     public AppleSubscriptionService(
@@ -83,6 +87,7 @@ public class AppleSubscriptionService {
             String bundleId, Long appAppleId, boolean onlineChecks) {
         this.mongoTemplate = mongoTemplate;
         this.subscriptionAccess = subscriptionAccess;
+        this.plusProductIds = DEFAULT_PLUS_PRODUCTS;
         // Production first; App Review and TestFlight purchases come from the sandbox
         this.verifiers = List.of(
             verifier(rootCertificate, bundleId, appAppleId, Environment.PRODUCTION, onlineChecks),
@@ -232,6 +237,47 @@ public class AppleSubscriptionService {
     // ------------------------------------------------------------------
     // Purchases sent by the app (/api/payment/validate-receipt)
     // ------------------------------------------------------------------
+
+    public enum PurchaseOutcome { ACTIVE, EXPIRED, REFUNDED, TAKEN, NOT_PLUS, INVALID }
+
+    /** Whether a product id is FeatureMe Plus (the legacy receipt check uses this too) */
+    public boolean isPlusProduct(String productId) {
+        return productId != null && plusProductIds.contains(productId);
+    }
+
+    /**
+     * A StoreKit 2 purchase sent by the app: the signed transaction
+     * (jwsRepresentation) is verified like a notification (Apple's chain and
+     * signature, this app's bundle id), then applied to the account.
+     */
+    public PurchaseOutcome applySignedTransaction(String userName, String signedTransaction, long now)
+            throws RetryLaterException {
+        JWSTransactionDecodedPayload transaction = null;
+        VerificationException failure = null;
+        for (SignedDataVerifier verifier : verifiers) {
+            try {
+                transaction = verifier.verifyAndDecodeTransaction(signedTransaction);
+                break;
+            } catch (VerificationException e) {
+                if (failure == null || failure.getStatus() == VerificationStatus.INVALID_ENVIRONMENT) failure = e;
+            }
+        }
+        if (transaction == null) {
+            if (failure != null && failure.getStatus() == VerificationStatus.RETRYABLE_VERIFICATION_FAILURE) {
+                throw new RetryLaterException("Couldn't check Apple's certificates right now", failure);
+            }
+            return PurchaseOutcome.INVALID;
+        }
+        if (!isPlusProduct(transaction.getProductId()) || transaction.getExpiresDate() == null) {
+            return PurchaseOutcome.NOT_PLUS;
+        }
+        boolean refunded = transaction.getRevocationDate() != null;
+        boolean current = !refunded && transaction.getExpiresDate() > now;
+        if (applyPurchase(userName, transaction.getOriginalTransactionId(), current) == LinkOutcome.TAKEN) {
+            return PurchaseOutcome.TAKEN;
+        }
+        return current ? PurchaseOutcome.ACTIVE : refunded ? PurchaseOutcome.REFUNDED : PurchaseOutcome.EXPIRED;
+    }
 
     public enum LinkOutcome { LINKED, TAKEN }
 
