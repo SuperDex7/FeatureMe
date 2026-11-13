@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import com.stripe.Stripe;
 import com.stripe.net.Webhook;
@@ -31,7 +32,16 @@ import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.RateLimitingService;
+import Feat.FeatureMe.Service.SubscriptionAccess;
+import Feat.FeatureMe.Service.SubscriptionAccess.Access;
+import Feat.FeatureMe.Service.SubscriptionAccess.Store;
 import Feat.FeatureMe.Service.UserService;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import Feat.FeatureMe.config.SecurityConfig;
 
 @WebMvcTest(controllers = StripeController.class)
@@ -46,6 +56,7 @@ class StripeControllerWebhookTest {
 
     @MockitoBean private UserService userService;
     @MockitoBean private Feat.FeatureMe.Service.AppleSubscriptionService appleSubscriptionService;
+    @MockitoBean private SubscriptionAccess subscriptionAccess;
     @MockitoBean private JwtService jwtService;
     @MockitoBean private CachedUserDetailsService cachedUserDetailsService;
     @MockitoBean private RateLimitingService rateLimitingService;
@@ -63,6 +74,12 @@ class StripeControllerWebhookTest {
         alice.setEmail("alice@example.com");
         alice.setRole("USER");
         when(userService.findByStripeCustomerId("cus_1")).thenReturn(Optional.of(alice));
+        when(subscriptionAccess.apply(any(), any(), any(), any(), any())).thenReturn(true);
+    }
+
+    /** The account the update targeted */
+    private static String target(Criteria account) {
+        return new Query(account).getQueryObject().toJson();
     }
 
     private static String event(String apiVersion, String type, String object) {
@@ -92,9 +109,12 @@ class StripeControllerWebhookTest {
 
         send(payload, signature(payload)).andExpect(status().isOk());
 
-        verify(userService).saveUser(alice);
-        assertThat(alice.getRole()).isEqualTo("USERPLUS");
-        assertThat(alice.getStripeSubscriptionId()).isEqualTo("sub_1");
+        ArgumentCaptor<Criteria> account = ArgumentCaptor.forClass(Criteria.class);
+        ArgumentCaptor<Update> extra = ArgumentCaptor.forClass(Update.class);
+        verify(subscriptionAccess).apply(account.capture(), eq(Store.STRIPE), eq("active"), eq(Access.GRANT), extra.capture());
+        assertThat(target(account.getValue())).contains("\"stripeCustomerId\": \"cus_1\"");
+        assertThat(extra.getValue().getUpdateObject().toJson()).contains("\"stripeSubscriptionId\": \"sub_1\"");
+        verify(userService, never()).saveUser(any());
     }
 
     @ParameterizedTest(name = "API version {0}")
@@ -107,8 +127,7 @@ class StripeControllerWebhookTest {
 
         send(payload, signature(payload)).andExpect(status().isOk());
 
-        assertThat(alice.getRole()).isEqualTo("USER");
-        assertThat(alice.getSubscriptionStatus()).isEqualTo("canceled");
+        verify(subscriptionAccess).apply(any(), eq(Store.STRIPE), eq("canceled"), eq(Access.REMOVE), isNull());
     }
 
     @Test
@@ -120,8 +139,7 @@ class StripeControllerWebhookTest {
 
         send(payload, signature(payload)).andExpect(status().isOk());
 
-        assertThat(alice.getRole()).isEqualTo("USERPLUS");
-        assertThat(alice.getSubscriptionStatus()).isEqualTo("cancel_at_period_end");
+        verify(subscriptionAccess).apply(any(), eq(Store.STRIPE), eq("cancel_at_period_end"), eq(Access.KEEP), isNull());
     }
 
     @Test
@@ -132,14 +150,13 @@ class StripeControllerWebhookTest {
 
         send(payload, "t=1700000000,v1=deadbeef").andExpect(status().isBadRequest());
 
-        verify(userService, never()).saveUser(any());
-        assertThat(alice.getRole()).isEqualTo("USER");
+        verify(subscriptionAccess, never()).apply(any(), any(), any(), any(), any());
     }
 
     @Test
     @DisplayName("a processing failure returns 500 so Stripe retries")
     void processingErrorRetries() throws Exception {
-        when(userService.findByStripeCustomerId("cus_1")).thenThrow(new RuntimeException("database down"));
+        when(subscriptionAccess.apply(any(), any(), any(), any(), any())).thenThrow(new RuntimeException("database down"));
         String payload = event(Stripe.API_VERSION, "customer.subscription.deleted",
             "{\"id\":\"sub_1\",\"object\":\"subscription\",\"customer\":\"cus_1\",\"status\":\"canceled\"}");
 
@@ -159,5 +176,18 @@ class StripeControllerWebhookTest {
         mockMvc.perform(post("/api/payment/apple-webhook").content("forged")).andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/payment/apple-webhook").content("good")).andExpect(status().isOk());
         mockMvc.perform(post("/api/payment/apple-webhook").content("later")).andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    @WithMockUser(username = "alice@example.com")
+    @DisplayName("an Android purchase never grants Plus (Android subscribes through the web)")
+    void androidReceiptRefused() throws Exception {
+        when(userService.findByUsernameOrEmail("alice@example.com")).thenReturn(Optional.of(alice));
+        mockMvc.perform(post("/api/payment/validate-receipt").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"platform\":\"android\",\"receipt\":\"anything\",\"transactionId\":\"GPA.123\",\"productId\":\"plus\"}"))
+            .andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.success").value(false));
+        verify(subscriptionAccess, never()).apply(any(), any(), any(), any(), any());
+        verify(userService, never()).saveUser(any());
     }
 }

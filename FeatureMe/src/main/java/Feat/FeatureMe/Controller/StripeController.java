@@ -22,6 +22,9 @@ import com.stripe.param.CustomerCreateParams;
 
 import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.AppleSubscriptionService;
+import Feat.FeatureMe.Service.SubscriptionAccess;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Update;
 import Feat.FeatureMe.Service.UserService;
 
 import java.util.HashMap;
@@ -49,6 +52,7 @@ public class StripeController {
     
     private final UserService userService;
     private final AppleSubscriptionService appleSubscriptionService;
+    private final SubscriptionAccess subscriptionAccess;
     
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
@@ -62,9 +66,11 @@ public class StripeController {
     //@Value("${https://featureme.co}")
     //private String frontendUrl;
 
-    public StripeController(UserService userService, AppleSubscriptionService appleSubscriptionService){
+    public StripeController(UserService userService, AppleSubscriptionService appleSubscriptionService,
+            SubscriptionAccess subscriptionAccess){
         this.userService = userService;
         this.appleSubscriptionService = appleSubscriptionService;
+        this.subscriptionAccess = subscriptionAccess;
     }
     private String frontendUrl = "https://featureme.co";
     
@@ -221,113 +227,44 @@ public class StripeController {
         try {
             
             System.out.println("Received webhook event: " + event.getType());
-            
-            // Handle successful payment events
-            if ("invoice.payment_succeeded".equals(event.getType())) {
-                Invoice invoice = (Invoice) eventObject(event);
-                
-                if (invoice != null) {
-                    String customerId = invoice.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Update user role to USERPLUS
-                            user.setRole("USERPLUS");
-                            user.setSubscriptionStatus("active");
-                            userService.saveUser(user);
-                            
-                            System.out.println("✅ User " + user.getEmail() + " upgraded to USERPLUS! Invoice ID: " + invoice.getId());
-                        } else {
-                            System.out.println("❌ User not found for customer ID: " + customerId);
+
+            switch (event.getType()) {
+                case "invoice.payment_succeeded" -> {
+                    Invoice invoice = (Invoice) eventObject(event);
+                    if (invoice != null) {
+                        stripeUpdate(invoice.getCustomer(), "active", SubscriptionAccess.Access.GRANT, null, "payment succeeded " + invoice.getId());
+                    }
+                }
+                case "customer.subscription.updated" -> {
+                    Subscription subscription = (Subscription) eventObject(event);
+                    if (subscription != null) {
+                        String status = subscription.getStatus();
+                        if ("canceled".equals(status) || "unpaid".equals(status) || "incomplete_expired".equals(status)) {
+                            stripeUpdate(subscription.getCustomer(), status, SubscriptionAccess.Access.REMOVE, null, "subscription " + status);
+                        } else if (Boolean.TRUE.equals(subscription.getCancelAtPeriodEnd())) {
+                            // Still paid until the end of the period
+                            stripeUpdate(subscription.getCustomer(), "cancel_at_period_end", SubscriptionAccess.Access.KEEP, null, "set to cancel at period end");
+                        } else if ("active".equals(status) || "trialing".equals(status)) {
+                            stripeUpdate(subscription.getCustomer(), status, SubscriptionAccess.Access.GRANT, null, "subscription " + status);
                         }
                     }
                 }
-            }
-            
-            // Handle subscription updated events (including cancellations)
-            if ("customer.subscription.updated".equals(event.getType())) {
-                Subscription subscription = (Subscription) eventObject(event);
-                
-                if (subscription != null) {
-                    String customerId = subscription.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            String status = subscription.getStatus();
-                            Boolean cancelAtPeriodEnd = subscription.getCancelAtPeriodEnd();
-                            
-                            if ("canceled".equals(status)) {
-                                // Subscription is fully canceled
-                                user.setRole("USER");
-                                user.setSubscriptionStatus("canceled");
-                                System.out.println("❌ User " + user.getEmail() + " subscription canceled! Subscription ID: " + subscription.getId());
-                            } else if (Boolean.TRUE.equals(cancelAtPeriodEnd)) {
-                                // Subscription is set to cancel at period end
-                                user.setSubscriptionStatus("cancel_at_period_end");
-                                System.out.println("⚠️ User " + user.getEmail() + " subscription set to cancel at period end! Subscription ID: " + subscription.getId());
-                            } else if ("active".equals(status)) {
-                                // Subscription is active (might be reactivated)
-                                user.setRole("USERPLUS");
-                                user.setSubscriptionStatus("active");
-                                System.out.println("✅ User " + user.getEmail() + " subscription reactivated! Subscription ID: " + subscription.getId());
-                            }
-                            
-                            userService.saveUser(user);
-                        }
+                case "customer.subscription.deleted" -> {
+                    Subscription subscription = (Subscription) eventObject(event);
+                    if (subscription != null) {
+                        stripeUpdate(subscription.getCustomer(), "canceled", SubscriptionAccess.Access.REMOVE, null, "subscription deleted");
                     }
                 }
-            }
-            
-            // Handle subscription deleted events
-            if ("customer.subscription.deleted".equals(event.getType())) {
-                Subscription subscription = (Subscription) eventObject(event);
-                
-                if (subscription != null) {
-                    String customerId = subscription.getCustomer();
-                    
-                    if (customerId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Downgrade user to free plan
-                            user.setRole("USER");
-                            user.setSubscriptionStatus("canceled");
-                            userService.saveUser(user);
-                            
-                            System.out.println("❌ User " + user.getEmail() + " downgraded to free plan! Subscription ID: " + subscription.getId());
-                        }
+                case "checkout.session.completed" -> {
+                    Session session = (Session) eventObject(event);
+                    if (session != null && "subscription".equals(session.getMode()) && session.getSubscription() != null) {
+                        stripeUpdate(session.getCustomer(), "active", SubscriptionAccess.Access.GRANT,
+                            new Update().set("stripeSubscriptionId", session.getSubscription()), "checkout completed " + session.getId());
                     }
                 }
+                default -> { }
             }
-            
-            // Handle checkout session completed events
-            if ("checkout.session.completed".equals(event.getType())) {
-                Session session = (Session) eventObject(event);
-                
-                if (session != null && session.getMode().equals("subscription")) {
-                    String customerId = session.getCustomer();
-                    String subscriptionId = session.getSubscription();
-                    
-                    if (customerId != null && subscriptionId != null) {
-                        User user = userService.findByStripeCustomerId(customerId).orElse(null);
-                        
-                        if (user != null) {
-                            // Update user with subscription details
-                            user.setRole("USERPLUS");
-                            user.setSubscriptionStatus("active");
-                            user.setStripeSubscriptionId(subscriptionId);
-                            userService.saveUser(user);
-                            
-                            System.out.println("✅ User " + user.getEmail() + " subscription created! Session ID: " + session.getId());
-                        }
-                    }
-                }
-            }
-            
+
             return ResponseEntity.ok("Success");
         } catch (Exception e) {
             // A 500 makes Stripe retry the event later instead of dropping it
@@ -335,6 +272,17 @@ public class StripeController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Error");
         }
+    }
+
+
+    /** Sets the Stripe status (and any extra fields) on the customer's account and gives or takes away Plus */
+    private void stripeUpdate(String customerId, String status, SubscriptionAccess.Access access, Update extra, String what) {
+        if (customerId == null) return;
+        boolean found = subscriptionAccess.apply(Criteria.where("stripeCustomerId").is(customerId),
+            SubscriptionAccess.Store.STRIPE, status, access, extra);
+        System.out.println(found
+            ? "Stripe: " + what + " for customer " + customerId + " -> " + status + " (" + access + ")"
+            : "❌ Stripe: no account for customer " + customerId + " (" + what + ")");
     }
 
     /**
@@ -455,6 +403,7 @@ public class StripeController {
             result.put("user", email);
             result.put("role", user.getRole());
             result.put("subscription_status", user.getSubscriptionStatus());
+            result.put("apple_subscription_status", user.getAppleSubscriptionStatus());
             result.put("stripe_customer_id", user.getStripeCustomerId());
             result.put("stripe_subscription_id", user.getStripeSubscriptionId());
             
@@ -492,7 +441,6 @@ public class StripeController {
             String platform = (String) request.get("platform");
             String receipt = (String) request.get("receipt");
             String productId = (String) request.get("productId");
-            String transactionId = (String) request.get("transactionId");
             
             if (receipt == null || receipt.isEmpty()) {
                 Map<String, Object> error = new HashMap<>();
@@ -505,45 +453,15 @@ public class StripeController {
                 return applyAppleReceipt(user, receipt, productId);
             }
 
-            Map<String, Object> validationResult = null;
+            // Android buys Plus through the web (Stripe) checkout; there's no
+            // Google Play subscription to check, so never grant Plus here
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "android".equals(platform)
+                ? "In-app purchases aren't available on Android. Subscribe on featureme.co instead."
+                : "Invalid platform");
+            return error;
 
-            if ("android".equals(platform)) {
-                // For Android, you would validate Google Play receipt
-                // For now, we'll accept it if transactionId is provided
-                // You should implement Google Play receipt validation
-                if (transactionId != null && !transactionId.isEmpty()) {
-                    validationResult = new HashMap<>();
-                    validationResult.put("valid", true);
-                } else {
-                    validationResult = new HashMap<>();
-                    validationResult.put("valid", false);
-                    validationResult.put("error", "Transaction ID is required for Android");
-                }
-            } else {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("error", "Invalid platform");
-                return error;
-            }
-
-            if (Boolean.TRUE.equals(validationResult.get("valid"))) {
-                user.setRole("USERPLUS");
-                user.setSubscriptionStatus("active");
-                userService.saveUser(user);
-
-                Map<String, Object> result = new HashMap<>();
-                result.put("success", true);
-                result.put("message", "Subscription activated successfully");
-                result.put("role", "USERPLUS");
-                System.out.println("✅ User " + email + " upgraded to USERPLUS via IAP! Product: " + productId);
-                return result;
-            } else {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("error", (String) validationResult.get("error"));
-                return error;
-            }
-            
         } catch (Exception e) {
             System.err.println("❌ Receipt validation error: " + e.getMessage());
             e.printStackTrace();

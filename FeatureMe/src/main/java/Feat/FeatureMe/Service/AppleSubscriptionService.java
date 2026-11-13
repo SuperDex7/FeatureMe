@@ -26,9 +26,12 @@ import com.apple.itunes.storekit.verification.VerificationException;
 import com.apple.itunes.storekit.verification.VerificationStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.client.result.UpdateResult;
 
 import Feat.FeatureMe.Entity.User;
+
+import static Feat.FeatureMe.Service.SubscriptionAccess.Access.GRANT;
+import static Feat.FeatureMe.Service.SubscriptionAccess.Access.KEEP;
+import static Feat.FeatureMe.Service.SubscriptionAccess.Access.REMOVE;
 
 /**
  * Plus subscriptions bought through the App Store.
@@ -56,27 +59,30 @@ public class AppleSubscriptionService {
         }
     }
 
-    /** What a notification does to the account. role null = leave it as it is. */
-    record Change(String role, String status) {}
+    /** What a notification does to the account: the App Store status, and whether Plus is given, taken or left */
+    record Change(SubscriptionAccess.Access access, String status) {}
 
     private static final String ROOT_CERT = "apple/AppleRootCA-G3.cer";
 
     private final MongoTemplate mongoTemplate;
+    private final SubscriptionAccess subscriptionAccess;
     private final List<SignedDataVerifier> verifiers;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public AppleSubscriptionService(
             MongoTemplate mongoTemplate,
+            SubscriptionAccess subscriptionAccess,
             @Value("${apple.bundle-id:com.featureme.app}") String bundleId,
             @Value("${apple.app-apple-id:6754936268}") Long appAppleId,
             @Value("${apple.online-checks:true}") boolean onlineChecks) throws IOException {
-        this(mongoTemplate, readRootCertificate(), bundleId, appAppleId, onlineChecks);
+        this(mongoTemplate, subscriptionAccess, readRootCertificate(), bundleId, appAppleId, onlineChecks);
     }
 
-    AppleSubscriptionService(MongoTemplate mongoTemplate, byte[] rootCertificate,
+    AppleSubscriptionService(MongoTemplate mongoTemplate, SubscriptionAccess subscriptionAccess, byte[] rootCertificate,
             String bundleId, Long appAppleId, boolean onlineChecks) {
         this.mongoTemplate = mongoTemplate;
+        this.subscriptionAccess = subscriptionAccess;
         // Production first; App Review and TestFlight purchases come from the sandbox
         this.verifiers = List.of(
             verifier(rootCertificate, bundleId, appAppleId, Environment.PRODUCTION, onlineChecks),
@@ -154,20 +160,16 @@ public class AppleSubscriptionService {
         }
 
         long signedDate = notification.getSignedDate() != null ? notification.getSignedDate() : now;
-        Query newerThanApplied = new Query(new Criteria().andOperator(
+        Criteria newerThanApplied = new Criteria().andOperator(
             Criteria.where("appleOriginalTransactionId").is(originalTransactionId),
             new Criteria().orOperator(
                 Criteria.where("appleNotificationSignedAt").exists(false),
                 Criteria.where("appleNotificationSignedAt").is(null),
-                Criteria.where("appleNotificationSignedAt").lt(signedDate))));
-        Update update = new Update()
-            .set("subscriptionStatus", change.status())
-            .set("appleNotificationSignedAt", signedDate);
-        if (change.role() != null) update.set("role", change.role());
-
-        UpdateResult result = mongoTemplate.updateFirst(newerThanApplied, update, User.class);
-        if (result.getMatchedCount() > 0) {
-            return new Result(Outcome.APPLIED, type + " -> " + (change.role() != null ? change.role() + ", " : "") + change.status());
+                Criteria.where("appleNotificationSignedAt").lt(signedDate)));
+        boolean applied = subscriptionAccess.apply(newerThanApplied, SubscriptionAccess.Store.APPLE, change.status(),
+            change.access(), new Update().set("appleNotificationSignedAt", signedDate));
+        if (applied) {
+            return new Result(Outcome.APPLIED, type + " -> " + change.status() + " (" + change.access() + ")");
         }
         boolean linked = mongoTemplate.exists(
             new Query(Criteria.where("appleOriginalTransactionId").is(originalTransactionId)), User.class);
@@ -190,26 +192,26 @@ public class AppleSubscriptionService {
             case OFFER_REDEEMED:
             case RENEWAL_EXTENDED:
             case REFUND_REVERSED:
-                if (revoked) return new Change("USER", "revoked");
+                if (revoked) return new Change(REMOVE, "revoked");
                 // An old, already-lapsed period says nothing about now
-                return current ? new Change("USERPLUS", "active") : null;
+                return current ? new Change(GRANT, "active") : null;
             case DID_CHANGE_RENEWAL_STATUS:
-                if (subtype == Subtype.AUTO_RENEW_DISABLED) return new Change(null, "cancel_at_period_end");
-                if (subtype == Subtype.AUTO_RENEW_ENABLED && current && !revoked) return new Change(null, "active");
+                if (subtype == Subtype.AUTO_RENEW_DISABLED) return new Change(KEEP, "cancel_at_period_end");
+                if (subtype == Subtype.AUTO_RENEW_ENABLED && current && !revoked) return new Change(KEEP, "active");
                 return null;
             case DID_FAIL_TO_RENEW:
                 // In a billing grace period Apple still gives access; without one, access ends now
                 return subtype == Subtype.GRACE_PERIOD
-                    ? new Change(null, "payment_failed")
-                    : new Change("USER", "payment_failed");
+                    ? new Change(KEEP, "grace_period")
+                    : new Change(REMOVE, "billing_retry");
             case GRACE_PERIOD_EXPIRED:
-                return new Change("USER", "grace_period_expired");
+                return new Change(REMOVE, "grace_period_expired");
             case EXPIRED:
-                return new Change("USER", "expired");
+                return new Change(REMOVE, "expired");
             case REFUND:
-                return new Change("USER", "refunded");
+                return new Change(REMOVE, "refunded");
             case REVOKE:
-                return new Change("USER", "revoked");
+                return new Change(REMOVE, "revoked");
             default:
                 return null;
         }
@@ -235,7 +237,7 @@ public class AppleSubscriptionService {
 
     /**
      * Records a verified App Store purchase on this account: Plus while it's
-     * current, back to USER when it has lapsed. One App Store subscription
+     * current; when it has lapsed, Plus goes unless Stripe still provides it. One App Store subscription
      * can only give Plus to one FeatureMe account.
      */
     public LinkOutcome applyPurchase(String userName, String originalTransactionId, boolean current) {
@@ -244,11 +246,10 @@ public class AppleSubscriptionService {
                 .and("userName").ne(userName));
             if (mongoTemplate.exists(otherAccount, User.class)) return LinkOutcome.TAKEN;
         }
-        Update update = new Update()
-            .set("role", current ? "USERPLUS" : "USER")
-            .set("subscriptionStatus", current ? "active" : "expired");
-        if (originalTransactionId != null) update.set("appleOriginalTransactionId", originalTransactionId);
-        mongoTemplate.updateFirst(new Query(Criteria.where("userName").is(userName)), update, User.class);
+        Update extra = new Update();
+        if (originalTransactionId != null) extra.set("appleOriginalTransactionId", originalTransactionId);
+        subscriptionAccess.apply(Criteria.where("userName").is(userName), SubscriptionAccess.Store.APPLE,
+            current ? "active" : "expired", current ? GRANT : REMOVE, extra);
         return LinkOutcome.LINKED;
     }
 }

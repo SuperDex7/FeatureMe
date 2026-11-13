@@ -42,11 +42,12 @@ public class User implements UserDetails{
     private String stripeCustomerId;
     private String stripeSubscriptionId;
     @Indexed
-    private String subscriptionStatus; // active, canceled, past_due, etc.
+    private String subscriptionStatus; // Stripe: active, cancel_at_period_end, canceled, ... (App Store status is appleSubscriptionStatus)
     
     // Apple IAP-related fields
     @Indexed
     private String appleOriginalTransactionId; // Unique subscription identifier (stays same across renewals)
+    private String appleSubscriptionStatus; // App Store: active, cancel_at_period_end, grace_period, billing_retry, expired, refunded, revoked
     private Long appleNotificationSignedAt; // signedDate of the newest App Store notification applied (older ones are ignored)
 
     private int followersCount = 0;
@@ -188,6 +189,14 @@ public class User implements UserDetails{
 
     public void setAppleOriginalTransactionId(String appleOriginalTransactionId) {
         this.appleOriginalTransactionId = appleOriginalTransactionId;
+    }
+
+    public String getAppleSubscriptionStatus() {
+        return appleSubscriptionStatus;
+    }
+
+    public void setAppleSubscriptionStatus(String appleSubscriptionStatus) {
+        this.appleSubscriptionStatus = appleSubscriptionStatus;
     }
 
     public Long getAppleNotificationSignedAt() {
