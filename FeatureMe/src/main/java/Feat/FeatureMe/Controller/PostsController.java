@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -149,131 +151,143 @@ public class PostsController {
             });
     }
     
+    private static final int MAX_PAGE_SIZE = 50;
+
+    private static int clampSize(int size) {
+        return Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+    }
+
+    /** The logged-in user, or null for visitors. */
+    private User currentUserOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) {
+            return null;
+        }
+        return userService.findByUsernameOrEmail(authentication.getName()).orElse(null);
+    }
+
+    /**
+     * Who listened to or downloaded a post is the author's analytics, so those
+     * lists are only for the author. Counts stay public.
+     */
+    private void requirePostAuthor(String postId) {
+        User user = currentUserOrNull();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Log in to see analytics");
+        }
+        PostsDTO post = postsService.getPostById(postId);
+        if (post == null || post.author() == null || !user.getUserName().equals(post.author().userName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the post's author can see this");
+        }
+    }
+
+    /**
+     * Records a play. It's always credited to whoever is logged in (or
+     * "unknown"); the old userName parameter is accepted but ignored, since
+     * trusting it let anyone log plays under someone else's name.
+     */
     @PostMapping("view/{id}")
     public void AddView(@PathVariable String id, @RequestParam(required = false) String userName) {
-        String finalUserName;
-        
-        if (userName != null && !userName.isEmpty()) {
-            // Frontend passed a username (could be "unknown")
-            finalUserName = userName;
-        } else {
-            // Try to get authenticated user
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (!AuthUtils.isLoggedIn(authentication)) {
-                // No auth, treat as unknown user
-                finalUserName = "unknown";
-            } else {
-                String email = authentication.getName();
-                User user = userService.findByUsernameOrEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-                finalUserName = user.getUserName();
-            }
-        }
-        
-        postsService.addView(id, finalUserName);
+        User user = currentUserOrNull();
+        postsService.addView(id, user == null ? "unknown" : user.getUserName());
     }
-    
+
     @GetMapping("/views/{id}")
     public List<ViewsDTO> getPostViews(@PathVariable String id) {
+        requirePostAuthor(id);
         return postsService.getPostViews(id);
     }
 
+    /** Records a download, credited the same way as plays (userName is ignored). */
     @PostMapping("/download/{id}")
     public ResponseEntity<String> trackDownload(@PathVariable String id, @RequestParam(required = false) String userName) {
-        String finalUserName;
-        String finalUserId;
-        
-        if (userName != null && !userName.isEmpty()) {
-            // Frontend passed a username (could be "unknown")
-            finalUserName = userName;
-            finalUserId = "unknown".equals(userName) ? "unknown" : null;
-        } else {
-            // Try to get authenticated user
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (!AuthUtils.isLoggedIn(authentication)) {
-                // No auth, treat as unknown user
-                finalUserName = "unknown";
-                finalUserId = "unknown";
-            } else {
-                String email = authentication.getName();
-                User user = userService.findByUsernameOrEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-                finalUserName = user.getUserName();
-                finalUserId = user.getId();
-            }
-        }
-        
-        // Create download record
+        User user = currentUserOrNull();
+        String finalUserName = user == null ? "unknown" : user.getUserName();
+        String finalUserId = user == null ? "unknown" : user.getId();
+
         postDownloadService.createDownload(id, finalUserId, finalUserName);
-        
-        // Increment total downloads counter
         postsService.incrementTotalDownloads(id);
-        
-        // Only send notification if it's a real user
-        if (!"unknown".equals(finalUserName)) {
+
+        // Only notify the author about real users
+        if (user != null) {
             postsService.notifyDownload(id, finalUserName);
         }
-        
+
         return ResponseEntity.ok("Download tracked successfully");
     }
-    
+
     @GetMapping("/downloads/{id}")
     public List<PostDownloadDTO> getPostDownloads(@PathVariable String id) {
+        requirePostAuthor(id);
         return postDownloadService.getDownloadsForPost(id);
     }
-    
+
     @GetMapping("/downloads/{id}/count")
     public long getPostDownloadCount(@PathVariable String id) {
         return postDownloadService.getDownloadCountForPost(id);
     }
-    
+
     @GetMapping("/downloads/{id}/paginated")
     public PagedModel<PostDownloadDTO> getPostDownloadsPaginated(
             @PathVariable String id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return postDownloadService.getDownloadsForPostPaginated(id, page, size);
+        requirePostAuthor(id);
+        return postDownloadService.getDownloadsForPostPaginated(id, Math.max(0, page), clampSize(size));
     }
-    
-    
+
     @GetMapping("/views/{id}/paginated")
     public PagedModel<ViewsDTO> getPostViewsPaginated(
             @PathVariable String id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return postsService.getPostViewsPaginated(id, page, size);
+        requirePostAuthor(id);
+        return postsService.getPostViewsPaginated(id, Math.max(0, page), clampSize(size));
     }
-    
+
     @GetMapping("/views/{id}/summary")
     public PostViewService.PostViewSummary getPostViewSummary(@PathVariable String id) {
         return postsService.getPostViewSummary(id);
     }
-    
+
     @GetMapping("/comments/{id}/paginated")
     public PagedModel<CommentDTO> getPostCommentsPaginated(
             @PathVariable String id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return postsService.getPostCommentsPaginated(id, page, size);
+        return postsService.getPostCommentsPaginated(id, Math.max(0, page), clampSize(size));
     }
-    
-    
+
     @GetMapping("/likes/{id}/paginated")
     public PagedModel<LikesDTO> getPostLikesPaginated(
             @PathVariable String id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return postsService.getPostLikesPaginated(id, page, size);
+        return postsService.getPostLikesPaginated(id, Math.max(0, page), clampSize(size));
     }
-    
+
     @GetMapping("/likes/{id}/summary")
     public PostLikeService.PostLikeSummary getPostLikeSummary(@PathVariable String id) {
         return postsService.getPostLikeSummary(id);
     }
-    
+
     @GetMapping("/likes/{id}/check/{userName}")
     public boolean hasUserLikedPost(@PathVariable String id, @PathVariable String userName) {
         return postsService.hasUserLikedPost(id, userName);
+    }
+
+    /**
+     * Which of these users liked the post (likes are public). Lets the
+     * analytics list mark listeners who also liked, one page at a time.
+     */
+    @GetMapping("/likes/{id}/liked-by")
+    public List<String> whoLiked(@PathVariable String id, @RequestParam List<String> userNames) {
+        return userNames.stream()
+            .filter(name -> name != null && !name.isBlank())
+            .distinct()
+            .limit(MAX_PAGE_SIZE)
+            .filter(name -> postsService.hasUserLikedPost(id, name))
+            .toList();
     }
     
     

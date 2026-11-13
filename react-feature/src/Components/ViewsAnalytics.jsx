@@ -56,20 +56,17 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     Promise.allSettled([
       api.get(`/posts/views/${postId}/summary`),
       api.get(`/posts/likes/${postId}/summary`),
-      api.get(`/posts/downloads/${postId}/paginated`, { params: { page: 0, size: 1 } }),
+      api.get(`/posts/downloads/${postId}/count`),
       api.get(`/posts/comments/${postId}/paginated`, { params: { page: 0, size: 1 } }),
-      api.get(`/posts/likes/${postId}/paginated`, { params: { page: 0, size: 1000 } }),
-    ]).then(([views, likes, downloads, comments, allLikes]) => {
+    ]).then(([views, likes, downloads, comments]) => {
       if (cancelled) return;
       setSummary((prev) => ({
         plays: views.value?.data?.totalViews ?? prev.plays,
         listeners: views.value?.data?.uniqueViewers ?? prev.listeners,
         likes: likes.value?.data?.totalLikes ?? prev.likes,
-        downloads: total(downloads) ?? prev.downloads,
+        downloads: typeof downloads.value?.data === "number" ? downloads.value.data : prev.downloads,
         comments: total(comments) ?? prev.comments,
       }));
-      const likeList = allLikes.value?.data?.content || [];
-      setLikers(new Set(likeList.map((l) => l.userName).filter(Boolean)));
     });
     return () => { cancelled = true; };
     // Reload when the dialog opens for a post; the totals props are only a starting point
@@ -85,16 +82,28 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
     api.get(current.url(postId), { params: { page, size: PAGE_SIZE } })
       .then(({ data }) => {
         if (cancelled) return;
+        const items = data?.content || [];
         setList({
-          items: data?.content || [],
+          items,
           totalPages: data?.page?.totalPages || 0,
           totalElements: data?.page?.totalElements || 0,
           status: "ready",
         });
+        // Mark listeners on this page who also liked the post
+        if (tab === "views") {
+          const names = items.map((v) => v.userName).filter((n) => !isGuest(n));
+          setLikers(new Set());
+          if (names.length > 0) {
+            api.get(`/posts/likes/${postId}/liked-by`, { params: { userNames: names.join(",") } })
+              .then((res) => { if (!cancelled) setLikers(new Set(res.data || [])); })
+              .catch(() => {});
+          }
+        }
       })
       .catch((err) => {
         console.error(`Error loading ${tab}:`, err);
-        if (!cancelled) setList({ items: [], totalPages: 0, totalElements: 0, status: "error" });
+        const code = err.response?.status;
+        if (!cancelled) setList({ items: [], totalPages: 0, totalElements: 0, status: code === 401 || code === 403 ? "forbidden" : "error" });
       });
     return () => { cancelled = true; };
   }, [isOpen, postId, tab, page]);
@@ -162,6 +171,7 @@ export function PostAnalytics({ postId, currentUser, postAuthor, totalDownloads 
             <div className="fm-state" role="status"><div className="fm-spinner" /></div>
           )}
           {list.status === "error" && <p className="fm-stats__empty">Couldn&apos;t load this list. Try again in a moment.</p>}
+          {list.status === "forbidden" && <p className="fm-stats__empty">Only the artist who posted this can see who listened and downloaded.</p>}
           {list.status === "ready" && list.items.length === 0 && (
             <p className="fm-stats__empty">{TABS.find((t) => t.key === tab).empty}</p>
           )}

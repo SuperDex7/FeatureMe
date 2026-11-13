@@ -22,28 +22,39 @@ function ViewsAnalyticsCard() {
   const [posts, setPosts] = useState([]);
   const [status, setStatus] = useState("loading");
   const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
+    getCurrentUser().then((user) => {
+      if (user) setCurrentUser(user);
+      else setStatus("error");
+    });
+  }, []);
+
+  // One page of your posts at a time, newest first
+  useEffect(() => {
+    if (!currentUser) return undefined;
+    const ids = currentUser.posts || [];
+    if (ids.length === 0) {
+      setStatus("ready");
+      return undefined;
+    }
     let cancelled = false;
-    (async () => {
-      try {
-        const user = await getCurrentUser();
+    setStatus((prev) => (prev === "ready" ? "paging" : "loading"));
+    api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page, size: PER_PAGE } })
+      .then(({ data }) => {
         if (cancelled) return;
-        setCurrentUser(user);
-        const ids = user?.posts || [];
-        if (ids.length > 0) {
-          const { data } = await api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page: 0, size: ids.length } });
-          if (!cancelled) setPosts(data.content || []);
-        }
-        if (!cancelled) setStatus("ready");
-      } catch (err) {
+        setPosts(data.content || []);
+        setTotalPages(data.page?.totalPages || 0);
+        setStatus("ready");
+      })
+      .catch((err) => {
         console.error("Error fetching your posts:", err);
         if (!cancelled) setStatus("error");
-      }
-    })();
+      });
     return () => { cancelled = true; };
-  }, []);
+  }, [currentUser, page]);
 
   if (selected) {
     return (
@@ -83,14 +94,11 @@ function ViewsAnalyticsCard() {
     );
   }
 
-  const shown = posts.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
-  const totalPages = Math.ceil(posts.length / PER_PAGE);
-
   return (
-    <div className="fm-stats-picker">
+    <div className="fm-stats-picker" aria-busy={status === "paging"}>
       <p className="fm-stats-picker__intro">Pick a post to see who&apos;s listening, liking and downloading.</p>
       <ul className="fm-stats-picker__grid">
-        {shown.map((post) => (
+        {posts.map((post) => (
           <li key={post.id}>
             <button type="button" className="fm-stats-picker__post" onClick={() => setSelected(post)}>
               <span className="fm-stats-picker__cover" style={bannerStyle(post.author)} aria-hidden="true" />
