@@ -451,6 +451,7 @@ textarea.fm-input {
   margin: var(--fm-space-1) 0 0;
   padding: 0;
   max-height: 280px;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -458,7 +459,9 @@ textarea.fm-input {
 }
 
 .fm-person {
+  box-sizing: border-box; /* width includes the padding, so rows never overflow the list */
   width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--fm-space-3);
@@ -497,6 +500,9 @@ textarea.fm-input {
 }
 
 .fm-person__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
 }
 
