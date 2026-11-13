@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Notifications from "./Notifications";
 import Icon from "./ui/Icon";
 import "./Header.css";
-import { logout, getCurrentUserSafe } from "../services/AuthService";
+import { logout, getCurrentUserSafe, peekCurrentUser } from "../services/AuthService";
 import useNotifications from "../hooks/useNotifications";
 
 const NAV_LINKS = [
@@ -23,8 +23,9 @@ function Header() {
 
   // Only one menu open at a time: "noti" | "user" | "nav" | null
   const [openMenu, setOpenMenu] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userChecked, setUserChecked] = useState(false);
+  // Known right away when moving between pages; otherwise checked below
+  const [currentUser, setCurrentUser] = useState(() => peekCurrentUser() ?? null);
+  const [userChecked, setUserChecked] = useState(() => peekCurrentUser() !== undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const headerRef = useRef(null);
 
@@ -84,8 +85,22 @@ function Header() {
   const userName = currentUser?.userName || "";
   const avatar = currentUser?.profilePic || "/dpp.jpg";
 
+  // Still finding out who you are: just the logo, so neither the logged-in
+  // links nor the Log in / Sign up buttons flash up and then disappear
+  if (!userChecked) {
+    return (
+      <header className="fm-header" ref={headerRef}>
+        <div className="fm-header__bar">
+          <a href="/" className="fm-header__logo">
+            <img src="/SVGs/Logo Lockup Gradient.svg" alt="FeatureMe" />
+          </a>
+        </div>
+      </header>
+    );
+  }
+
   // Logged-out visitors (public pages like a shared post) get a minimal bar
-  if (userChecked && !currentUser) {
+  if (!currentUser) {
     return (
       <header className="fm-header" ref={headerRef}>
         <div className="fm-header__bar">

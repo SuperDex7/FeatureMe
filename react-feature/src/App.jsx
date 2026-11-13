@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Header from "./Components/Header";
 import Footer from "./Components/Footer";
 import Icon from "./Components/ui/Icon";
-import { getCurrentUserSafe } from "./services/AuthService";
+import { getCurrentUserSafe, peekCurrentUser } from "./services/AuthService";
 import "./Styling/LandingPage.css";
 
 const STEPS = [
@@ -21,7 +21,7 @@ const FEATURES = [
 // Public landing page at "/". The header shows Log in / Sign up to visitors
 // and the normal navigation to people who are already logged in.
 function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => Boolean(peekCurrentUser()));
 
   useEffect(() => {
     getCurrentUserSafe().then((user) => setLoggedIn(Boolean(user)));

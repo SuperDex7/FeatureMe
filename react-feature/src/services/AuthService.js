@@ -93,6 +93,18 @@ export const checkLogin = async () => {
 /** True when a recent /user/me answer says you're logged in (no request needed) */
 export const knownLoggedIn = () => Boolean(meCache && Date.now() - meCache.at < ME_MAX_AGE);
 
+/**
+ * The current user if a recent answer is cached, null if we know you're
+ * logged out, undefined if nobody has asked yet. Lets components show the
+ * right thing on their first render instead of guessing.
+ */
+export const peekCurrentUser = () => {
+  // Even a slightly old answer is fine for showing the header; it's refreshed right after
+  if (signedIn && meCache) return structuredClone(meCache.data);
+  if (!signedIn && meChecked) return null;
+  return undefined;
+};
+
 export const isAuthenticated = async () => (await checkLogin()) === 'in';
 
 export const logout = async () => {
@@ -116,6 +128,7 @@ export const logout = async () => {
 const ME_MAX_AGE = 10 * 1000;
 let meCache = null; // { data, at }
 let meRequest = null;
+let meChecked = false; // a /user/me answer (logged in or out) has come back
 
 function fetchMe() {
   if (meCache && Date.now() - meCache.at < ME_MAX_AGE) return Promise.resolve(meCache.data);
@@ -124,7 +137,12 @@ function fetchMe() {
     .then((response) => {
       meCache = { data: response.data, at: Date.now() };
       signedIn = true;
+      meChecked = true;
       return response.data;
+    })
+    .catch((error) => {
+      if (error.response?.status === 401) meChecked = true;
+      throw error;
     })
     .finally(() => { meRequest = null; });
   return meRequest;
