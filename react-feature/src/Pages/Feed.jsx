@@ -33,11 +33,12 @@ function Feed() {
   };
 
   const renderContent = () => {
+    // key: each tab gets its own list, so the page number (and posts) don't carry over
     switch (activeTab) {
       case "liked":
-        return <UserPostList kind="liked" />;
+        return <UserPostList key="liked" kind="liked" />;
       case "myPosts":
-        return <UserPostList kind="mine" />;
+        return <UserPostList key="mine" kind="mine" />;
       default:
         return <Feed2 />;
     }
