@@ -43,6 +43,19 @@
        Apple receipts. Spring MVC itself uses Jackson 3 on Spring Boot 4. -->
 </dependency>
 <dependency>
+  <!-- Verifies App Store Server Notifications and signed transactions (Apple's official library) -->
+  <groupId>com.apple.itunes.storekit</groupId>
+  <artifactId>app-store-server-library</artifactId>
+  <version>5.2.0</version>
+</dependency>
+<dependency>
+  <!-- Tests build a fake Apple certificate chain to sign test notifications -->
+  <groupId>org.bouncycastle</groupId>
+  <artifactId>bcpkix-jdk18on</artifactId>
+  <version>1.84</version>
+  <scope>test</scope>
+</dependency>
+<dependency>
   <groupId>com.stripe</groupId>
   <artifactId>stripe-java</artifactId>
   <version>34.1.0</version>

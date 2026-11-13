@@ -45,6 +45,7 @@ class StripeControllerWebhookTest {
     @Autowired private MockMvc mockMvc;
 
     @MockitoBean private UserService userService;
+    @MockitoBean private Feat.FeatureMe.Service.AppleSubscriptionService appleSubscriptionService;
     @MockitoBean private JwtService jwtService;
     @MockitoBean private CachedUserDetailsService cachedUserDetailsService;
     @MockitoBean private RateLimitingService rateLimitingService;
@@ -143,5 +144,20 @@ class StripeControllerWebhookTest {
             "{\"id\":\"sub_1\",\"object\":\"subscription\",\"customer\":\"cus_1\",\"status\":\"canceled\"}");
 
         send(payload, signature(payload)).andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("Apple webhook: 400 for anything Apple didn't sign, 200 when applied, 503 so Apple retries")
+    void appleWebhookStatuses() throws Exception {
+        when(appleSubscriptionService.handleNotification(org.mockito.ArgumentMatchers.eq("forged"), org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(new Feat.FeatureMe.Service.AppleSubscriptionService.Result(Feat.FeatureMe.Service.AppleSubscriptionService.Outcome.REJECTED, "bad"));
+        when(appleSubscriptionService.handleNotification(org.mockito.ArgumentMatchers.eq("good"), org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(new Feat.FeatureMe.Service.AppleSubscriptionService.Result(Feat.FeatureMe.Service.AppleSubscriptionService.Outcome.APPLIED, "ok"));
+        when(appleSubscriptionService.handleNotification(org.mockito.ArgumentMatchers.eq("later"), org.mockito.ArgumentMatchers.anyLong()))
+            .thenThrow(org.mockito.Mockito.mock(Feat.FeatureMe.Service.AppleSubscriptionService.RetryLaterException.class));
+
+        mockMvc.perform(post("/api/payment/apple-webhook").content("forged")).andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/payment/apple-webhook").content("good")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/payment/apple-webhook").content("later")).andExpect(status().isServiceUnavailable());
     }
 }

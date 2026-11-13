@@ -47,6 +47,7 @@ public class User implements UserDetails{
     // Apple IAP-related fields
     @Indexed
     private String appleOriginalTransactionId; // Unique subscription identifier (stays same across renewals)
+    private Long appleNotificationSignedAt; // signedDate of the newest App Store notification applied (older ones are ignored)
 
     private int followersCount = 0;
     private int followingCount = 0;
@@ -187,6 +188,14 @@ public class User implements UserDetails{
 
     public void setAppleOriginalTransactionId(String appleOriginalTransactionId) {
         this.appleOriginalTransactionId = appleOriginalTransactionId;
+    }
+
+    public Long getAppleNotificationSignedAt() {
+        return appleNotificationSignedAt;
+    }
+
+    public void setAppleNotificationSignedAt(Long appleNotificationSignedAt) {
+        this.appleNotificationSignedAt = appleNotificationSignedAt;
     }
 
     public int getFollowersCount() {
