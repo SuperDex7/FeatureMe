@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Notifications from "./Notifications";
 import Icon from "./ui/Icon";
 import "./Header.css";
-import api, { logout, getCurrentUserSafe } from "../services/AuthService";
-import { clearMyNotifications } from "../services/UserService";
+import { logout, getCurrentUserSafe } from "../services/AuthService";
+import useNotifications from "../hooks/useNotifications";
 
 const NAV_LINKS = [
   { href: "/home", label: "Home", icon: "home" },
@@ -23,7 +23,6 @@ function Header() {
 
   // Only one menu open at a time: "noti" | "user" | "nav" | null
   const [openMenu, setOpenMenu] = useState(null);
-  const [noti, setNoti] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userChecked, setUserChecked] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,14 +35,6 @@ function Header() {
     await logout();
   };
 
-  const handleClearNotifications = async () => {
-    try {
-      await clearMyNotifications();
-      setNoti([]);
-    } catch (e) {
-      console.error("Failed to clear notifications", e);
-    }
-  };
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -61,15 +52,8 @@ function Header() {
     fetchUser();
   }, []);
 
-  useEffect(() => {
-    if (currentUser && currentUser.userName) {
-      api.get(`user/get/notifications/${currentUser.userName}`).then(res => {
-        setNoti(res.data);
-      }).catch(err => {
-        console.error('Error fetching notifications:', err);
-      });
-    }
-  }, [currentUser]);
+  // Shared with the home dashboard; loads once the user is known
+  const notifications = useNotifications(Boolean(currentUser?.userName));
 
   // Close menus on outside click or Escape
   useEffect(() => {
@@ -96,7 +80,7 @@ function Header() {
   }, [location.pathname]);
 
   const isActive = (href) => location.pathname === href || location.pathname.startsWith(`${href}/`);
-  const notiCount = Array.isArray(noti) ? noti.length : 0;
+  const notiCount = notifications.total;
   const userName = currentUser?.userName || "";
   const avatar = currentUser?.profilePic || "/dpp.jpg";
 
@@ -174,14 +158,23 @@ function Header() {
                 <div className="fm-header__panel-head">
                   <h2>Notifications</h2>
                   {notiCount > 0 && (
-                    <button type="button" className="fm-header__text-btn" onClick={handleClearNotifications}>
+                    <button type="button" className="fm-header__text-btn" onClick={notifications.clearAll}>
                       Clear all
                     </button>
                   )}
                 </div>
                 <div className="fm-header__noti-body">
                   {notiCount > 0 ? (
-                    <Notifications notifications={noti} className="fm-header__noti-list" />
+                    <>
+                      <Notifications notifications={notifications.items} className="fm-header__noti-list" onDelete={notifications.remove} />
+                      {notifications.hasMore && (
+                        <div className="notifications-more">
+                          <button type="button" className="fm-btn fm-btn--secondary" onClick={notifications.loadMore} disabled={notifications.status === "loadingMore"}>
+                            {notifications.status === "loadingMore" ? "Loading…" : "Load more"}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p className="fm-header__empty">No notifications yet</p>
                   )}

@@ -46,6 +46,17 @@ public class NotificationService implements ApplicationRunner {
         repository.save(new Notification(recipient, refId, actor, text, Instant.now(), type));
     }
 
+    /**
+     * The next notifications older than {@code before}. Paging by time rather
+     * than page number means deleting one doesn't shift later pages and skip
+     * a notification.
+     */
+    public Page<NotificationsDTO> olderThan(String recipient, Instant before, int size) {
+        int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        return repository.findByRecipientAndTimeBeforeOrderByTimeDesc(recipient, before, PageRequest.of(0, safeSize))
+            .map(Notification::toDTO);
+    }
+
     public Page<NotificationsDTO> page(String recipient, int page, int size) {
         int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         return repository.findByRecipientOrderByTimeDesc(recipient, PageRequest.of(Math.max(0, page), safeSize))

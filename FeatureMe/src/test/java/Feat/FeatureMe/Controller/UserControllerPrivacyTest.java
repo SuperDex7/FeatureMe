@@ -180,4 +180,16 @@ class UserControllerPrivacyTest {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/user/notifications/someone-elses"))
             .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("before= returns the next notifications older than that time")
+    void notificationsBefore() throws Exception {
+        Instant cutoff = Instant.parse("2026-11-01T00:00:00Z");
+        when(notificationService.olderThan("alice", cutoff, 20)).thenReturn(new org.springframework.data.domain.PageImpl<>(
+            List.of(new NotificationsDTO("p2", "bob", "Liked Your Post!", cutoff.minusSeconds(60), NotificationsDTO.NotiType.POST, "n2"))));
+
+        mockMvc.perform(get("/api/user/notifications").param("before", cutoff.toString()).param("size", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].notificationId").value("n2"));
+    }
 }

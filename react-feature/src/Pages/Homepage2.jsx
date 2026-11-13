@@ -9,7 +9,7 @@ import FriendSuggestions from '../Components/FriendSuggestions';
 import Dialog from '../Components/ui/Dialog';
 import Icon from '../Components/ui/Icon';
 import PlusBadge from '../Components/ui/PlusBadge';
-import { clearMyNotifications } from '../services/UserService';
+import useNotifications from '../hooks/useNotifications';
 import api from '../services/AuthService';
 import { bannerStyle } from '../utils/banner';
 import '../Styling/HomeDashboard.css';
@@ -29,6 +29,8 @@ function Homepage2() {
   const [followPopup, setFollowPopup] = useState(null); // 'followers' | 'following' | null
   const [activityOpen, setActivityOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  // Same list as the header bell (loaded once for both)
+  const notifications = useNotifications(Boolean(user));
 
   useEffect(() => {
     let cancelled = false;
@@ -62,15 +64,6 @@ function Homepage2() {
   const closeActivity = useCallback(() => setActivityOpen(false), []);
   const closeAnalytics = useCallback(() => setAnalyticsOpen(false), []);
 
-  const handleClearAll = async () => {
-    try {
-      await clearMyNotifications();
-      setUser((prev) => (prev ? { ...prev, notifications: [] } : prev));
-    } catch (err) {
-      console.error('Failed to clear notifications', err);
-    }
-  };
-
   if (status !== 'ready') {
     return (
       <div className="fm-page">
@@ -93,7 +86,6 @@ function Homepage2() {
     );
   }
 
-  const notifications = user.notifications || [];
   const isPlus = user.role === 'USERPLUS';
 
   return (
@@ -151,7 +143,7 @@ function Homepage2() {
             <li>
               <button type="button" className="fm-home__stat" onClick={() => setActivityOpen(true)}>
                 <Icon name="bell" />
-                <span className="fm-home__stat-value">{notifications.length}</span>
+                <span className="fm-home__stat-value">{notifications.status === 'loading' && notifications.items.length === 0 ? '–' : notifications.total}</span>
                 <span className="fm-home__stat-label">Notifications</span>
               </button>
             </li>
@@ -188,14 +180,16 @@ function Homepage2() {
               <section className="fm-card fm-home__activity" aria-labelledby="fm-home-activity">
                 <div className="fm-home__section-head">
                   <h2 id="fm-home-activity" className="fm-home__card-title">Recent activity</h2>
-                  {notifications.length > ACTIVITY_PREVIEW && (
+                  {notifications.total > ACTIVITY_PREVIEW && (
                     <button type="button" className="fm-home__more" onClick={() => setActivityOpen(true)}>
-                      View all {notifications.length} <Icon name="chevronRight" size={16} />
+                      View all {notifications.total} <Icon name="chevronRight" size={16} />
                     </button>
                   )}
                 </div>
-                {notifications.length > 0 ? (
-                  <Notifications notifications={notifications.slice(0, ACTIVITY_PREVIEW)} className="fm-noti-list" />
+                {notifications.items.length > 0 ? (
+                  <Notifications notifications={notifications.items.slice(0, ACTIVITY_PREVIEW)} className="fm-noti-list" onDelete={notifications.remove} />
+                ) : notifications.status === 'loading' ? (
+                  <p className="fm-home__muted">Loading…</p>
                 ) : (
                   <p className="fm-home__muted">No notifications yet. Likes, comments and feature requests will show up here.</p>
                 )}
@@ -270,12 +264,21 @@ function Homepage2() {
         onClose={closeActivity}
         title="Notifications"
         size="sm"
-        footer={notifications.length > 0 ? (
-          <button type="button" className="fm-btn fm-btn--secondary" onClick={handleClearAll}>Clear all</button>
+        footer={notifications.total > 0 ? (
+          <button type="button" className="fm-btn fm-btn--secondary" onClick={notifications.clearAll}>Clear all</button>
         ) : null}
       >
-        {notifications.length > 0 ? (
-          <Notifications notifications={notifications} className="fm-noti-list" />
+        {notifications.items.length > 0 ? (
+          <>
+            <Notifications notifications={notifications.items} className="fm-noti-list" onDelete={notifications.remove} />
+            {notifications.hasMore && (
+              <div className="notifications-more">
+                <button type="button" className="fm-btn fm-btn--secondary" onClick={notifications.loadMore} disabled={notifications.status === 'loadingMore'}>
+                  {notifications.status === 'loadingMore' ? 'Loading…' : 'Load more'}
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <p>No notifications yet.</p>
         )}

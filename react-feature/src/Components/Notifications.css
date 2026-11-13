@@ -57,3 +57,59 @@
   font-size: var(--fm-text-xs);
   white-space: nowrap;
 }
+
+.notification-meta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.notification-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--fm-radius-sm);
+  background: transparent;
+  color: var(--fm-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.notification-item:hover .notification-dismiss,
+.notification-dismiss:focus-visible {
+  opacity: 1;
+}
+
+/* Touch screens have no hover: always show it */
+@media (hover: none) {
+  .notification-dismiss {
+    opacity: 1;
+  }
+}
+
+.notification-dismiss:hover {
+  background: var(--fm-surface-3);
+  color: var(--fm-text);
+}
+
+.notification-dismiss:focus-visible {
+  outline: none;
+  box-shadow: var(--fm-focus-ring);
+}
+
+.notifications-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--fm-space-2) 0 0;
+}
+
+.notifications-more .fm-btn {
+  min-height: 34px;
+  padding: 0 var(--fm-space-4);
+  font-size: var(--fm-text-sm);
+}

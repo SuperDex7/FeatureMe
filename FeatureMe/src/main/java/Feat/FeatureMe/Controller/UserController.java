@@ -558,15 +558,22 @@ public class UserController {
         return userService.findByUsernameOrEmail(authentication.getName()).orElse(null);
     }
 
-    /** Your notifications, newest first, one page at a time (max 50 per page) */
+    /**
+     * Your notifications, newest first (max 50 per request). Pass before=<time
+     * of the last one you have> to get the next ones; page= also works but
+     * shifts if notifications are deleted in between.
+     */
     @GetMapping("/notifications")
     public ResponseEntity<?> pageMyNotifications(@RequestParam(defaultValue = "0") int page,
-                                                 @RequestParam(defaultValue = "20") int size) {
+                                                 @RequestParam(defaultValue = "20") int size,
+                                                 @RequestParam(required = false) java.time.Instant before) {
         User user = loggedInUserOrNull();
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
         }
-        return ResponseEntity.ok(new PagedModel<>(notificationService.page(user.getUserName(), page, size)));
+        return ResponseEntity.ok(new PagedModel<>(before != null
+            ? notificationService.olderThan(user.getUserName(), before, size)
+            : notificationService.page(user.getUserName(), page, size)));
     }
 
     /** Deletes one of your notifications */

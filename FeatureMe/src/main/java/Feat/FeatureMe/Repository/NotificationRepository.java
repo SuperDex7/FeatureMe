@@ -15,6 +15,8 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     Page<Notification> findByRecipientOrderByTimeDesc(String recipient, Pageable pageable);
 
+    Page<Notification> findByRecipientAndTimeBeforeOrderByTimeDesc(String recipient, java.time.Instant before, Pageable pageable);
+
     List<Notification> findTop30ByRecipientOrderByTimeDesc(String recipient);
 
     long countByRecipient(String recipient);
