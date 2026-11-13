@@ -181,7 +181,8 @@ export default function LikedPostsScreen() {
     
     setIsLoading(true);
     try {
-      const endpoint = `/posts/get/all/id/${user.likedPosts}?page=${page}&size=20`;
+      // The server looks up the ids (they used to go in the URL, which breaks at a few hundred)
+      const endpoint = `/posts/liked?page=${page}&size=20`;
       const response = await api.get(endpoint);
       const postsData = response.data.content || [];
       

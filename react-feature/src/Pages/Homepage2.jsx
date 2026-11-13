@@ -10,6 +10,7 @@ import Dialog from '../Components/ui/Dialog';
 import Icon from '../Components/ui/Icon';
 import PlusBadge from '../Components/ui/PlusBadge';
 import useNotifications from '../hooks/useNotifications';
+import { getPostsByUser } from '../services/PostsService';
 import api, { getCurrentUser } from '../services/AuthService';
 import { bannerStyle } from '../utils/banner';
 import '../Styling/HomeDashboard.css';
@@ -42,11 +43,9 @@ function Homepage2() {
         setUser(me);
         setStatus('ready');
 
-        // Post ids are appended as they're created, so the newest are at the end
-        const recentIds = (me.posts || []).slice(-10);
         const [latest, top] = await Promise.allSettled([
-          recentIds.length
-            ? api.get(`/posts/get/all/id/${recentIds.join(',')}/sorted?page=0&size=${LATEST_COUNT}`)
+          (me.posts || []).length
+            ? getPostsByUser(me.userName, 0, LATEST_COUNT)
             : Promise.resolve({ data: { content: [] } }),
           api.get(`/posts/get/likesdesc?page=0&size=${TRENDING_PREVIEW}`),
         ]);

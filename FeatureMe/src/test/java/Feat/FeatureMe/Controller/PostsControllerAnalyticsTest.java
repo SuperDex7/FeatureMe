@@ -160,4 +160,49 @@ class PostsControllerAnalyticsTest {
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0]").value("maya"));
     }
+
+    @Test
+    @DisplayName("a user's posts and features are looked up server-side, not passed in the URL")
+    void postsByUserAndFeaturing() throws Exception {
+        User alice = user("alice", "alice-id");
+        java.util.List<String> many = java.util.stream.IntStream.range(0, 500).mapToObj(i -> "post" + i).toList();
+        alice.setPosts(many);
+        alice.setFeaturedOn(List.of("f1"));
+        when(userService.findByUsernameOrEmail("alice")).thenReturn(Optional.of(alice));
+        PagedModel<PostsDTO> empty = new PagedModel<>(new PageImpl<PostsDTO>(List.of()));
+        when(postsService.getAllByIdSortedByTime(any(), anyInt(), anyInt())).thenReturn(empty);
+
+        mockMvc.perform(get("/api/posts/get/by-user/alice").param("page", "2").param("size", "999")).andExpect(status().isOk());
+        verify(postsService).getAllByIdSortedByTime(many, 2, 50);
+
+        mockMvc.perform(get("/api/posts/get/featuring/alice")).andExpect(status().isOk());
+        verify(postsService).getAllByIdSortedByTime(List.of("f1"), 0, 12);
+    }
+
+    @Test
+    @DisplayName("looking up a user by email address doesn't work on the public lists")
+    void byUserNeedsUserName() throws Exception {
+        when(userService.findByUsernameOrEmail("alice@example.com")).thenReturn(Optional.of(user("alice", "alice-id")));
+        mockMvc.perform(get("/api/posts/get/by-user/alice@example.com")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "bob@example.com")
+    @DisplayName("liked posts are your own")
+    void likedIsMine() throws Exception {
+        User bob = user("bob", "bob-id");
+        bob.setLikedPosts(List.of("l1", "l2"));
+        when(userService.findByUsernameOrEmail("bob@example.com")).thenReturn(Optional.of(bob));
+        when(postsService.getAllByIdSortedByTime(any(), anyInt(), anyInt())).thenReturn(new PagedModel<>(new PageImpl<PostsDTO>(List.of())));
+
+        mockMvc.perform(get("/api/posts/liked")).andExpect(status().isOk());
+        verify(postsService).getAllByIdSortedByTime(List.of("l1", "l2"), 0, 12);
+    }
+
+    @Test
+    @DisplayName("liked posts need a login")
+    void likedNeedsLogin() throws Exception {
+        mockMvc.perform(get("/api/posts/liked")).andExpect(status().is4xxClientError());
+        verify(postsService, never()).getAllByIdSortedByTime(any(), anyInt(), anyInt());
+    }
 }

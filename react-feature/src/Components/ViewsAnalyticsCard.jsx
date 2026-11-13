@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { PostAnalytics } from "./ViewsAnalytics";
 import Icon from "./ui/Icon";
 import Pagination from "./ui/Pagination";
-import api, { getCurrentUser } from "../services/AuthService";
+import { getCurrentUser } from "../services/AuthService";
+import { getPostsByUser } from "../services/PostsService";
 import { bannerStyle } from "../utils/banner";
 import "./ViewsAnalyticsCard.css";
 
@@ -42,7 +43,7 @@ function ViewsAnalyticsCard() {
     }
     let cancelled = false;
     setStatus((prev) => (prev === "ready" ? "paging" : "loading"));
-    api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page, size: PER_PAGE } })
+    getPostsByUser(currentUser.userName, page, PER_PAGE)
       .then(({ data }) => {
         if (cancelled) return;
         setPosts(data.content || []);

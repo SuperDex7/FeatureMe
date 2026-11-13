@@ -385,6 +385,50 @@ public class PostsController {
         return postsService.getAllById(ids, page, size);
     }
     
+    /*
+     * Post lists for a user, newest first. The /get/all/id/{ids} endpoints put
+     * every post id in the URL, which stops working at a few hundred ids
+     * (URL length limits); these look the ids up on the server instead.
+     */
+
+    private static final PagedModel<PostsDTO> EMPTY_PAGE = new PagedModel<>(org.springframework.data.domain.Page.empty());
+
+    private PagedModel<PostsDTO> postsByIds(List<String> ids, int page, int size) {
+        if (ids == null || ids.isEmpty()) return EMPTY_PAGE;
+        return postsService.getAllByIdSortedByTime(ids, Math.max(0, page), clampSize(size));
+    }
+
+    /** A user's own posts (what their profile shows) */
+    @GetMapping("/get/by-user/{userName}")
+    public PagedModel<PostsDTO> getPostsByUser(@PathVariable String userName,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "12") int size) {
+        User user = userService.findByUsernameOrEmail(userName)
+            .filter(u -> userName.equals(u.getUserName()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return postsByIds(user.getPosts(), page, size);
+    }
+
+    /** Posts a user is featured on */
+    @GetMapping("/get/featuring/{userName}")
+    public PagedModel<PostsDTO> getPostsFeaturing(@PathVariable String userName,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "12") int size) {
+        User user = userService.findByUsernameOrEmail(userName)
+            .filter(u -> userName.equals(u.getUserName()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return postsByIds(user.getFeaturedOn(), page, size);
+    }
+
+    /** Your liked posts (private, so only for the logged-in user) */
+    @GetMapping("/liked")
+    public PagedModel<PostsDTO> getMyLikedPosts(@RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        User user = currentUserOrNull();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Log in to see your liked posts");
+        }
+        return postsByIds(user.getLikedPosts(), page, size);
+    }
+
     @GetMapping("/get/all/id/{ids}/sorted")
     public PagedModel<PostsDTO> getAllByIdSorted(@PathVariable List<String> ids, @RequestParam( defaultValue = "0") int page,
     @RequestParam( defaultValue = "5") int size) {

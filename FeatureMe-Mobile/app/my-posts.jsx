@@ -191,7 +191,8 @@ export default function MyPostsScreen() {
     
     setIsLoading(true);
     try {
-      const endpoint = `/posts/get/all/id/${user.posts}/sorted?page=${page}&size=20`;
+      // The server looks up the ids (they used to go in the URL, which breaks at a few hundred)
+      const endpoint = `/posts/get/by-user/${encodeURIComponent(user.userName)}?page=${page}&size=20`;
       const response = await api.get(endpoint);
       const postsData = response.data.content || [];
       

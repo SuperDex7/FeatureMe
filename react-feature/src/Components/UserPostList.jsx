@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import FeedItem from "./FeedItem";
 import Pagination from "./ui/Pagination";
-import api, { getCurrentUser } from "../services/AuthService";
+import { getCurrentUser } from "../services/AuthService";
+import { getMyLikedPosts, getPostsByUser } from "../services/PostsService";
 import { cached, peek } from "../utils/requestCache";
 import "../Styling/Feed2.css";
 
@@ -58,7 +59,8 @@ function UserPostList({ kind }) {
       return undefined;
     }
     setStatus("loading");
-    cached(key, () => api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page, size: PAGE_SIZE } }).then((r) => r.data))
+    const request = kind === "liked" ? getMyLikedPosts(page, PAGE_SIZE) : getPostsByUser(user.userName, page, PAGE_SIZE);
+    cached(key, () => request.then((r) => r.data))
       .then((data) => {
         if (cancelled) return;
         setPosts(data.content || []);

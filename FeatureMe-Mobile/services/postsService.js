@@ -13,11 +13,13 @@ export const getPostById = (id) => {
 };
 
 export const getPostsByUser = (userId, page = 0, size = 10) => {
-  return api.get(`/posts/get/all/id/${userId}/sorted?page=${page}&size=${size}`);
+  // Takes a user name now: the server looks up their post ids
+  return api.get(`/posts/get/by-user/${encodeURIComponent(userId)}?page=${page}&size=${size}`);
 };
 
 export const getFeaturedPosts = (userId, page = 0, size = 10) => {
-  return api.get(`/posts/get/all/featuredOn/${userId}/sorted?page=${page}&size=${size}`);
+  // Takes a user name now: the server looks up their featured post ids
+  return api.get(`/posts/get/featuring/${encodeURIComponent(userId)}?page=${page}&size=${size}`);
 };
 
 export const deleteComment = (commentId) => {

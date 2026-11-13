@@ -6,6 +6,7 @@ import FeedItem from '../Components/FeedItem';
 import DemoGrid from '../ProfileComponets/DemoGrid';
 import AddDemo from '../ProfileComponets/AddDemo';
 import { cached, invalidate } from '../utils/requestCache';
+import { getFeaturedPosts, getPostsByUser } from '../services/PostsService';
 import api, { getCurrentUser, logout } from '../services/AuthService';
 import { UserRelationsService, updateProfile, changePassword } from '../services/UserService';
 import DemoService from '../services/DemoService';
@@ -161,7 +162,7 @@ export default function Profile() {
     }
     try {
       const key = `profile:${username}:posts:${user.posts.length}:${page}`;
-      const data = await cached(key, () => api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${pageSize}`).then((r) => r.data));
+      const data = await cached(key, () => getPostsByUser(username, page, pageSize).then((r) => r.data));
       setPosts(data.content || []);
       setPostsTotalPages(data.page?.totalPages || 0);
       setPostsPage(page);
@@ -180,7 +181,7 @@ export default function Profile() {
     }
     try {
       const key = `profile:${username}:featured:${user.featuredOn.length}:${page}`;
-      const data = await cached(key, () => api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${page}&size=${pageSize}`).then((r) => r.data));
+      const data = await cached(key, () => getFeaturedPosts(username, page, pageSize).then((r) => r.data));
       setFeatures(data.content || []);
       setFeatTotalPages(data.page?.totalPages || 0);
       setFeatPage(page);
