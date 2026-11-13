@@ -1,0 +1,32 @@
+name: Check HTTPS certificate
+
+# Renewal happens on the server (scripts/renew-certs.sh, twice a day and on
+# every deploy). This checks from the outside once a week and fails, which
+# makes GitHub email you, if the certificate is close to expiring, so a
+# broken renewal is noticed weeks before the site shows as insecure.
+
+on:
+  schedule:
+    - cron: "17 14 * * 1" # Mondays, 14:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check days left on featureme.co
+        run: |
+          set -euo pipefail
+          WARN_DAYS=20  # renewal starts at 30 days left, so under 20 means it isn't working
+          for host in featureme.co www.featureme.co; do
+            end=$(echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null \
+              | openssl x509 -noout -enddate | cut -d= -f2)
+            days=$(( ($(date -d "$end" +%s) - $(date +%s)) / 86400 ))
+            echo "$host: certificate expires $end ($days days left)"
+            if [ "$days" -lt "$WARN_DAYS" ]; then
+              echo "::error::$host certificate expires in $days days. Renewal isn't working: SSH in and run sudo ./scripts/renew-certs.sh"
+              exit 1
+            fi
+          done

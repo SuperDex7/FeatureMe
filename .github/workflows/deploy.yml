@@ -147,6 +147,7 @@ jobs:
             volumes:
               - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
               - /etc/letsencrypt:/etc/letsencrypt:ro
+              - /var/www/certbot:/var/www/certbot:ro
             restart: unless-stopped
         
         volumes:
@@ -177,12 +178,19 @@ jobs:
                 server frontend:80;
             }
 
-            # Redirect HTTP to HTTPS
+            # HTTP: Let's Encrypt renewal checks (scripts/renew-certs.sh), everything else to HTTPS
             server {
                 listen 80;
                 server_name featureme.co www.featureme.co;
                 client_max_body_size 150m;
-                return 301 https://$server_name$request_uri;
+
+                location /.well-known/acme-challenge/ {
+                    root /var/www/certbot;
+                }
+
+                location / {
+                    return 301 https://$host$request_uri;
+                }
             }
 
             # HTTPS server
@@ -248,4 +256,4 @@ jobs:
           --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
           --comment "Deploy application" \
-          --parameters 'commands=["cd /home/ubuntu/FeatureMe","aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}","docker-compose -f docker-compose.prod.yml down --remove-orphans","docker-compose -f docker-compose.prod.yml pull","docker-compose -f docker-compose.prod.yml up -d","docker image prune -f"]'
+          --parameters 'commands=["cd /home/ubuntu/FeatureMe","aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}","docker-compose -f docker-compose.prod.yml down --remove-orphans","docker-compose -f docker-compose.prod.yml pull","mkdir -p /var/www/certbot","docker-compose -f docker-compose.prod.yml up -d","docker image prune -f","sleep 20","./scripts/renew-certs.sh || echo Certificate check failed, see above"]'
