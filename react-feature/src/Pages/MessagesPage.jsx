@@ -329,7 +329,12 @@ function MessagesPage() {
     const el = composerRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    // scrollHeight leaves out the border, but the box's height includes it
+    const border = el.offsetHeight - el.clientHeight;
+    const needed = el.scrollHeight + border;
+    el.style.height = `${Math.min(needed, 160)}px`;
+    // Only scroll once the text is taller than the six-line cap
+    el.style.overflowY = needed > 160 ? 'auto' : 'hidden';
   }, [draft, activeId]);
 
   const send = () => {
