@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-// Old stylesheet: no longer used by this page, but Homepage2 (.profile-avatar) and
-// Post.jsx (.profile-btn) still rely on it. Remove once those are redesigned.
-import '../Styling/Profile.css';
 import '../Styling/ProfilePage.css';
 import ShowFollow from '../Components/ShowFollow';
 import FeedItem from '../Components/FeedItem';

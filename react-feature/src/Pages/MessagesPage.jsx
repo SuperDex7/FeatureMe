@@ -207,12 +207,6 @@ function MessagesPage() {
 
   // ---------- Startup ----------
 
-  // The chat fills the screen, so drop the old global body margin while it's open
-  useEffect(() => {
-    document.body.classList.add('fm-body-fill');
-    return () => document.body.classList.remove('fm-body-fill');
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     const init = async () => {

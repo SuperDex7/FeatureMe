@@ -183,3 +183,10 @@
     flex: 1 1 auto;
   }
 }
+
+/* Liked / My posts tabs (Components/UserPostList.jsx) */
+.fm-user-posts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fm-space-6);
+}

@@ -8,11 +8,6 @@
   font-family: var(--fm-font-body);
 }
 
-/* Full-screen pages (Messages, login/signup) drop the legacy global body margin */
-body.fm-body-fill {
-  margin: 0;
-}
-
 .fm-page__main {
   padding-top: var(--fm-header-height);
 }
@@ -586,4 +581,11 @@ textarea.fm-input {
 .fm-person-chip button:focus-visible {
   outline: none;
   box-shadow: var(--fm-focus-ring);
+}
+
+/* Shown while a protected page checks the login (Components/ProtectedRoute.jsx) */
+.fm-route-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

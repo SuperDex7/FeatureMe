@@ -19,10 +19,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <span>Checking authentication...</span>
+      <div className="fm-page fm-route-loading">
+        <div className="fm-state" role="status">
+          <div className="fm-spinner" />
+          <p>Loading…</p>
         </div>
       </div>
     );

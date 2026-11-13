@@ -2,14 +2,9 @@ import { useState } from "react";
 import Header from "../Components/Header";
 import Feed2 from "../Components/Feed2";
 import Footer from "../Components/Footer";
-import LikedPosts from "../Components/LikedPosts";
-import MyPosts from "../Components/MyPosts";
+import UserPostList from "../Components/UserPostList";
 import Icon from "../Components/ui/Icon";
 import "../Styling/FeedPage.css";
-// Old stylesheet: no longer used by this page's markup, but Profile.jsx and
-// ViewsAnalyticsCard still rely on its .posts-grid rule (all CSS is global).
-// Remove when those are redesigned.
-import "../Styling/Feeds2.css";
 
 const TABS = [
   { id: "feed", label: "Feed", title: "Your feed", subtitle: "New tracks and feature requests from the community." },
@@ -40,9 +35,9 @@ function Feed() {
   const renderContent = () => {
     switch (activeTab) {
       case "liked":
-        return <LikedPosts />;
+        return <UserPostList kind="liked" />;
       case "myPosts":
-        return <MyPosts />;
+        return <UserPostList kind="mine" />;
       default:
         return <Feed2 />;
     }

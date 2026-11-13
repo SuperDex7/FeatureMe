@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import Icon from "./ui/Icon";
 import "../Styling/AuthPages.css";
 
@@ -12,11 +11,6 @@ const POINTS = [
 // form on wide screens, just the form on phones. No site header, so the only
 // way forward is the form.
 function AuthLayout({ title, subtitle, children, footer, wide = false }) {
-  useEffect(() => {
-    document.body.classList.add("fm-body-fill");
-    return () => document.body.classList.remove("fm-body-fill");
-  }, []);
-
   return (
     <div className="fm-auth">
       <aside className="fm-auth__brand" aria-hidden="true">

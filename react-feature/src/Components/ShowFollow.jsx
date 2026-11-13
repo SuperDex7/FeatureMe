@@ -1,163 +1,119 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { UserRelationsService } from "../services/UserService"
-import "./ShowFollow.css"
+import { useEffect, useRef, useState } from "react";
+import { UserRelationsService } from "../services/UserService";
+import Dialog from "./ui/Dialog";
+import Icon from "./ui/Icon";
+import "./ShowFollow.css";
 
+const PAGE_SIZE = 20;
+const DEFAULT_AVATAR = "/dpp.jpg";
+
+// Followers / following list for a profile, in a dialog.
 function ShowFollow({ userName, isOpen, onClose, type }) {
-    const navigate = useNavigate()
-    const [searchTerm, setSearchTerm] = useState("")
-    const [users, setUsers] = useState([])
-    const [loading, setLoading] = useState(false)
-    const [page, setPage] = useState(0)
-    const [hasMore, setHasMore] = useState(true)
-    const [totalPages, setTotalPages] = useState(0)
-    
-    const title = type === 'followers' ? 'Followers' : 'Following'
-    const size = 20 // Items per page
-    
-    const handleUserClick = (username) => {
-        navigate(`/profile/${username}`)
-        onClose()
+  const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [status, setStatus] = useState("idle"); // idle | loading | ready | error
+  const [query, setQuery] = useState("");
+  const requestRef = useRef(0);
+
+  const title = type === "followers" ? "Followers" : "Following";
+
+  const load = async (pageNum) => {
+    const requestId = ++requestRef.current;
+    setStatus("loading");
+    try {
+      const response = type === "followers"
+        ? await UserRelationsService.getFollowers(userName, pageNum, PAGE_SIZE)
+        : await UserRelationsService.getFollowing(userName, pageNum, PAGE_SIZE);
+      if (requestId !== requestRef.current) return;
+      const data = response.data || {};
+      const list = data.content || data.page?.content || [];
+      setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
+      setUsers((prev) => (pageNum === 0 ? list : [...prev, ...list]));
+      setPage(pageNum);
+      setStatus("ready");
+    } catch (err) {
+      console.error(`Error loading ${type}:`, err);
+      if (requestId === requestRef.current) setStatus("error");
     }
-    
-    // Load users when popup opens or type changes
-    useEffect(() => {
-        if (isOpen && userName) {
-            loadUsers(0) // Start from page 0
-        }
-    }, [isOpen, type, userName])
-    
-    // Reset when popup closes or type changes
-    useEffect(() => {
-        if (!isOpen) {
-            setUsers([])
-            setPage(0)
-            setHasMore(true)
-            setSearchTerm("")
-        }
-    }, [isOpen, type])
-    
-    const loadUsers = async (pageNum) => {
-        if (loading) return
-        
-        setLoading(true)
-        try {
-            const response = type === 'followers' 
-                ? await UserRelationsService.getFollowers(userName, pageNum, size)
-                : await UserRelationsService.getFollowing(userName, pageNum, size)
-            
-            // Handle both Page and PagedModel structures
-            const pageData = response.data.page || response.data;
-            const newUsers = pageData.content || response.data.content;
-            const totalPages = pageData.totalPages || response.data.totalPages;
-            
-            setTotalPages(totalPages)
-            
-            if (pageNum === 0) {
-                setUsers(newUsers)
-            } else {
-                setUsers(prev => [...prev, ...newUsers])
-            }
-            
-            setHasMore(pageNum < totalPages - 1)
-            setPage(pageNum)
-            
-        } catch (error) {
-            console.error(`Error loading ${type}:`, error)
-        } finally {
-            setLoading(false)
-        }
-    }
-    
-    const loadMore = () => {
-        if (hasMore && !loading) {
-            loadUsers(page + 1)
-        }
-    }
-    
-    // Filter users based on search term
-    const filteredUsers = users.filter(user => 
-        user.userName.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    
-    if (!isOpen) return null
-    
-    return (
-        <div className="follow-popup-overlay" onClick={onClose}>
-            <div className="follow-popup-content" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-                <div className="follow-popup-header">
-                    <h3>{title}</h3>
-                    <button type="button" className="follow-popup-close" onClick={onClose} aria-label="Close">×</button>
-                </div>
-                
-                <div className="follow-popup-search">
-                    <input
-                        type="search"
-                        aria-label={`Search ${title.toLowerCase()}`}
-                        placeholder={`Search ${title.toLowerCase()}...`}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="follow-search-input"
-                    />
-                </div>
-                
-                <div className="follow-popup-body">
-                    {loading && users.length === 0 ? (
-                        <p className="loading">Loading {title.toLowerCase()}...</p>
-                    ) : users.length > 0 ? (
-                        <>
-                            <ul className="follow-list">
-                                {filteredUsers.map((user) => (
-                                    <li key={user.id}>
-                                        <button
-                                            type="button"
-                                            className="follow-item"
-                                            onClick={() => handleUserClick(user.userName)}
-                                        >
-                                        <div className="follow-user-info">
-                                            <img 
-                                                src={user.profilePic || '/dpp.jpg'} 
-                                                alt=""
-                                                className="follow-user-avatar"
-                                                onError={(e) => {
-                                                    e.target.src = '/dpp.jpg'
-                                                }}
-                                            />
-                                            <div className="follow-user-details">
-                                                <span className="follow-username">{user.userName}</span>
-                                                <span className="follow-date">
-                                                    {type === 'followers' ? 'Followed' : 'Following'} {new Date(user.createdAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                            
-                            {searchTerm === '' && hasMore && (
-                                <div className="load-more-container">
-                                    <button 
-                                        className="load-more-btn"
-                                        onClick={loadMore}
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Loading...' : 'Load More'}
-                                    </button>
-                                </div>
-                            )}
-                            
-                            {searchTerm !== '' && filteredUsers.length === 0 && (
-                                <p className="no-results">No {title.toLowerCase()} found matching "{searchTerm}"</p>
-                            )}
-                        </>
-                    ) : (
-                        <p className="no-follows">No {title.toLowerCase()} yet</p>
+  };
+
+  useEffect(() => {
+    if (!isOpen || !userName) return;
+    setUsers([]);
+    setQuery("");
+    load(0);
+    // Reload whenever the dialog opens or switches list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, type, userName]);
+
+  const term = query.trim().toLowerCase();
+  const shown = term ? users.filter((u) => u.userName?.toLowerCase().includes(term)) : users;
+  const hasMore = page < totalPages - 1;
+
+  return (
+    <Dialog open={isOpen} onClose={onClose} title={title} size="sm">
+      <div className="fm-follows">
+        {users.length > 0 && (
+          <div className="fm-search-field">
+            <Icon name="search" size={18} />
+            <input
+              type="search"
+              className="fm-input"
+              placeholder={`Search ${title.toLowerCase()}`}
+              aria-label={`Search ${title.toLowerCase()}`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              data-autofocus
+            />
+          </div>
+        )}
+
+        {status === "loading" && users.length === 0 && (
+          <div className="fm-state" role="status"><div className="fm-spinner" /></div>
+        )}
+        {status === "error" && users.length === 0 && (
+          <p className="fm-follows__empty">Couldn&apos;t load this list. Try again in a moment.</p>
+        )}
+        {status === "ready" && users.length === 0 && (
+          <p className="fm-follows__empty">
+            {type === "followers" ? `No followers yet.` : `Not following anyone yet.`}
+          </p>
+        )}
+
+        {shown.length > 0 && (
+          <ul className="fm-people fm-follows__list">
+            {shown.map((user) => (
+              <li key={user.id || user.userName}>
+                <a href={`/profile/${user.userName}`} className="fm-person" onClick={onClose}>
+                  <img src={user.profilePic || DEFAULT_AVATAR} alt="" onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} />
+                  <span className="fm-person__text">
+                    <span className="fm-person__name">{user.userName}</span>
+                    {user.createdAt && (
+                      <span className="fm-person__bio">
+                        {type === "followers" ? "Followed" : "Following since"} {new Date(user.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
                     )}
-                </div>
-            </div>
-        </div>
-    )
+                  </span>
+                  <Icon name="chevronRight" size={18} className="fm-follows__chevron" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {term && shown.length === 0 && users.length > 0 && (
+          <p className="fm-follows__empty">Nobody here matches &ldquo;{query.trim()}&rdquo;{hasMore ? " yet. Load more to search further." : "."}</p>
+        )}
+
+        {hasMore && (
+          <button type="button" className="fm-btn fm-btn--secondary fm-follows__more" onClick={() => load(page + 1)} disabled={status === "loading"}>
+            {status === "loading" ? "Loading…" : "Load more"}
+          </button>
+        )}
+      </div>
+    </Dialog>
+  );
 }
 
-export default ShowFollow
+export default ShowFollow;

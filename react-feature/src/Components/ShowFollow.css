@@ -1,203 +1,31 @@
-/* Followers / following popup (ShowFollow). Values from tokens.css. */
+/* Followers / following dialog (Components/ShowFollow.jsx).
+   Rows use the shared .fm-people / .fm-person styles from components.css. */
 
-.follow-popup-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1150;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: var(--fm-space-12) var(--fm-space-4);
-  background: rgba(8, 9, 12, 0.72);
-  font-family: var(--fm-font-body);
-}
-
-.follow-popup-content {
-  width: 100%;
-  max-width: 440px;
-  max-height: calc(100vh - 2 * var(--fm-space-12));
+.fm-follows {
   display: flex;
   flex-direction: column;
-  background: var(--fm-surface);
-  border: 1px solid var(--fm-border-strong);
-  border-radius: var(--fm-radius-xl);
-  box-shadow: var(--fm-shadow-pop);
-  color: var(--fm-text);
-  overflow: hidden;
-}
-
-.follow-popup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fm-space-3);
-  padding: var(--fm-space-4) var(--fm-space-4) var(--fm-space-2) var(--fm-space-5);
-}
-
-.follow-popup-header h3 {
-  margin: 0;
-  font-family: var(--fm-font-display);
-  font-size: var(--fm-text-xl);
-  font-weight: 600;
-}
-
-.follow-popup-close {
-  width: var(--fm-touch);
-  height: var(--fm-touch);
-  border: 0;
-  border-radius: var(--fm-radius-md);
-  background: transparent;
-  color: var(--fm-muted);
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.follow-popup-close:hover {
-  background: var(--fm-surface-2);
-  color: var(--fm-text);
-}
-
-.follow-popup-search {
-  padding: 0 var(--fm-space-5) var(--fm-space-3);
-}
-
-.follow-search-input {
-  width: 100%;
-  min-height: var(--fm-touch);
-  padding: 0 var(--fm-space-3);
-  box-sizing: border-box;
-  background: var(--fm-surface-2);
-  border: 1px solid var(--fm-border-strong);
-  border-radius: var(--fm-radius-md);
-  color: var(--fm-text);
-  font: inherit;
-  font-size: var(--fm-text-md);
-  outline: none;
-}
-
-.follow-search-input::placeholder {
-  color: var(--fm-muted);
-}
-
-.follow-search-input:focus {
-  border-color: var(--fm-accent);
-}
-
-.follow-popup-body {
-  flex: 1;
-  min-height: 120px;
-  overflow-y: auto;
-  padding: 0 var(--fm-space-3) var(--fm-space-3);
-}
-
-.follow-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.follow-item {
-  width: 100%;
-  padding: var(--fm-space-2);
-  border: 0;
-  border-radius: var(--fm-radius-md);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.follow-item:hover {
-  background: var(--fm-surface-2);
-}
-
-.follow-user-info {
-  display: flex;
-  align-items: center;
   gap: var(--fm-space-3);
 }
 
-.follow-user-avatar {
+.fm-follows__list {
+  max-height: min(420px, 55vh);
+}
+
+.fm-follows__list .fm-person {
+  text-decoration: none;
+}
+
+.fm-follows__chevron {
   flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--fm-surface-3);
-}
-
-.follow-user-details {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.follow-username {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.follow-date {
   color: var(--fm-muted);
-  font-size: var(--fm-text-sm);
 }
 
-.follow-popup-body .loading,
-.follow-popup-body .no-results,
-.follow-popup-body .no-follows {
-  margin: 0;
-  padding: var(--fm-space-6) var(--fm-space-4);
+.fm-follows__empty {
+  margin: var(--fm-space-4) 0;
+  color: var(--fm-muted);
   text-align: center;
-  color: var(--fm-muted);
 }
 
-.load-more-container {
-  display: flex;
-  justify-content: center;
-  padding: var(--fm-space-3) 0 var(--fm-space-1);
-}
-
-.load-more-btn {
-  min-height: 40px;
-  padding: 0 var(--fm-space-4);
-  border: 1px solid var(--fm-border-strong);
-  border-radius: var(--fm-radius-md);
-  background: transparent;
-  color: var(--fm-text);
-  font: inherit;
-  font-size: var(--fm-text-md);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.load-more-btn:hover:not(:disabled) {
-  background: var(--fm-surface-2);
-}
-
-.load-more-btn:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.follow-popup-content :is(button, input):focus-visible {
-  outline: none;
-  box-shadow: var(--fm-focus-ring);
-}
-
-@media (max-width: 560px) {
-  .follow-popup-overlay {
-    padding: 0;
-  }
-
-  .follow-popup-content {
-    max-width: none;
-    max-height: none;
-    height: 100%;
-    border: 0;
-    border-radius: 0;
-  }
+.fm-follows__more {
+  align-self: center;
 }

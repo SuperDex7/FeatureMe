@@ -1,8 +1,5 @@
 import { useState, useRef } from 'react';
 import Icon from '../Components/ui/Icon';
-// DemoCard.css no longer styles this card (see Styling/Demos.css), but Post.jsx and a few
-// other pages still rely on some of its generic class names. Remove once they're redesigned.
-import './DemoCard.css';
 import '../Styling/Demos.css';
 
 function DemoCard({ demo, onDelete, canDelete = false }) {
