@@ -4,7 +4,13 @@ import Feat.FeatureMe.config.AuthUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.stripe.Stripe;
+import com.stripe.exception.EventDataObjectDeserializationException;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.StripeObject;
+import java.util.Optional;
 import com.stripe.model.Event;
 import com.stripe.model.Invoice;
 import com.stripe.net.Webhook;
@@ -89,7 +95,7 @@ public class StripeController {
         }
         
         SessionCreateParams sessionParams = SessionCreateParams.builder()
-            .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+            .addAllowedPaymentMethodType(SessionCreateParams.AllowedPaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
@@ -157,7 +163,7 @@ public class StripeController {
         }
         
         SessionCreateParams sessionParams = SessionCreateParams.builder()
-            .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+            .addAllowedPaymentMethodType(SessionCreateParams.AllowedPaymentMethodType.CARD)
             .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
             .setSuccessUrl(frontendUrl + "/subscription?success=true")
             .setCancelUrl(frontendUrl + "/subscription?canceled=true")
@@ -201,15 +207,22 @@ public class StripeController {
      * This automatically handles subscription lifecycle events
      */
     @PostMapping("/webhook")
-    public String handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+    public ResponseEntity<String> handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+        Event event;
         try {
-            Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+            event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+        } catch (SignatureVerificationException e) {
+            // Not from Stripe (or the wrong secret): reject it
+            System.err.println("❌ Webhook signature check failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid signature");
+        }
+        try {
             
             System.out.println("Received webhook event: " + event.getType());
             
             // Handle successful payment events
             if ("invoice.payment_succeeded".equals(event.getType())) {
-                Invoice invoice = (Invoice) event.getDataObjectDeserializer().getObject().orElse(null);
+                Invoice invoice = (Invoice) eventObject(event);
                 
                 if (invoice != null) {
                     String customerId = invoice.getCustomer();
@@ -233,7 +246,7 @@ public class StripeController {
             
             // Handle subscription updated events (including cancellations)
             if ("customer.subscription.updated".equals(event.getType())) {
-                Subscription subscription = (Subscription) event.getDataObjectDeserializer().getObject().orElse(null);
+                Subscription subscription = (Subscription) eventObject(event);
                 
                 if (subscription != null) {
                     String customerId = subscription.getCustomer();
@@ -269,7 +282,7 @@ public class StripeController {
             
             // Handle subscription deleted events
             if ("customer.subscription.deleted".equals(event.getType())) {
-                Subscription subscription = (Subscription) event.getDataObjectDeserializer().getObject().orElse(null);
+                Subscription subscription = (Subscription) eventObject(event);
                 
                 if (subscription != null) {
                     String customerId = subscription.getCustomer();
@@ -291,7 +304,7 @@ public class StripeController {
             
             // Handle checkout session completed events
             if ("checkout.session.completed".equals(event.getType())) {
-                Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
+                Session session = (Session) eventObject(event);
                 
                 if (session != null && session.getMode().equals("subscription")) {
                     String customerId = session.getCustomer();
@@ -313,12 +326,33 @@ public class StripeController {
                 }
             }
             
-            return "Success";
+            return ResponseEntity.ok("Success");
         } catch (Exception e) {
+            // A 500 makes Stripe retry the event later instead of dropping it
             System.err.println("❌ Webhook error: " + e.getMessage());
             e.printStackTrace();
-            return "Error";
+            return ResponseEntity.internalServerError().body("Error");
         }
+    }
+
+    /**
+     * The event's object. stripe-java only deserializes events sent in its own
+     * API release (see Stripe.API_VERSION); events from a webhook endpoint
+     * still on an older version would otherwise come back empty and be
+     * silently skipped. The fields read here (customer, status,
+     * cancel_at_period_end, mode, subscription) are the same in both, so fall
+     * back to deserializing anyway and log the mismatch.
+     */
+    static StripeObject eventObject(Event event) throws EventDataObjectDeserializationException {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+        Optional<StripeObject> object = deserializer.getObject();
+        if (object.isPresent()) {
+            return object.get();
+        }
+        System.err.println("⚠️ Stripe event " + event.getId() + " uses API version " + event.getApiVersion()
+            + " but stripe-java expects " + Stripe.API_VERSION
+            + ". Update the webhook endpoint's API version in the Stripe dashboard.");
+        return deserializer.deserializeUnsafe();
     }
     
     
