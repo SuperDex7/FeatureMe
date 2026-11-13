@@ -277,4 +277,15 @@ class PostsServiceTest {
         assertEquals(2, summary.getUniqueViewers());
         assertEquals(250.0, summary.getAvgViewsPerUser());
     }
+
+    @Test
+    @DisplayName("public post responses don't include who listened")
+    void postDtoHasNoListeners() {
+        when(postsRepository.findById("post123")).thenReturn(Optional.of(mockPost));
+
+        PostsDTO dto = postsService.getPostById("post123");
+
+        assertTrue(dto.views().isEmpty());
+        verify(postViewService, never()).getRecentViews(anyString(), anyInt());
+    }
 }

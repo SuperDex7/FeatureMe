@@ -73,13 +73,13 @@ public class PostsService {
     }
     
     
+    /**
+     * Post responses are public, so they no longer list who listened (that's
+     * the author's analytics, see /posts/views/{id}/paginated). Kept as an
+     * empty list so the response shape doesn't change for clients.
+     */
     private List<ViewsDTO> getViewsForPost(String postId) {
-        try {
-            // Get recent views from the separate collection (limit to 10 for post DTOs)
-            return postViewService.getRecentViews(postId, 10);
-        } catch (Exception e) {
-            return List.of(); // Return empty list on error
-        }
+        return List.of();
     }
     
         
