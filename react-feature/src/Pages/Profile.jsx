@@ -5,6 +5,7 @@ import ShowFollow from '../Components/ShowFollow';
 import FeedItem from '../Components/FeedItem';
 import DemoGrid from '../ProfileComponets/DemoGrid';
 import AddDemo from '../ProfileComponets/AddDemo';
+import { cached, invalidate } from '../utils/requestCache';
 import api, { getCurrentUser, logout } from '../services/AuthService';
 import { UserRelationsService, updateProfile, changePassword } from '../services/UserService';
 import DemoService from '../services/DemoService';
@@ -150,6 +151,8 @@ export default function Profile() {
     }
   };
 
+  // Tab pages are cached (utils/requestCache), so switching tabs, paging
+  // back, or the user object changing (e.g. after Follow) doesn't refetch.
   const loadPosts = async (page = 0) => {
     if (!user || !user.posts || user.posts.length === 0) {
       setPosts([]);
@@ -157,9 +160,10 @@ export default function Profile() {
       return;
     }
     try {
-      const res = await api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${pageSize}`);
-      setPosts(res.data.content || []);
-      setPostsTotalPages(res.data.page?.totalPages || 0);
+      const key = `profile:${username}:posts:${user.posts.length}:${page}`;
+      const data = await cached(key, () => api.get(`posts/get/all/id/${user.posts}/sorted?page=${page}&size=${pageSize}`).then((r) => r.data));
+      setPosts(data.content || []);
+      setPostsTotalPages(data.page?.totalPages || 0);
       setPostsPage(page);
     } catch (e) {
       console.error('posts load error', e);
@@ -175,9 +179,10 @@ export default function Profile() {
       return;
     }
     try {
-      const res = await api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${page}&size=${pageSize}`);
-      setFeatures(res.data.content || []);
-      setFeatTotalPages(res.data.page?.totalPages || 0);
+      const key = `profile:${username}:featured:${user.featuredOn.length}:${page}`;
+      const data = await cached(key, () => api.get(`posts/get/all/featuredOn/${user.featuredOn}/sorted?page=${page}&size=${pageSize}`).then((r) => r.data));
+      setFeatures(data.content || []);
+      setFeatTotalPages(data.page?.totalPages || 0);
       setFeatPage(page);
     } catch (e) {
       console.error('features load error', e);
@@ -192,9 +197,9 @@ export default function Profile() {
         return;
       }
     try {
-      const list = await DemoService.getUserDemos(user.id);
-      // Reverse the order so newer demos appear first
-      setDemos(list.reverse());
+      const list = await cached(`profile:${username}:demos`, () => DemoService.getUserDemos(user.id));
+      // Newer demos first (copied: the cached list must stay as it came)
+      setDemos([...list].reverse());
     } catch (e) {
       console.error('demos load error', e);
       setDemos([]);
@@ -367,6 +372,7 @@ export default function Profile() {
   const deleteDemo = async (demoId) => {
     try {
       await DemoService.deleteDemo(demoId);
+      invalidate(`profile:${username}:demos`);
       loadDemos();
     } catch (err) {
       console.error('Error deleting demo:', err);
@@ -814,7 +820,7 @@ export default function Profile() {
       <Dialog open={showAddDemo} onClose={() => setShowAddDemo(false)} title="Add demo" size="md">
         <AddDemo
           setAddDemo={setShowAddDemo}
-          onDemoAdded={() => { loadDemos(); setShowAddDemo(false); }}
+          onDemoAdded={() => { invalidate(`profile:${username}:demos`); loadDemos(); setShowAddDemo(false); }}
           userRole={currentUser?.role}
         />
       </Dialog>

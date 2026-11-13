@@ -138,6 +138,8 @@ function MessagesPage() {
   const photoInputRef = useRef(null);
   // Read inside WebSocket callbacks, which outlive the render they were made in
   const activeIdRef = useRef(null);
+  // Last messages shown per conversation, for instant switching back
+  const chatCacheRef = useRef(new Map());
   const meRef = useRef(null);
   // What the next message update should do to the scroll position
   const scrollIntent = useRef({ type: 'none' });
@@ -149,15 +151,18 @@ function MessagesPage() {
   // ---------- Opening chats ----------
 
   const loadFirstPage = async (chatId) => {
-    setLoadingMessages(true);
+    // A conversation opened before shows its last messages straight away
+    // (from chatCacheRef) while the latest page loads in the background
+    if (!chatCacheRef.current.has(chatId)) setLoadingMessages(true);
     try {
       const { data } = await ChatService.getChatMessagesPaged(chatId, 0, PAGE_SIZE);
       if (activeIdRef.current !== chatId) return;
       const list = Array.isArray(data) ? data : [];
       const ids = new Set(list.map((m) => m.id));
+      const newest = list.length > 0 ? new Date(list[list.length - 1].time).getTime() : 0;
       scrollIntent.current = { type: 'bottom' };
-      // Keep anything that arrived over the socket while the page was loading
-      setMessages((prev) => [...list, ...prev.filter((m) => !m.id || !ids.has(m.id))]);
+      // Fresh page wins; keep only socket arrivals newer than it
+      setMessages((prev) => [...list, ...prev.filter((m) => (!m.id || !ids.has(m.id)) && new Date(m.time).getTime() > newest)]);
       setPage(0);
       setHasMore(list.length === PAGE_SIZE);
     } catch (err) {
@@ -191,7 +196,9 @@ function MessagesPage() {
     if (previous && previous !== chatId) chatWebSocketService.unsubscribeFromChat(previous);
     activeIdRef.current = chatId;
     setActiveId(chatId);
-    setMessages([]);
+    const seen = chatCacheRef.current.get(chatId);
+    scrollIntent.current = { type: 'bottom' };
+    setMessages(seen || []);
     setHasMore(false);
     setNotice(null);
     subscribe(chatId);
@@ -257,6 +264,11 @@ function MessagesPage() {
     // Runs once per (re)try; the URL params are only read on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retryKey]);
+
+  // Remember the open conversation's messages for when you come back to it
+  useEffect(() => {
+    if (activeId) chatCacheRef.current.set(activeId, messages);
+  }, [activeId, messages]);
 
   // ---------- Scrolling ----------
 
@@ -420,6 +432,7 @@ function MessagesPage() {
       return;
     }
     chatWebSocketService.leaveChat(chatId, me.userName);
+    chatCacheRef.current.delete(chatId);
     closeChat();
     setConversations((prev) => prev.filter((chat) => chatIdOf(chat) !== chatId));
     setDialog(null);

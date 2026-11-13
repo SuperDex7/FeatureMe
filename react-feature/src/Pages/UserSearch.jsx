@@ -10,6 +10,7 @@ import api, { getCurrentUser } from "../services/AuthService";
 import { UserRelationsService } from "../services/UserService";
 import DemoService from "../services/DemoService";
 import { bannerStyle } from "../utils/banner";
+import { cached, peek } from "../utils/requestCache";
 import "../Styling/SearchPage.css";
 
 const DEFAULT_AVATAR = "/dpp.jpg";
@@ -73,15 +74,25 @@ function UserSearch() {
       return;
     }
     const requestId = ++requestRef.current;
+    // Recent searches (and pages) are cached, so paging back or retyping is instant
+    const key = `search:${query.toLowerCase()}:${page}`;
+    const show = (data) => {
+      setResults(data.content || []);
+      setTotalPages(data.page?.totalPages || 0);
+      setTotalResults(data.page?.totalElements ?? (data.content || []).length);
+      setStatus("ready");
+    };
+    const hit = retryKey === 0 ? peek(key, 60 * 1000) : undefined;
+    if (hit) {
+      show(hit);
+      return;
+    }
     setStatus("loading");
-    api.get(`/user/get/search/${encodeURIComponent(query)}?page=${page}&size=${PAGE_SIZE}`)
-      .then(({ data }) => {
+    cached(key, () => api.get(`/user/get/search/${encodeURIComponent(query)}?page=${page}&size=${PAGE_SIZE}`).then((r) => r.data), { maxAge: 60 * 1000, force: retryKey > 0 })
+      .then((data) => {
         // Ignore answers to searches the user has already typed past
         if (requestId !== requestRef.current) return;
-        setResults(data.content || []);
-        setTotalPages(data.page?.totalPages || 0);
-        setTotalResults(data.page?.totalElements ?? (data.content || []).length);
-        setStatus("ready");
+        show(data);
       })
       .catch((err) => {
         if (requestId !== requestRef.current) return;

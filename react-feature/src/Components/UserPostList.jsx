@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import FeedItem from "./FeedItem";
 import Pagination from "./ui/Pagination";
 import api, { getCurrentUser } from "../services/AuthService";
+import { cached, peek } from "../utils/requestCache";
 import "../Styling/Feed2.css";
 
 const PAGE_SIZE = 12;
@@ -47,9 +48,18 @@ function UserPostList({ kind }) {
       return undefined;
     }
     let cancelled = false;
+    // Cached, so switching Feed / Liked / My posts tabs back and forth is instant
+    const key = `userposts:${kind}:${ids.length}:${page}`;
+    const hit = peek(key);
+    if (hit) {
+      setPosts(hit.content || []);
+      setTotalPages(hit.page?.totalPages || 0);
+      setStatus("ready");
+      return undefined;
+    }
     setStatus("loading");
-    api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page, size: PAGE_SIZE } })
-      .then(({ data }) => {
+    cached(key, () => api.get(`/posts/get/all/id/${ids.join(",")}/sorted`, { params: { page, size: PAGE_SIZE } }).then((r) => r.data))
+      .then((data) => {
         if (cancelled) return;
         setPosts(data.content || []);
         setTotalPages(data.page?.totalPages || 0);

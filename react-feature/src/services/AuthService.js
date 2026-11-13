@@ -83,16 +83,17 @@ api.interceptors.response.use(
 // Helper functions
 export const isAuthenticated = async () => {
   try {
-    // Make a request to /me endpoint to check if user is authenticated
-    const response = await api.get('/user/me');
-    return response.status === 200;
-  } catch (error) {
+    // Shares the /user/me request with getCurrentUser (see fetchMe)
+    await fetchMe();
+    return true;
+  } catch {
     return false;
   }
 };
 
 export const logout = async () => {
   try {
+    meCache = null;
     // Call logout endpoint to clear server-side cookies
     await api.post('/user/auth/logout');
   } catch (error) {
@@ -103,35 +104,49 @@ export const logout = async () => {
   }
 };
 
-export const getCurrentUser = async () => {
-  try {
-    const response = await api.get('/user/me');
-    // Check if user is banned - logout silently if so
-    if (response.data?.role === 'BANNED') {
-      window.location.href = '/login';
-      return null;
-    }
-    return response.data;
-  } catch (error) {
-    // Don't log errors for anonymous users - this is expected behavior
-    return null;
-  }
+// /user/me is asked for by the header, the page and several components at
+// once. Share one request (and reuse the answer for a few seconds) instead of
+// sending the same call 3-6 times per page.
+const ME_MAX_AGE = 10 * 1000;
+let meCache = null; // { data, at }
+let meRequest = null;
+
+function fetchMe() {
+  if (meCache && Date.now() - meCache.at < ME_MAX_AGE) return Promise.resolve(meCache.data);
+  if (meRequest) return meRequest;
+  meRequest = api.get('/user/me')
+    .then((response) => {
+      meCache = { data: response.data, at: Date.now() };
+      return response.data;
+    })
+    .finally(() => { meRequest = null; });
+  return meRequest;
+}
+
+/** Forget the cached current user (after changing your own profile, plan, etc.) */
+export const forgetCurrentUser = () => {
+  meCache = null;
 };
 
-// Safe version that never redirects to login
-export const getCurrentUserSafe = async () => {
+async function currentUserOrNull() {
   try {
-    const response = await api.get('/user/me');
+    const data = await fetchMe();
     // Check if user is banned - logout silently if so
-    if (response.data?.role === 'BANNED') {
+    if (data?.role === 'BANNED') {
       window.location.href = '/login';
       return null;
     }
-    return response.data;
-  } catch (error) {
-    // Silently return null for anonymous users
+    // Each caller gets its own copy, so one can't change another's
+    return data ? structuredClone(data) : data;
+  } catch {
+    // Not logged in (or offline): expected for visitors
     return null;
   }
-};
+}
+
+export const getCurrentUser = () => currentUserOrNull();
+
+// Same as getCurrentUser; never redirects to login
+export const getCurrentUserSafe = () => currentUserOrNull();
 
 export default api;

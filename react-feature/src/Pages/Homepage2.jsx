@@ -10,7 +10,7 @@ import Dialog from '../Components/ui/Dialog';
 import Icon from '../Components/ui/Icon';
 import PlusBadge from '../Components/ui/PlusBadge';
 import useNotifications from '../hooks/useNotifications';
-import api from '../services/AuthService';
+import api, { getCurrentUser } from '../services/AuthService';
 import { bannerStyle } from '../utils/banner';
 import '../Styling/HomeDashboard.css';
 
@@ -36,7 +36,8 @@ function Homepage2() {
     let cancelled = false;
     const load = async () => {
       try {
-        const { data: me } = await api.get('/user/me');
+        const me = await getCurrentUser();
+        if (!me) throw new Error('Not logged in');
         if (cancelled) return;
         setUser(me);
         setStatus('ready');
