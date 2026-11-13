@@ -1,8 +1,9 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Components/Header';
 import Dialog from '../Components/ui/Dialog';
 import Icon from '../Components/ui/Icon';
+import UserPicker from '../Components/ui/UserPicker';
 import { ChatService, chatWebSocketService } from '../services/ChatService';
 import api, { getCurrentUser } from '../services/AuthService';
 import { validateChatFile, validateChatPhoto, getFileRestrictionsMessage } from '../utils/fileValidation';
@@ -530,7 +531,7 @@ function MessagesPage() {
             </div>
 
             {conversations.length > 0 && (
-              <div className="fm-msg-search">
+              <div className="fm-search-field">
                 <Icon name="search" size={18} />
                 <input
                   type="search"
@@ -640,7 +641,7 @@ function MessagesPage() {
                     aria-label={uploading ? 'Sending file' : 'Attach a file'}
                     title={getFileRestrictionsMessage(me.role)}
                   >
-                    {uploading ? <span className="fm-msg__mini-spinner" /> : <Icon name="paperclip" />}
+                    {uploading ? <span className="fm-mini-spinner" /> : <Icon name="paperclip" />}
                   </button>
                   <input
                     ref={fileInputRef}
@@ -712,9 +713,9 @@ function MessagesPage() {
             onPick={toggleNewChatUser}
           />
           {newChatUsers.length > 0 && (
-            <ul className="fm-msg-chips" aria-label="Selected">
+            <ul className="fm-person-chips" aria-label="Selected">
               {newChatUsers.map((user) => (
-                <li key={user.userName} className="fm-msg-chip">
+                <li key={user.userName} className="fm-person-chip">
                   <img src={user.profilePic || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
                   {user.userName}
                   <button type="button" onClick={() => toggleNewChatUser(user)} aria-label={`Remove ${user.userName}`}>
@@ -921,94 +922,6 @@ function FileContent({ file, onMediaLoad }) {
       <button type="button" className="fm-icon-btn" onClick={() => downloadFile(file.url, file.name)} aria-label={`Download ${file.name}`}>
         <Icon name="download" size={18} />
       </button>
-    </div>
-  );
-}
-
-// ---------- People search (new conversation / add people) ----------
-
-function UserPicker({ label, exclude, selected, onPick, actionLabel }) {
-  const inputId = useId();
-  const [term, setTerm] = useState('');
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    const q = term.trim();
-    if (!q) {
-      setResults([]);
-      setSearching(false);
-      return undefined;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const timer = setTimeout(async () => {
-      try {
-        const { data } = await api.get(`/user/get/search/${encodeURIComponent(q)}?page=0&size=20`);
-        if (!cancelled) setResults(data.content || []);
-      } catch (err) {
-        console.error('Error searching users:', err);
-        if (!cancelled) setResults([]);
-      } finally {
-        if (!cancelled) setSearching(false);
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [term]);
-
-  const visible = results.filter((user) => !exclude.includes(user.userName));
-
-  return (
-    <div className="fm-field">
-      <label className="fm-field__label" htmlFor={inputId}>{label}</label>
-      <div className="fm-msg-search">
-        <Icon name="search" size={18} />
-        <input
-          id={inputId}
-          type="search"
-          className="fm-input"
-          placeholder="Search by username"
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          autoComplete="off"
-          data-autofocus
-        />
-        {searching && <span className="fm-msg__mini-spinner fm-msg-search__spinner" aria-label="Searching" />}
-      </div>
-      {term.trim() && !searching && visible.length === 0 && (
-        <p className="fm-field__hint">No artists found for &ldquo;{term.trim()}&rdquo;.</p>
-      )}
-      {visible.length > 0 && (
-        <ul className="fm-msg-people">
-          {visible.map((user) => {
-            const isSelected = selected?.includes(user.userName);
-            return (
-              <li key={user.userName}>
-                <button
-                  type="button"
-                  className={`fm-msg-person${isSelected ? ' is-selected' : ''}`}
-                  onClick={() => onPick(user)}
-                  aria-pressed={selected ? isSelected : undefined}
-                >
-                  <img src={user.profilePic || DEFAULT_AVATAR} alt="" onError={showDefaultAvatar} />
-                  <span className="fm-msg-person__text">
-                    <span className="fm-msg-person__name">{user.userName}</span>
-                    {user.bio && <span className="fm-msg-person__bio">{user.bio}</span>}
-                  </span>
-                  <span className="fm-msg-person__action" aria-hidden="true">
-                    {selected
-                      ? (isSelected ? <Icon name="check" size={18} strokeWidth={2.4} /> : <Icon name="plus" size={18} />)
-                      : actionLabel}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 }
