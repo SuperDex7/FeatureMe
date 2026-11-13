@@ -174,7 +174,6 @@ public User validateJwtAndGetUser(String jwtToken) {
         chatMessageRepository.save(chatMessage);
         
 
-         newChat.getMessages().add(chatMessage);
          newChat.setMostRecentChat(new MostRecentChatDTO(newChat.getChatRoomId(), newChat.getChatName(), newChat.getChatPhoto(), newChat.getUsers(),chatMessage.getMessage(), Instant.now()));
         chatsRepository.save(newChat);
         
@@ -215,7 +214,6 @@ return newChat;
                 Instant.now(),
                 ChatMessage.MessageType.JOIN
             );
-            chat.getMessages().add(message);
             
             // Add notification to the user being added
             notificationService.notify(user.getUserName(), chat.getChatRoomId(), adderUserName,
@@ -252,7 +250,6 @@ return newChat;
         chatRoom.setMostRecentChat( new MostRecentChatDTO(chatRoom.getChatRoomId(), chatRoom.getChatName(), chatRoom.getChatPhoto(), chatRoom.getUsers(), chatMessage.getMessage(), Instant.now()));
         chatMessageRepository.save(chatMessage);
 
-        chatRoom.getMessages().add(chatMessage);
         
         chatsRepository.save(chatRoom);
         return chatMessage;
@@ -275,7 +272,6 @@ return newChat;
             Instant.now(),
             ChatMessage.MessageType.LEAVE
         );
-        chat.getMessages().add(message);
         
         chatMessageRepository.save(message);
         chat.setMostRecentChat( new MostRecentChatDTO(chat.getChatRoomId(), chat.getChatName(), chat.getChatPhoto(), chat.getUsers(), message.getMessage(), Instant.now()));
@@ -405,7 +401,6 @@ return newChat;
                 ChatMessage.MessageType.JOIN
             );
             
-            chat.getMessages().add(joinMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -465,7 +460,6 @@ return newChat;
                 ChatMessage.MessageType.LEAVE
             );
             
-            chat.getMessages().add(leaveMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -533,7 +527,6 @@ return newChat;
             );
             
             // Add the message to the chat
-            chat.getMessages().add(photoChangeMessage);
             chatMessageRepository.save(photoChangeMessage);
             
             // Update most recent chat with new photo and message
@@ -603,7 +596,6 @@ return newChat;
             fileMessage.setMessage(user.getUserName() + " sent a file: " + originalFilename + 
                 " | FILE_URL:" + fileUrl + " | FILE_SIZE:" + file.getSize());
             
-            chat.getMessages().add(fileMessage);
             chat.setMostRecentChat(new MostRecentChatDTO(
                 chat.getChatRoomId(), 
                 chat.getChatName(), 
@@ -635,12 +627,7 @@ return newChat;
      */
     public ChatMessage getLastMessageForChat(String chatRoomId) {
         try {
-            Chats chat = chatsRepository.findById(chatRoomId).orElse(null);
-            if (chat != null && !chat.getMessages().isEmpty()) {
-                // Return the last message in the chat
-                return chat.getMessages().get(chat.getMessages().size() - 1);
-            }
-            return null;
+            return chatMessageRepository.findFirstByChatRoomIdOrderByTimeDesc(chatRoomId).orElse(null);
         } catch (Exception e) {
             System.err.println("Error getting last message for chat " + chatRoomId + ": " + e.getMessage());
             return null;
@@ -690,11 +677,8 @@ return newChat;
      * @param chat The chat room containing messages with file references
      */
     private void deleteChatFilesFromAWS(Chats chat) {
-        if (chat.getMessages() == null || chat.getMessages().isEmpty()) {
-            return;
-        }
-        
-        for (ChatMessage message : chat.getMessages()) {
+        // Messages live in chat_messages (chat rooms no longer embed a copy)
+        for (ChatMessage message : chatMessageRepository.findByChatRoomIdAndType(chat.getChatRoomId(), ChatMessage.MessageType.FILE)) {
             if (message.getType() == ChatMessage.MessageType.FILE && message.getMessage() != null) {
                 // Extract file URL from message
                 String messageText = message.getMessage();
