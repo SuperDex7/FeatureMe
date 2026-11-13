@@ -34,7 +34,7 @@ function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailCheck, setEmailCheck] = useState({ isValidating: false, available: null, error: null });
   const [nameCheck, setNameCheck] = useState({ isValidating: false, available: null, error: null });
-  const [encryptedCode, setEncryptedCode] = useState("");
+  const [verificationToken, setVerificationToken] = useState("");
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [profilePicFile, setProfilePicFile] = useState(null);
@@ -79,11 +79,14 @@ function SignupPage() {
     && form.password.length >= PASSWORD_MIN && form.password === form.confirmPassword;
   const step3Ready = form.userName.trim() && nameCheck.available === true && !nameCheck.isValidating;
 
+  // The server emails a 6-digit code and keeps it; nothing about the code comes back here
   const sendCode = async () => {
-    const { data } = await axios.get(`${baseURL}/user/auth/email/${encodeURIComponent(form.email)}`);
-    setEncryptedCode(data);
+    await axios.post(`${baseURL}/user/auth/email-verification/send`, { email: form.email.trim() });
+    setVerificationToken("");
     setResendIn(RESEND_SECONDS);
   };
+
+  const serverError = (err, fallback) => err.response?.data?.error || fallback;
 
   const submitAccount = async (event) => {
     event.preventDefault();
@@ -96,22 +99,27 @@ function SignupPage() {
       setStep(2);
     } catch (err) {
       console.error("Error sending verification email:", err);
-      setError("We couldn't send the verification email. Check the address and try again.");
+      setError(serverError(err, "We couldn't send the verification email. Check the address and try again."));
     } finally {
       setBusy(false);
     }
   };
 
-  const submitCode = (event) => {
+  const submitCode = async (event) => {
     event.preventDefault();
-    let expected = null;
-    try { expected = atob(encryptedCode); } catch { expected = null; }
-    if (expected && code.trim() === expected) {
-      setError("");
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await axios.post(`${baseURL}/user/auth/email-verification/verify`, { email: form.email.trim(), code: code.trim() });
+      setVerificationToken(data.verificationToken);
       setInfo("");
       setStep(3);
-    } else {
-      setError("That code doesn't match. Check the email and try again.");
+    } catch (err) {
+      console.error("Error verifying code:", err);
+      setError(serverError(err, "That code doesn't match. Check the email and try again."));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -124,7 +132,7 @@ function SignupPage() {
       setInfo(`New code sent to ${form.email}. Earlier codes no longer work.`);
     } catch (err) {
       console.error("Error resending code:", err);
-      setError("Couldn't resend the code. Try again in a moment.");
+      setError(serverError(err, "Couldn't resend the code. Try again in a moment."));
     } finally {
       setBusy(false);
     }
@@ -170,11 +178,22 @@ function SignupPage() {
     data.append("user", new Blob([JSON.stringify(userData)], { type: "application/json" }));
     if (profilePicFile) data.append("pp", profilePicFile);
     if (bannerFile) data.append("banner", bannerFile);
+    data.append("verificationToken", verificationToken);
     try {
       await axios.post(`${baseURL}/user/auth/create`, data, { headers: { "Content-Type": "multipart/form-data" }, timeout: 30000 });
       navigate("/login", { state: { notice: "Your account is ready. Log in to get started." } });
     } catch (err) {
       console.error("Signup error:", err);
+      if (err.response?.status === 403) {
+        // The email check expired (30 minutes); send a fresh code
+        setError("Your email check expired. Ask for a new code to finish signing up.");
+        setVerificationToken("");
+        setCode("");
+        setResendIn(0);
+        setStep(2);
+        setBusy(false);
+        return;
+      }
       if (err.response?.status === 409) setError("That email or username was just taken. Go back and pick another.");
       else if (typeof err.response?.data === "string" && err.response.data.length < 200) setError(err.response.data);
       else if (err.code === "ECONNABORTED") setError("That took too long. Check your connection and try again.");
@@ -257,7 +276,7 @@ function SignupPage() {
 
   if (step === 2) {
     return (
-      <AuthLayout title="Check your email" subtitle={<>We sent an 8-character code to <strong>{form.email}</strong>.</>} footer={footer}>
+      <AuthLayout title="Check your email" subtitle={<>We sent a 6-digit code to <strong>{form.email}</strong>.</>} footer={footer}>
         {progress}
         {error && <AuthAlert>{error}</AuthAlert>}
         {info && !error && <AuthAlert tone="success">{info}</AuthAlert>}
@@ -268,15 +287,13 @@ function SignupPage() {
               id="fm-signup-code"
               className={`fm-input fm-auth__code${error ? " has-error" : ""}`}
               value={code}
-              onChange={(e) => { setCode(e.target.value.trim()); setError(""); }}
-              maxLength={8}
+              onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
+              inputMode="numeric"
               autoComplete="one-time-code"
-              autoCapitalize="none"
-              spellCheck={false}
               autoFocus
               required
             />
-            <span className="fm-field__hint">Can&apos;t find it? Check your spam folder.</span>
+            <span className="fm-field__hint">It expires in 15 minutes. Can&apos;t find it? Check your spam folder.</span>
           </div>
           <div className="fm-auth__row">
             <button type="button" className="fm-auth__link" onClick={back}>Change email</button>
@@ -284,7 +301,9 @@ function SignupPage() {
               {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
             </button>
           </div>
-          <button type="submit" className="fm-btn fm-btn--primary fm-auth__submit" disabled={!code.trim()}>Verify</button>
+          <button type="submit" className="fm-btn fm-btn--primary fm-auth__submit" disabled={code.length !== 6 || busy}>
+            {busy ? "Checking…" : "Verify"}
+          </button>
         </form>
       </AuthLayout>
     );

@@ -19,9 +19,10 @@ import Feat.FeatureMe.Service.S3Service;
 import Feat.FeatureMe.Service.UserService;
 import Feat.FeatureMe.Service.FileUploadService;
 import Feat.FeatureMe.Service.PasswordResetService;
+import Feat.FeatureMe.Service.EmailVerificationException;
+import Feat.FeatureMe.Service.EmailVerificationService;
 import java.io.File;
 import java.io.IOException;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,69 +68,97 @@ public class UserController {
     private final JwtService jwtService;
     private final FileUploadService fileUploadService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
     
     @Value("${resend.api.key}")
     private Resend resend;
 
-    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService, EmailVerificationService emailVerificationService) {
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
         this.fileUploadService = fileUploadService;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
     }
 
-    @GetMapping("/auth/email/{email}")
-    public String VerifyEmail(@PathVariable String email) {
+    private static final java.util.regex.Pattern EMAIL_FORMAT = java.util.regex.Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
+    /**
+     * Step 1 of signup: email a 6-digit code. Only a hash of it is kept, and
+     * nothing about the code is sent back to the browser.
+     */
+    @PostMapping("/auth/email-verification/send")
+    public ResponseEntity<Map<String, String>> sendSignupCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email") == null ? "" : request.get("email").trim();
+        if (!EMAIL_FORMAT.matcher(email).matches() || email.length() > 100) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Enter a valid email address."));
+        }
+        if (userService.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "An account with this email already exists."));
+        }
 
-        String code = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
-        String encryptedCode = Base64.getEncoder().encodeToString(code.getBytes());
-
-
-        
-        
-        
-        CreateEmailOptions params = CreateEmailOptions.builder()
-		.from("Signup@featureme.co")
-		.to(email)
-		.subject("Verify your email for FeatureMe")
-		.html(
-			"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;'>" +
-			  "<div style='text-align:center; margin-bottom: 24px;'>" +
-			    "<div style='font-size: 28px; font-weight: 800; color: #2d3748; margin-bottom: 4px;'>FeatureMe</div>" +
-			    "<div style='font-size: 14px; color: #718096;'>Create. Connect. Get Discovered.</div>" +
-			  "</div>" +
-			  "<div style='background: linear-gradient(135deg, #667eea, #764ba2); padding: 2px; border-radius: 14px;'>" +
-			    "<div style='background: #ffffff; border-radius: 12px; padding: 24px;'>" +
-			      "<h2 style='margin: 0 0 8px 0; color: #2d3748; font-size: 20px;'>Verify Your Email</h2>" +
-			      "<p style='margin: 0 0 16px 0; color: #4a5568; line-height: 1.6;'>" +
-			        "Thanks for signing up! Use the verification code below to complete your account setup." +
-			      "</p>" +
-			      "<div style='background-color: #f7fafc; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; border: 1px solid #edf2f7;'>" +
-			        "<div style='color: #4a5568; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;'>Your verification code</div>" +
-			        "<div style='color: #2b6cb0; font-weight: 800; font-size: 32px; letter-spacing: 4px;'>" + code + "</div>" +
-			      "</div>" +
-			      "<p style='margin: 0 0 8px 0; color: #4a5568;'>This code will expire in <strong>15 minutes</strong>.</p>" +
-			      "<p style='margin: 0; color: #718096; font-size: 14px;'>If you didn't request this, you can safely ignore this email.</p>" +
-			    "</div>" +
-			  "</div>" +
-			  "<div style='text-align:center; color:#a0aec0; font-size:12px; margin-top:16px;'>" +
-			    "This is an automated message from FeatureMe • Please do not reply" +
-			  "</div>" +
-			"</div>"
-		)
-		.build();
-
-       
+        String code;
         try {
-            CreateEmailResponse data = resend.emails().send(params);
-            System.out.println(data.getId());
+            code = emailVerificationService.issueCode(email);
+        } catch (EmailVerificationException e) {
+            return ResponseEntity.status(e.getStatus()).body(Map.of("error", e.getMessage()));
+        }
+
+        CreateEmailOptions params = CreateEmailOptions.builder()
+            .from("Signup@featureme.co")
+            .to(email)
+            .subject("Your FeatureMe code: " + code)
+            .html(signupEmailHtml(code))
+            .build();
+        try {
+            resend.emails().send(params);
         } catch (ResendException e) {
             e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "We couldn't send the email. Check the address and try again."));
         }
-        
-        return encryptedCode;
+        return ResponseEntity.ok(Map.of("message", "Code sent"));
+    }
+
+    /**
+     * Step 2 of signup: swap the emailed code for a one-time token that
+     * /auth/create requires. Five wrong tries and the code stops working.
+     */
+    @PostMapping("/auth/email-verification/verify")
+    public ResponseEntity<Map<String, String>> verifySignupCode(@RequestBody Map<String, String> request) {
+        try {
+            String token = emailVerificationService.verifyCode(request.get("email"), request.get("code"));
+            return ResponseEntity.ok(Map.of("verificationToken", token));
+        } catch (EmailVerificationException e) {
+            return ResponseEntity.status(e.getStatus()).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private static String signupEmailHtml(String code) {
+        return "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;'>" +
+              "<div style='text-align:center; margin-bottom: 24px;'>" +
+                "<div style='font-size: 28px; font-weight: 800; color: #2d3748; margin-bottom: 4px;'>FeatureMe</div>" +
+                "<div style='font-size: 14px; color: #718096;'>Create. Connect. Get Discovered.</div>" +
+              "</div>" +
+              "<div style='background: linear-gradient(135deg, #667eea, #764ba2); padding: 2px; border-radius: 14px;'>" +
+                "<div style='background: #ffffff; border-radius: 12px; padding: 24px;'>" +
+                  "<h2 style='margin: 0 0 8px 0; color: #2d3748; font-size: 20px;'>Verify Your Email</h2>" +
+                  "<p style='margin: 0 0 16px 0; color: #4a5568; line-height: 1.6;'>" +
+                    "Thanks for signing up! Use the verification code below to complete your account setup." +
+                  "</p>" +
+                  "<div style='background-color: #f7fafc; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; border: 1px solid #edf2f7;'>" +
+                    "<div style='color: #4a5568; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;'>Your verification code</div>" +
+                    "<div style='color: #2b6cb0; font-weight: 800; font-size: 32px; letter-spacing: 4px;'>" + code + "</div>" +
+                  "</div>" +
+                  "<p style='margin: 0 0 8px 0; color: #4a5568;'>This code will expire in <strong>15 minutes</strong>.</p>" +
+                  "<p style='margin: 0; color: #718096; font-size: 14px;'>If you didn't request this, you can safely ignore this email.</p>" +
+                "</div>" +
+              "</div>" +
+              "<div style='text-align:center; color:#a0aec0; font-size:12px; margin-top:16px;'>" +
+                "This is an automated message from FeatureMe • Please do not reply" +
+              "</div>" +
+            "</div>";
     }
 
     /**
@@ -211,14 +240,45 @@ public class UserController {
         return banner;
     }
 
-     @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /**
+     * Step 3 of signup. Needs the token from /auth/email-verification/verify for
+     * the same email. Only the fields a new user may choose are read from the
+     * request; role, badges, posts and the like are always set here.
+     */
+    @PostMapping(path = "/auth/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
-    @RequestPart(value = "banner", required = false) MultipartFile banner ) throws IOException {
-        
-        // Parse user JSON and create User object
+    @RequestPart(value = "banner", required = false) MultipartFile banner,
+    @RequestParam(value = "verificationToken", required = false) String verificationToken) throws IOException {
+
         ObjectMapper mapper = new ObjectMapper();
-        User user = mapper.readValue(userJson, User.class);
+        User submitted = mapper.readValue(userJson, User.class);
+
+        String email = submitted.getEmail() == null ? "" : submitted.getEmail().trim();
+        String userName = submitted.getUserName() == null ? "" : submitted.getUserName().trim();
+        String password = submitted.getPassword();
+        if (email.isEmpty() || userName.length() < 3 || userName.length() > 30 || password == null || password.length() < 6) {
+            return ResponseEntity.badRequest().body("Email, a username of 3 to 30 characters and a password of at least 6 characters are required");
+        }
+
+        // Checked before anything is uploaded or saved
+        if (!emailVerificationService.isVerified(email, verificationToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Verify your email before creating an account");
+        }
+
+        User user = new User();
+        user.setUserName(userName);
+        user.setEmail(email);
+        user.setPassword(password);
+        user.setRole("USER");
+        user.setBio(trimTo(submitted.getBio(), 50));
+        user.setAbout(trimTo(submitted.getAbout(), 250));
+        user.setLocation(trimTo(submitted.getLocation(), 50));
+        user.setSocialMedia(new java.util.ArrayList<>());
+        user.setBadges(new java.util.ArrayList<>());
+        user.setDemo(new java.util.ArrayList<>());
+        user.setFeaturedOn(new java.util.ArrayList<>());
+        user.setPosts(new java.util.ArrayList<>());
         
         // Handle profile picture - use default if not provided
         if (pp != null && !pp.isEmpty()) {
@@ -281,7 +341,9 @@ public class UserController {
         
         try {
             User createdUser = userService.createUser(user);
-            return ResponseEntity.ok(createdUser);
+            emailVerificationService.consume(email);
+            // Never send the saved entity back: it includes the password hash
+            return ResponseEntity.ok(Map.of("message", "Account created", "userName", createdUser.getUserName()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (Exception e) {
@@ -289,6 +351,12 @@ public class UserController {
                 .body("Internal server error during user creation");
         }
     }
+    private static String trimTo(String value, int max) {
+        if (value == null) return "";
+        String trimmed = value.trim();
+        return trimmed.length() > max ? trimmed.substring(0, max) : trimmed;
+    }
+
     @PatchMapping("/update")
     public void updateUser(@RequestPart("user") String userJson,
     @RequestPart(value = "pp", required = false) MultipartFile pp,
