@@ -13,9 +13,8 @@ import {
   Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getCurrentUser, logout } from '../../services/api';
 import { clearMyNotifications } from '../../services/userService';

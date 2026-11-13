@@ -1,4 +1,13 @@
-import * as RNIap from 'react-native-iap';
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  requestPurchase,
+  finishTransaction,
+  getAvailablePurchases,
+  purchaseUpdatedListener,
+  purchaseErrorListener,
+} from 'expo-iap';
 import { Platform } from 'react-native';
 import api from './api';
 
@@ -26,7 +35,9 @@ class IAPService {
   constructor() {
     this.products = [];
     this.purchaseUpdateSubscription = null;
-    this.purchaseInProgress = false;
+    this.purchaseErrorSubscription = null;
+    // The purchase the sheet is open for: { productId, resolve, reject }
+    this.pendingPurchase = null;
     this.isInitialized = false;
   }
 
@@ -38,7 +49,7 @@ class IAPService {
       // Always reset state before initializing to ensure clean connection
       if (this.isInitialized) {
         try {
-          await RNIap.endConnection();
+          await endConnection();
         } catch (e) {
           // Ignore cleanup errors
         }
@@ -61,12 +72,9 @@ class IAPService {
 
       // Connect to store with timeout
       console.log('[IAP] Connecting to App Store...');
-      // StoreKit 2: every purchase comes with Apple's signed transaction,
-      // which the server verifies itself (no deprecated receipt check)
-      if (Platform.OS === 'ios') {
-        RNIap.setup({ storekitMode: 'STOREKIT2_MODE' });
-      }
-      const connectionPromise = RNIap.initConnection();
+      // expo-iap uses StoreKit 2: every purchase carries Apple's signed
+      // transaction (purchaseToken), which the server verifies itself
+      const connectionPromise = initConnection();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000)
       );
@@ -76,9 +84,14 @@ class IAPService {
 
       // Load available products with timeout
       console.log('[IAP] Fetching products from App Store...');
-      const productsPromise = RNIap.getSubscriptions({ skus: productIds })
-        // StoreKit 2 calls the name "title"; the screen reads localizedTitle
-        .then((items) => items.map((item) => ({ ...item, localizedTitle: item.localizedTitle || item.title })));
+      const productsPromise = fetchProducts({ skus: productIds, type: 'subs' })
+        // The screen reads the older field names
+        .then((items) => (items || []).map((item) => ({
+          ...item,
+          productId: item.id,
+          localizedTitle: item.displayName || item.title,
+          localizedPrice: item.displayPrice,
+        })));
       const productsTimeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Products fetch timeout after 10s')), 10000)
       );
@@ -124,7 +137,7 @@ class IAPService {
       // Clean up connection if it was partially established
       try {
         if (this.isInitialized) {
-          await RNIap.endConnection();
+          await endConnection();
           this.isInitialized = false;
         }
       } catch (cleanupError) {
@@ -189,32 +202,39 @@ class IAPService {
     if (!this.getProduct(productId)) {
       throw new Error(`Product ${productId} not found`);
     }
-
-    let purchase;
-    this.purchaseInProgress = true;
-    try {
-      // StoreKit 2 returns the finished purchase directly
-      purchase = await RNIap.requestSubscription({ sku: productId });
-    } catch (error) {
-      if (error.code === 'E_USER_CANCELLED') {
-        return { success: false, error: 'Purchase cancelled', cancelled: true };
-      }
-      if (error.code === 'E_NETWORK_ERROR') throw new Error('Network error. Please check your connection.');
-      if (error.code === 'E_SERVICE_ERROR') throw new Error('Service error. Please try again later.');
-      throw new Error(error.message || 'Purchase failed');
-    } finally {
-      this.purchaseInProgress = false;
-    }
-    if (!purchase) {
-      // Pending (e.g. Ask to Buy): it arrives later through the transaction listener
-      return { success: false, error: 'Purchase is pending approval', pending: true };
+    if (this.pendingPurchase) {
+      throw new Error('A purchase is already in progress');
     }
 
-    const result = await this.deliver(purchase);
-    if (!result.success) {
-      throw new Error(result.error || 'Purchase could not be verified');
+    // The outcome arrives through the purchase listeners (see listenForTransactions)
+    return new Promise((resolve, reject) => {
+      this.pendingPurchase = { productId, resolve, reject };
+      requestPurchase({ request: { apple: { sku: productId } }, type: 'subs' })
+        .catch((error) => this.settlePurchaseError(error));
+    });
+  }
+
+  settlePurchaseError(error) {
+    const pending = this.pendingPurchase;
+    if (!pending) return;
+    this.pendingPurchase = null;
+    switch (error?.code) {
+      case 'user-cancelled':
+        pending.resolve({ success: false, error: 'Purchase cancelled', cancelled: true });
+        break;
+      case 'pending':
+      case 'deferred-payment':
+        pending.resolve({ success: false, error: 'Purchase is pending approval', pending: true });
+        break;
+      case 'network-error':
+        pending.reject(new Error('Network error. Please check your connection.'));
+        break;
+      case 'service-error':
+        pending.reject(new Error('Service error. Please try again later.'));
+        break;
+      default:
+        pending.reject(new Error(error?.message || 'Purchase failed'));
     }
-    return { success: true, purchase };
   }
 
   /**
@@ -226,7 +246,7 @@ class IAPService {
     const validationResult = await this.validateReceipt(purchase);
     if (validationResult.success) {
       try {
-        await RNIap.finishTransaction({ purchase, isConsumable: false });
+        await finishTransaction({ purchase, isConsumable: false });
       } catch (error) {
         console.warn('[IAP] finishTransaction failed:', error?.message);
       }
@@ -235,20 +255,31 @@ class IAPService {
   }
 
   /**
-   * Purchases that complete outside the purchase sheet (Ask to Buy approval,
-   * a purchase interrupted by the app closing, renewals while the app runs).
+   * Every purchase arrives here: the one the purchase sheet is open for, and
+   * ones that complete outside it (Ask to Buy approval, a purchase
+   * interrupted by the app closing, renewals while the app runs).
    */
   listenForTransactions() {
     if (this.purchaseUpdateSubscription) return;
-    this.purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(async (purchase) => {
-      // The purchase sheet handles its own result
-      if (this.purchaseInProgress) return;
+    this.purchaseUpdateSubscription = purchaseUpdatedListener(async (purchase) => {
+      const pending = this.pendingPurchase?.productId === purchase.productId ? this.pendingPurchase : null;
+      if (pending) this.pendingPurchase = null;
+
+      if (purchase.purchaseState === 'pending') {
+        pending?.resolve({ success: false, error: 'Purchase is pending approval', pending: true });
+        return;
+      }
       try {
-        await this.deliver(purchase);
+        const result = await this.deliver(purchase);
+        if (!pending) return;
+        if (result.success) pending.resolve({ success: true, purchase });
+        else pending.reject(new Error(result.error || 'Purchase could not be verified'));
       } catch (error) {
-        console.warn('[IAP] Background purchase not delivered:', error?.message);
+        if (pending) pending.reject(error);
+        else console.warn('[IAP] Background purchase not delivered:', error?.message);
       }
     });
+    this.purchaseErrorSubscription = purchaseErrorListener((error) => this.settlePurchaseError(error));
   }
 
   /**
@@ -261,7 +292,7 @@ class IAPService {
         await this.initialize();
       }
 
-      const purchases = await RNIap.getAvailablePurchases();
+      const purchases = await getAvailablePurchases();
 
       const validatedPurchases = [];
       let lastError = null;
@@ -290,7 +321,7 @@ class IAPService {
   async validateReceipt(purchase) {
     try {
       // StoreKit 2: Apple's signed transaction (JWS), verified by the server
-      const signedTransaction = purchase?.verificationResultIOS;
+      const signedTransaction = purchase?.purchaseToken;
       if (!signedTransaction) {
         return { success: false, error: 'Purchase is missing its App Store signature' };
       }
@@ -299,7 +330,7 @@ class IAPService {
         platform: Platform.OS,
         signedTransaction,
         productId: purchase.productId,
-        transactionId: purchase.transactionId,
+        transactionId: purchase.id,
       });
 
       if (response.data && response.data.success) {
@@ -365,8 +396,14 @@ class IAPService {
   cleanup() {
     this.purchaseUpdateSubscription?.remove();
     this.purchaseUpdateSubscription = null;
+    this.purchaseErrorSubscription?.remove();
+    this.purchaseErrorSubscription = null;
+    if (this.pendingPurchase) {
+      this.pendingPurchase.resolve({ success: false, error: 'Purchase cancelled', cancelled: true });
+      this.pendingPurchase = null;
+    }
     if (this.isInitialized) {
-      RNIap.endConnection();
+      endConnection();
       this.isInitialized = false;
     }
   }
