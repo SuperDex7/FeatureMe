@@ -40,6 +40,7 @@ import Feat.FeatureMe.Entity.User;
 import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.EmailVerificationException;
 import Feat.FeatureMe.Service.EmailVerificationService;
+import Feat.FeatureMe.Service.NotificationService;
 import Feat.FeatureMe.Service.FileUploadService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.PasswordResetService;
@@ -63,6 +64,7 @@ class UserControllerSignupTest {
     @MockitoBean private FileUploadService fileUploadService;
     @MockitoBean private PasswordResetService passwordResetService;
     @MockitoBean private EmailVerificationService emailVerificationService;
+    @MockitoBean private NotificationService notificationService;
     @MockitoBean private CachedUserDetailsService cachedUserDetailsService;
     @MockitoBean private RateLimitingService rateLimitingService;
 

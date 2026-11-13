@@ -35,6 +35,7 @@ import Feat.FeatureMe.Dto.UserPostsDTO;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
     private final UserRelationService userRelationService;
     private final PostsRepository postsRepository;
     private final DemoRepository demoRepository;
@@ -52,7 +53,8 @@ public class UserService {
                       PostLikeRepository postLikeRepository, PostCommentRepository postCommentRepository,
                       PostViewRepository postViewRepository, PostDownloadRepository postDownloadRepository,
                       UserRelationRepository userRelationRepository, ChatsRepository chatsRepository,
-                      PasswordEncoder passwordEncoder, S3Service s3Service) {
+                      PasswordEncoder passwordEncoder, S3Service s3Service, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.userRepository = userRepository;
         this.userRelationService = userRelationService;
         this.postsRepository = postsRepository;
@@ -72,10 +74,7 @@ public class UserService {
     }
 
     public void clearNotifications(User user) {
-        if (user.getNotifications() != null && !user.getNotifications().isEmpty()) {
-            user.setNotifications(new java.util.ArrayList<>());
-            userRepository.save(user);
-        }
+        notificationService.clear(user.getUserName());
     }
 
     public User createUser(User user) {
@@ -127,7 +126,7 @@ public class UserService {
             updatedUser.getLikedPosts() != null && !updatedUser.getLikedPosts().isEmpty() ? updatedUser.getLikedPosts() : user.getLikedPosts(),
             updatedUser.getPosts() != null && !updatedUser.getPosts().isEmpty() ? updatedUser.getPosts() : user.getPosts(),
             updatedUser.getChats() != null && !updatedUser.getChats().isEmpty() ? updatedUser.getChats() : user.getChats(),
-            updatedUser.getNotifications() != null && !updatedUser.getNotifications().isEmpty() ? updatedUser.getNotifications() : user.getNotifications(),
+            user.getNotifications(), // never taken from the request
             updatedUser.getComments() != null && !updatedUser.getComments().isEmpty() ? updatedUser.getComments() : user.getComments()
         );
         userRepository.save(user);
@@ -138,11 +137,7 @@ public class UserService {
         .stream()
         .map(u -> {
             // Sort notifications by time in descending order (newest first)
-            List<NotificationsDTO> sortedNotifications = u.getNotifications();
-            if (sortedNotifications != null) {
-                sortedNotifications = new ArrayList<>(sortedNotifications); // Create a copy to avoid modifying original
-                sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-            }
+            List<NotificationsDTO> sortedNotifications = notificationService.recent(u.getUserName());
             
             // Sort posts by ID (assuming newer posts have higher IDs)
             List<String> sortedPosts = u.getPosts();
@@ -203,11 +198,7 @@ public class UserService {
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         // Sort notifications by time in descending order (newest first)
-        List<NotificationsDTO> sortedNotifications = user.getNotifications();
-        if (sortedNotifications != null) {
-            sortedNotifications = new ArrayList<>(sortedNotifications);
-            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
+        List<NotificationsDTO> sortedNotifications = notificationService.recent(user.getUserName());
         
         // Sort posts by ID (assuming newer posts have higher IDs or you can sort by creation time)
         List<String> sortedPosts = user.getPosts();
@@ -436,6 +427,7 @@ public class UserService {
         }
         
         // 10. Finally, delete the user profile
+        notificationService.clear(user.getUserName());
         userRepository.deleteById(id);
     }
     
@@ -481,11 +473,7 @@ public class UserService {
         .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         // Sort notifications by time in descending order (newest first)
-        List<NotificationsDTO> sortedNotifications = user.getNotifications();
-        if (sortedNotifications != null) {
-            sortedNotifications = new ArrayList<>(sortedNotifications);
-            sortedNotifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
+        List<NotificationsDTO> sortedNotifications = notificationService.recent(user.getUserName());
         
         // Sort posts by ID (assuming newer posts have higher IDs)
         List<String> sortedPosts = user.getPosts();
@@ -538,16 +526,9 @@ public class UserService {
         );
     }
 
+    /** The 30 newest notifications (older ones are reachable through paging) */
     public List<NotificationsDTO> getNoti(String userName){
-        Optional<User> user = userRepository.findByUserName(userName);
-        List<NotificationsDTO> notifications = user.get().getNotifications();
-        
-        // Sort notifications by time in descending order (newest first)
-        if (notifications != null) {
-            notifications.sort((n1, n2) -> n2.time().compareTo(n1.time()));
-        }
-        
-        return notifications;
+        return notificationService.recent(userName);
     }
     
 

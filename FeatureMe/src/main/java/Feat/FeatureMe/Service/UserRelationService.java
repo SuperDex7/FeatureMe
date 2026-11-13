@@ -25,7 +25,10 @@ public class UserRelationService {
     private final UserRelationRepository userRelationRepository;
     private final UserRepository userRepository;
     
-    public UserRelationService(UserRelationRepository userRelationRepository, UserRepository userRepository) {
+    private final NotificationService notificationService;
+
+    public UserRelationService(UserRelationRepository userRelationRepository, UserRepository userRepository, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.userRelationRepository = userRelationRepository;
         this.userRepository = userRepository;
     }
@@ -262,41 +265,13 @@ public class UserRelationService {
      * Add follow notification
      */
     private void addFollowNotification(User following, String followerUserName) {
-        NotificationsDTO notification = new NotificationsDTO(
-            null, followerUserName, "Started Following You!", Instant.now(), NotificationsDTO.NotiType.PROFILE);
-        
-        if (following.getNotifications() == null) {
-            following.setNotifications(new ArrayList<>());
-        }
-        
-        following.getNotifications().add(notification);
-        cleanupNotifications(following);
-        userRepository.save(following);
+        notificationService.notify(following.getUserName(), null, followerUserName, "Started Following You!", NotificationsDTO.NotiType.PROFILE);
     }
     
     /**
      * Remove follow notification
      */
     private void removeFollowNotification(User following, String followerUserName) {
-        if (following.getNotifications() != null) {
-            following.getNotifications().removeIf(notification ->
-                notification.userName().equals(followerUserName) &&
-                notification.noti().equals("Started Following You!")
-            );
-            userRepository.save(following);
-        }
-    }
-    
-    
-    
-    /**
-     * Cleanup notifications if they exceed 30
-     */
-    private void cleanupNotifications(User user) {
-        List<NotificationsDTO> notifications = user.getNotifications();
-        if (notifications != null && notifications.size() > 30) {
-            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
-            notifications.subList(0, notifications.size() - 30).clear();
-        }
+        notificationService.removeFollow(following.getUserName(), followerUserName);
     }
 }

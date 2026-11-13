@@ -30,6 +30,8 @@ public class ChatService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private NotificationService notificationService;
+    @Autowired
     private ChatMessageRepository chatMessageRepository;
     @Autowired
     private ChatsRepository chatsRepository;
@@ -155,13 +157,8 @@ public User validateJwtAndGetUser(String jwtToken) {
            }
            
             thisUser.getChats().add(newChat.getChatRoomId());
-            thisUser.getNotifications().add(new NotificationsDTO(
-                newChat.getChatRoomId(), 
-                user.getUserName(), 
-                "Added you to a chat named " + newChat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
+            notificationService.notify(thisUser.getUserName(), newChat.getChatRoomId(), user.getUserName(),
+                "Added you to a chat named " + newChat.getChatName(), NotificationsDTO.NotiType.CHAT);
             userRepository.save(thisUser);
         }
        // users.getChats().add(newChat.getChatRoomId());
@@ -221,16 +218,8 @@ return newChat;
             chat.getMessages().add(message);
             
             // Add notification to the user being added
-            if (user.getNotifications() == null) {
-                user.setNotifications(new ArrayList<>());
-            }
-            user.getNotifications().add(new NotificationsDTO(
-                chat.getChatRoomId(), 
-                adderUserName, 
-                "Added you to chat: " + chat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
+            notificationService.notify(user.getUserName(), chat.getChatRoomId(), adderUserName,
+                "Added you to chat: " + chat.getChatName(), NotificationsDTO.NotiType.CHAT);
             
             // Update most recent chat
             chat.setMostRecentChat(new MostRecentChatDTO(
@@ -403,16 +392,8 @@ return newChat;
             userToAdd.getChats().add(chatRoomId);
             
             // Add notification to the user being added
-            if (userToAdd.getNotifications() == null) {
-                userToAdd.setNotifications(new ArrayList<>());
-            }
-            userToAdd.getNotifications().add(new NotificationsDTO(
-                chatRoomId, 
-                requester.getUserName(), 
-                "Added you to chat: " + chat.getChatName(), 
-                Instant.now(),
-                NotificationsDTO.NotiType.CHAT
-            ));
+            notificationService.notify(userToAdd.getUserName(), chatRoomId, requester.getUserName(),
+                "Added you to chat: " + chat.getChatName(), NotificationsDTO.NotiType.CHAT);
             
             // Create join message
             ChatMessage joinMessage = new ChatMessage(

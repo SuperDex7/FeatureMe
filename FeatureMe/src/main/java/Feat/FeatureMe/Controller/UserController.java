@@ -21,6 +21,7 @@ import Feat.FeatureMe.Service.FileUploadService;
 import Feat.FeatureMe.Service.PasswordResetService;
 import Feat.FeatureMe.Service.EmailVerificationException;
 import Feat.FeatureMe.Service.EmailVerificationService;
+import Feat.FeatureMe.Service.NotificationService;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -69,11 +70,13 @@ public class UserController {
     private final FileUploadService fileUploadService;
     private final PasswordResetService passwordResetService;
     private final EmailVerificationService emailVerificationService;
+    private final NotificationService notificationService;
     
     @Value("${resend.api.key}")
     private Resend resend;
 
-    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService, EmailVerificationService emailVerificationService) {
+    public UserController(UserService userService, S3Service s3Service, JwtService jwtService, FileUploadService fileUploadService, PasswordResetService passwordResetService, EmailVerificationService emailVerificationService, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.userService = userService;
         this.s3Service = s3Service;
         this.jwtService = jwtService;
@@ -547,6 +550,36 @@ public class UserController {
         }
         List<NotificationsDTO> notifications = userService.getNoti(currentUser.getUserName());
         return ResponseEntity.ok(notifications);
+    }
+
+    private User loggedInUserOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!AuthUtils.isLoggedIn(authentication)) return null;
+        return userService.findByUsernameOrEmail(authentication.getName()).orElse(null);
+    }
+
+    /** Your notifications, newest first, one page at a time (max 50 per page) */
+    @GetMapping("/notifications")
+    public ResponseEntity<?> pageMyNotifications(@RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "20") int size) {
+        User user = loggedInUserOrNull();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        return ResponseEntity.ok(new PagedModel<>(notificationService.page(user.getUserName(), page, size)));
+    }
+
+    /** Deletes one of your notifications */
+    @DeleteMapping("/notifications/{notificationId}")
+    public ResponseEntity<?> deleteMyNotification(@PathVariable String notificationId) {
+        User user = loggedInUserOrNull();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        if (!notificationService.delete(user.getUserName(), notificationId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Notification not found");
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/notifications/clear")

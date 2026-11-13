@@ -68,6 +68,9 @@ public class MongoIndexConfig implements CommandLineRunner {
         // Signup email verification records
         createEmailVerificationIndexes();
 
+        // Notifications (paged per user, newest first)
+        createNotificationIndexes();
+
         // Older versions of this class auto-deleted user data; remove those indexes
         dropDataExpiryIndexes();
         
@@ -409,6 +412,17 @@ public class MongoIndexConfig implements CommandLineRunner {
             
         } catch (Exception e) {
             System.err.println("Error creating demo indexes: " + e.getMessage());
+        }
+    }
+
+    private void createNotificationIndexes() {
+        IndexOperations indexOps = mongoTemplate.indexOps("notifications");
+        try {
+            indexOps.ensureIndex(new Index().on("recipient", org.springframework.data.domain.Sort.Direction.ASC)
+                                            .on("time", org.springframework.data.domain.Sort.Direction.DESC)
+                                            .named("recipient_time_idx"));
+        } catch (Exception e) {
+            System.err.println("Error creating notification indexes: " + e.getMessage());
         }
     }
 

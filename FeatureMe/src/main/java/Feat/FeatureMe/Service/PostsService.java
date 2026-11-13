@@ -40,8 +40,10 @@ public class PostsService {
     private final PostCommentService postCommentService;
     private final PostLikeService postLikeService;
     private final S3Service s3Service;
+    private final NotificationService notificationService;
     
-    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService, S3Service s3Service) {
+    public PostsService(PostsRepository postsRepository, UserRepository userRepository, PostViewService postViewService, PostCommentService postCommentService, PostLikeService postLikeService, S3Service s3Service, NotificationService notificationService) {
+        this.notificationService = notificationService;
         this.postsRepository = postsRepository;
         this.userRepository = userRepository;
         this.postViewService = postViewService;
@@ -154,17 +156,12 @@ public class PostsService {
             List<User> featuredUsers = userRepository.findByUserNameIn(requestedFeatures);
             
             for(User featuredUser : featuredUsers) {
-                if(featuredUser.getNotifications() == null){
-                    featuredUser.setNotifications(new ArrayList<>());
-                }
                 // Send approval request notification instead of confirmation
-                featuredUser.getNotifications().add(new NotificationsDTO(
-                    postDto.id(), 
-                    author.getUserName(), 
-                    "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.", 
-                    Instant.now(),
-                    NotificationsDTO.NotiType.POST
-                ));
+                notificationService.notify(featuredUser.getUserName(),
+                    postDto.id(),
+                    author.getUserName(),
+                    "Wants to feature you in their post '" + posts.getTitle() + "'. Approve or reject this feature request.",
+                    NotificationsDTO.NotiType.POST);
                 userRepository.save(featuredUser);
             }
         }
@@ -204,32 +201,17 @@ public class PostsService {
             
             // Notify post author that post is now published
             User author = post.getAuthor();
-            if (author.getNotifications() == null) {
-                author.setNotifications(new ArrayList<>());
-            }
-            author.getNotifications().add(new NotificationsDTO(
-                postId, 
-                "System", 
-                "Your post '" + post.getTitle() + "' is now published! All featured users have approved.", 
-                Instant.now(),
-                NotificationsDTO.NotiType.POST
-            ));
-            userRepository.save(author);
+            notificationService.notify(author.getUserName(), postId, "System",
+                "Your post '" + post.getTitle() + "' is now published! All featured users have approved.",
+                NotificationsDTO.NotiType.POST);
         } else {
             post.setStatus("PARTIALLY_APPROVED");
         }
         
         // Notify approver
-        if (approver.getNotifications() == null) {
-            approver.setNotifications(new ArrayList<>());
-        }
-        approver.getNotifications().add(new NotificationsDTO(
-            postId, 
-            post.getAuthor().getUserName(), 
-            "You approved the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(approver.getUserName(), postId, post.getAuthor().getUserName(),
+            "You approved the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         postsRepository.save(post);
         userRepository.save(approver);
@@ -259,45 +241,23 @@ public class PostsService {
             
             // Notify post author
             User author = post.getAuthor();
-            if (author.getNotifications() == null) {
-                author.setNotifications(new ArrayList<>());
-            }
-            author.getNotifications().add(new NotificationsDTO(
-                postId, 
-                "System", 
-                "Your post '" + post.getTitle() + "' is now published with approved features only.", 
-                Instant.now(),
-                NotificationsDTO.NotiType.POST
-            ));
-            userRepository.save(author);
+            notificationService.notify(author.getUserName(), postId, "System",
+                "Your post '" + post.getTitle() + "' is now published with approved features only.",
+                NotificationsDTO.NotiType.POST);
         } else if (!post.getFeatures().isEmpty()) {
             post.setStatus("PARTIALLY_APPROVED");
         }
         
         // Notify rejecter
-        if (rejecter.getNotifications() == null) {
-            rejecter.setNotifications(new ArrayList<>());
-        }
-        rejecter.getNotifications().add(new NotificationsDTO(
-            postId, 
-            post.getAuthor().getUserName(), 
-            "You rejected the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(rejecter.getUserName(), postId, post.getAuthor().getUserName(),
+            "You rejected the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         // Notify post author about rejection
         User author = post.getAuthor();
-        if (author.getNotifications() == null) {
-            author.setNotifications(new ArrayList<>());
-        }
-        author.getNotifications().add(new NotificationsDTO(
-            postId, 
-            rejecterUserName, 
-            rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
+        notificationService.notify(author.getUserName(), postId, rejecterUserName,
+            rejecterUserName + " rejected the feature request for '" + post.getTitle() + "'",
+            NotificationsDTO.NotiType.POST);
         
         postsRepository.save(post);
         userRepository.save(rejecter);
@@ -451,22 +411,14 @@ public class PostsService {
             for (User pendingUser : pendingUsers) {
                 if (pendingUser != null) {
                     // Remove any existing notifications related to this post
-                    if (pendingUser.getNotifications() != null) {
-                        pendingUser.getNotifications().removeIf(notification -> 
-                            id.equals(notification.id()));
-                    }
+                    notificationService.removeAbout(pendingUser.getUserName(), id);
                     
                     // Add deletion notification
-                    if (pendingUser.getNotifications() == null) {
-                        pendingUser.setNotifications(new ArrayList<>());
-                    }
-                    pendingUser.getNotifications().add(new NotificationsDTO(
+                    notificationService.notify(pendingUser.getUserName(),
                         null, // No post ID since it's deleted
                         author.getUserName(),
                         "Deleted their post '" + post.getTitle() + "' before you could approve/reject the feature request.",
-                        Instant.now(),
-                        NotificationsDTO.NotiType.POST
-                    ));
+                        NotificationsDTO.NotiType.POST);
                     userRepository.save(pendingUser);
                 }
             }
@@ -653,19 +605,6 @@ public class PostsService {
         return new PagedModel<PostsDTO>(postsDTOPage);
     }
 
-    /**
-     * Ensures notifications list doesn't exceed 30 items by removing oldest ones
-     */
-    private void cleanupNotifications(User user) {
-        List<NotificationsDTO> notifications = user.getNotifications();
-        if (notifications != null && notifications.size() > 30) {
-            // Sort by time (oldest first) and keep only the 30 most recent
-            notifications.sort((n1, n2) -> n1.time().compareTo(n2.time()));
-            // Remove oldest notifications, keeping only the 30 newest
-            notifications.subList(0, notifications.size() - 30).clear();
-        }
-    }
-
     public Optional<Posts> addLike(String id, String userName){
         Optional<Posts> post = postsRepository.findById(id);
         if (post.isPresent()) {
@@ -682,40 +621,26 @@ public class PostsService {
             postsRepository.save(foundPost); // Save the updated like count
             
             // Handle notifications and user liked posts
-            if(author.getNotifications() == null){
-                author.setNotifications(new ArrayList<>());
-            }
             if(user.getLikedPosts() == null){
                 user.setLikedPosts(new ArrayList<>());
             }
             
             if (isLiked) {
                 // User liked the post - add to the end of the list
-                NotificationsDTO noti = new NotificationsDTO(foundPost.getId(), userName, "Liked Your Post!", Instant.now(), NotificationsDTO.NotiType.POST);
                 // Remove if already exists (in case of re-like), then add to end
                 user.getLikedPosts().remove(id);
                 user.getLikedPosts().add(id);
-                author.getNotifications().add(noti);
-                
-                // Clean up notifications if they exceed 30
-                cleanupNotifications(author);
+                if (!author.getUserName().equals(userName)) {
+                    notificationService.notify(author.getUserName(), foundPost.getId(), userName, "Liked Your Post!", NotificationsDTO.NotiType.POST);
+                }
             } else {
                 // User unliked the post
                 user.getLikedPosts().remove(id);
                 
                 // Remove the like notification
-                List<NotificationsDTO> currentNoti = author.getNotifications();
-                if(currentNoti != null){
-                    currentNoti.removeIf(notification -> 
-                        notification.id() != null && 
-                        notification.id().equals(foundPost.getId()) && 
-                        notification.userName().equals(userName) && 
-                        notification.noti().equals("Liked Your Post!")
-                    );
-                }
+                notificationService.removeMatching(author.getUserName(), foundPost.getId(), userName, "Liked Your Post!");
             }
             
-            userRepository.save(author);
             userRepository.save(user);
             return Optional.of(foundPost);
         }
@@ -737,20 +662,15 @@ public class PostsService {
             foundPost.setTotalComments(foundPost.getTotalComments() + 1);
             
             // Handle notifications and user comment history
-            NotificationsDTO noti = new NotificationsDTO(id, user.getUserName(), "Commented on Your Post!", Instant.now(),NotificationsDTO.NotiType.POST);
-            
-            if(author.getNotifications() == null){
-                author.setNotifications(new ArrayList<>());
+            if (!author.getUserName().equals(user.getUserName())) {
+                notificationService.notify(author.getUserName(), id, user.getUserName(), "Commented on Your Post!", NotificationsDTO.NotiType.POST);
             }
+
             if(user.getComments() == null){
                 user.setComments(new ArrayList<>());
             }
             
             user.getComments().add(new CommentedOnDTO(id, comment, Instant.now()));
-            author.getNotifications().add(noti);
-            
-            // Clean up notifications if they exceed 30
-            cleanupNotifications(author);
             
             // Save the post with updated comment count
             postsRepository.save(foundPost);
@@ -787,17 +707,7 @@ public class PostsService {
             
             if (author != null && user != null) {
                 // Remove the notification that was created when the comment was added
-                List<NotificationsDTO> currentNoti = author.getNotifications();
-                if(currentNoti != null){
-                    currentNoti.removeIf(notification -> 
-                        notification.id() != null &&
-                        notification.id().equals(postId) && 
-                        notification.userName() != null &&
-                        notification.userName().equals(userName) && 
-                        notification.noti() != null &&
-                        notification.noti().equals("Commented on Your Post!")
-                    );
-                }
+                notificationService.removeComment(author.getUserName(), postId, userName);
                 
                 // Remove the comment from user's comments list
                 List<CommentedOnDTO> userComments = user.getComments();
@@ -1143,23 +1053,12 @@ public class PostsService {
     }
 
 
-    public ResponseEntity<List<NotificationsDTO>> notifyDownload(String id, String userName) {
-        Posts post = postsRepository.findById(id).get();
+    public void notifyDownload(String id, String userName) {
+        Posts post = postsRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found"));
         User author = post.getAuthor();
-
-        if (author.getNotifications() == null) {
-            author.setNotifications(new ArrayList<>());
-        }
-        author.getNotifications().add(new NotificationsDTO(
-            id, 
-            userName, 
-            "Downloaded Your Post '" + post.getTitle() + "'", 
-            Instant.now(),
-            NotificationsDTO.NotiType.POST
-        ));
-        userRepository.save(author);
-        
-        return ResponseEntity.ok(author.getNotifications());
+        if (author == null || author.getUserName().equals(userName)) return;
+        notificationService.notify(author.getUserName(), id, userName,
+            "Downloaded Your Post '" + post.getTitle() + "'", NotificationsDTO.NotiType.POST);
     }
     
     public void incrementTotalDownloads(String postId) {

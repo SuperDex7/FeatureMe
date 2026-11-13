@@ -34,6 +34,7 @@ import Feat.FeatureMe.Service.CachedUserDetailsService;
 import Feat.FeatureMe.Service.FileUploadService;
 import Feat.FeatureMe.Service.JwtService;
 import Feat.FeatureMe.Service.EmailVerificationService;
+import Feat.FeatureMe.Service.NotificationService;
 import Feat.FeatureMe.Service.PasswordResetService;
 import Feat.FeatureMe.Service.RateLimitingService;
 import Feat.FeatureMe.Service.S3Service;
@@ -55,6 +56,7 @@ class UserControllerPrivacyTest {
     @MockitoBean private FileUploadService fileUploadService;
     @MockitoBean private PasswordResetService passwordResetService;
     @MockitoBean private EmailVerificationService emailVerificationService;
+    @MockitoBean private NotificationService notificationService;
     @MockitoBean private CachedUserDetailsService cachedUserDetailsService;
     @MockitoBean private RateLimitingService rateLimitingService;
 
@@ -152,5 +154,30 @@ class UserControllerPrivacyTest {
                 }
             });
         verify(userService, never()).follow(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("notifications are paged for the logged-in user only")
+    void notificationsPaged() throws Exception {
+        when(notificationService.page("alice", 1, 20)).thenReturn(new org.springframework.data.domain.PageImpl<>(
+            List.of(new NotificationsDTO("p1", "bob", "Liked Your Post!", Instant.now(), NotificationsDTO.NotiType.POST, "n1")),
+            org.springframework.data.domain.PageRequest.of(1, 20), 21));
+
+        mockMvc.perform(get("/api/user/notifications").param("page", "1").param("size", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].notificationId").value("n1"))
+            .andExpect(jsonPath("$.page.totalElements").value(21));
+    }
+
+    @Test
+    @DisplayName("deleting a notification that isn't yours is a 404")
+    void deleteNotification() throws Exception {
+        when(notificationService.delete("alice", "n1")).thenReturn(true);
+        when(notificationService.delete("alice", "someone-elses")).thenReturn(false);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/user/notifications/n1"))
+            .andExpect(status().isNoContent());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/user/notifications/someone-elses"))
+            .andExpect(status().isNotFound());
     }
 }

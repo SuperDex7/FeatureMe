@@ -48,6 +48,9 @@ class PostsServiceTest {
     @Mock
     private S3Service s3Service;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private PostsService postsService;
 
