@@ -8,6 +8,11 @@
   font-family: var(--fm-font-body);
 }
 
+/* Full-screen pages (Messages, login/signup) drop the legacy global body margin */
+body.fm-body-fill {
+  margin: 0;
+}
+
 .fm-page__main {
   padding-top: var(--fm-header-height);
 }

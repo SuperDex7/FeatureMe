@@ -2,10 +2,6 @@
    A two-pane app view that fills the screen under the header; on phones it
    shows either the list or the open conversation. */
 
-body.fm-body-fill {
-  margin: 0;
-}
-
 .fm-msg {
   --fm-msg-list-width: 340px;
   position: relative;

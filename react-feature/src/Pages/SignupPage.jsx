@@ -1,862 +1,391 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header2 from "../Components/Header2";
-import Footer from "../Components/Footer";
-import "../SignupComp/SignupPage.css";
+import axios from "axios";
+import AuthLayout, { AuthAlert, PasswordField } from "../Components/AuthLayout";
+import Icon from "../Components/ui/Icon";
+import { baseURL } from "../config/api";
+import ValidationService from "../services/ValidationService";
+import { bannerStyle } from "../utils/banner";
 
-import axios from 'axios';
-import api from '../services/AuthService';
-import { baseURL } from '../config/api';
-import ValidationService from '../services/ValidationService';
+const PASSWORD_MIN = 6;
+const RESEND_SECONDS = 30;
+const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
+const IMAGE_MAX = 5 * 1024 * 1024;
+const STEP_NAMES = ["Account", "Verify email", "Username", "Profile"];
+
+function checkImage(file) {
+  if (!IMAGE_TYPES.includes(file.type)) return "Use a JPG or PNG image.";
+  if (file.size > IMAGE_MAX) return "Images can be up to 5 MB.";
+  return null;
+}
+
+// Live result under the email and username fields
+function Availability({ state, okText }) {
+  if (state.isValidating) return <p className="fm-auth__check" aria-live="polite">Checking…</p>;
+  if (state.available === true) return <p className="fm-auth__check is-ok" aria-live="polite"><Icon name="check" size={14} strokeWidth={2.4} />{okText}</p>;
+  if (state.available === false) return <p className="fm-auth__check is-bad" aria-live="polite">{state.error || "Already taken"}</p>;
+  return null;
+}
 
 function SignupPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1 = email/password, 2 = verification, 3 = username, 4 = about, 5 = profile pics, 6 = preview
-  const [activeTab, setActiveTab] = useState("demos");
-  const [formData, setFormData] = useState({
-    userName: "",
-    password: "",
-    confirmPassword: "",
-    email: "",
-    role: "USER",
-    bio: "",
-    about: "",
-    profilePic: "/dpp.jpg",
-    banner: "/pb.jpg",
-    location: "",
-    socialMedia: [],
-    badges: [],
-    demo: [],
-    featuredOn: [],
-    posts: []
-  });
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ email: "", password: "", confirmPassword: "", userName: "", bio: "", location: "", about: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailCheck, setEmailCheck] = useState({ isValidating: false, available: null, error: null });
+  const [nameCheck, setNameCheck] = useState({ isValidating: false, available: null, error: null });
+  const [encryptedCode, setEncryptedCode] = useState("");
+  const [code, setCode] = useState("");
+  const [resendIn, setResendIn] = useState(0);
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
-  
-  // Email verification state
-  const [verificationCode, setVerificationCode] = useState("");
-  const [encryptedCode, setEncryptedCode] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationError, setVerificationError] = useState("");
-  
-  // Password validation state
-  const [passwordError, setPasswordError] = useState("");
-  const PASSWORD_MIN = 6;
-  const passwordCounterClass = (() => {
-    const len = formData.password.length;
-    if (len >= PASSWORD_MIN) return "";
-    if (len >= Math.max(0, PASSWORD_MIN - 2)) return "password-counter--warn";
-    return "password-counter--error";
-  })();
-  
-  // File validation state
-  const [profilePicError, setProfilePicError] = useState("");
-  const [bannerError, setBannerError] = useState("");
-  
-  // Real-time validation state
-  const [usernameValidation, setUsernameValidation] = useState({ 
-    isValidating: false, 
-    available: null, 
-    error: null 
-  });
-  const [emailValidation, setEmailValidation] = useState({ 
-    isValidating: false, 
-    available: null, 
-    error: null 
-  });
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const picInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
 
-  // Cleanup validation timeouts on unmount
+  useEffect(() => () => ValidationService.clearAllValidations(), []);
+
+  // Countdown before "Resend code" is available again
   useEffect(() => {
-    return () => {
-      ValidationService.clearAllValidations();
-    };
-  }, []);
+    if (resendIn <= 0) return undefined;
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
-  // Check if step 1 form is valid
-  const isStep1Valid = () => {
-    return (
-      formData.email &&
-      formData.password &&
-      formData.confirmPassword &&
-      emailValidation.available === true &&
-      !emailValidation.isValidating &&
-      formData.password === formData.confirmPassword &&
-      formData.password.length >= 6
-    );
-  };
+  const picUrl = useMemo(() => (profilePicFile ? URL.createObjectURL(profilePicFile) : null), [profilePicFile]);
+  const bannerUrl = useMemo(() => (bannerFile ? URL.createObjectURL(bannerFile) : null), [bannerFile]);
+  useEffect(() => () => { if (picUrl) URL.revokeObjectURL(picUrl); }, [picUrl]);
+  useEffect(() => () => { if (bannerUrl) URL.revokeObjectURL(bannerUrl); }, [bannerUrl]);
 
-  const handleInput = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    
-    // Clear password error when user starts typing
-    if (e.target.name === 'password' || e.target.name === 'confirmPassword') {
-      setPasswordError("");
+  const update = (field) => (event) => {
+    const value = event.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setError("");
+    if (field === "email") {
+      setEmailCheck({ isValidating: true, available: null, error: null });
+      ValidationService.checkEmailAvailability(value, (r) => setEmailCheck({ isValidating: false, available: value ? r.available : null, error: r.error }));
     }
-    
-    // Real-time validation for username
-    if (e.target.name === 'userName') {
-      setUsernameValidation({ isValidating: true, available: null, error: null });
-      ValidationService.checkUsernameAvailability(e.target.value, (result) => {
-        setUsernameValidation({ 
-          isValidating: false, 
-          available: result.available, 
-          error: result.error 
-        });
-      });
-    }
-    
-    // Real-time validation for email
-    if (e.target.name === 'email') {
-      setEmailValidation({ isValidating: true, available: null, error: null });
-      ValidationService.checkEmailAvailability(e.target.value, (result) => {
-        setEmailValidation({ 
-          isValidating: false, 
-          available: result.available, 
-          error: result.error 
-        });
-      });
+    if (field === "userName") {
+      setNameCheck({ isValidating: true, available: null, error: null });
+      ValidationService.checkUsernameAvailability(value, (r) => setNameCheck({ isValidating: false, available: value ? r.available : null, error: r.error }));
     }
   };
 
-  // File validation function
-  const validateImageFile = (file) => {
-    if (!file) return { isValid: true, error: "" };
-    
-    // Check file type - only JPEG, JPG, and PNG
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      return { 
-        isValid: false, 
-        error: "Please select a valid image file (JPEG, JPG, or PNG only)" 
-      };
-    }
-    
-    // Check file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > maxSize) {
-      return { 
-        isValid: false, 
-        error: "File size must be less than 5MB" 
-      };
-    }
-    
-    return { isValid: true, error: "" };
+  const passwordShort = form.password.length > 0 && form.password.length < PASSWORD_MIN;
+  const passwordMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
+  const step1Ready = emailCheck.available === true && !emailCheck.isValidating
+    && form.password.length >= PASSWORD_MIN && form.password === form.confirmPassword;
+  const step3Ready = form.userName.trim() && nameCheck.available === true && !nameCheck.isValidating;
+
+  const sendCode = async () => {
+    const { data } = await axios.get(`${baseURL}/user/auth/email/${encodeURIComponent(form.email)}`);
+    setEncryptedCode(data);
+    setResendIn(RESEND_SECONDS);
   };
 
-  // Decrypt verification code (simple Base64 decode)
-  const decryptCode = (encryptedCode) => {
+  const submitAccount = async (event) => {
+    event.preventDefault();
+    if (!step1Ready || busy) return;
+    setBusy(true);
     try {
-      return atob(encryptedCode);
-    } catch (error) {
-      console.error("Error decrypting code:", error);
-      return null;
-    }
-  };
-
-  // Handle verification code input
-  const handleVerificationCodeChange = (e) => {
-    setVerificationCode(e.target.value);
-    setVerificationError("");
-  };
-
-  // Verify the entered code
-  const handleVerifyCode = () => {
-    if (!verificationCode.trim()) {
-      setVerificationError("Please enter the verification code");
-      return;
-    }
-
-    setIsVerifying(true);
-    setVerificationError("");
-
-    // Decrypt the stored encrypted code
-    const decryptedCode = decryptCode(encryptedCode);
-    
-    if (decryptedCode && verificationCode.trim() === decryptedCode) {
-      // Code matches, proceed to next step
-      setStep(3); // Go to username step
-    } else {
-      setVerificationError("Invalid verification code. Please try again.");
-    }
-    
-    setIsVerifying(false);
-  };
-
-  // Resend verification code
-  const handleResendCode = async () => {
-    // Prevent multiple resend attempts
-    if (isVerifying) {
-      return;
-    }
-    
-    // Ask for confirmation before resending
-    const confirmed = window.confirm(
-      "Are you sure you want to resend the verification code?\n\n" +
-      "A new code will be sent to " + formData.email + " and any previous codes will become invalid.\n\n" +
-      "Do you want to continue?"
-    );
-    
-    if (!confirmed) {
-      return; // User cancelled
-    }
-    
-    try {
-      setIsVerifying(true);
-      setVerificationError("");
-      
-      const response = await axios.get(`${baseURL}/user/auth/email/${formData.email}`);
-      setEncryptedCode(response.data);
-      
-      alert("Verification code sent! Check your email.");
-    } catch (error) {
-      console.error("Error resending code:", error);
-      setVerificationError("Failed to resend code. Please try again.");
+      await sendCode();
+      setCode("");
+      setInfo("");
+      setStep(2);
+    } catch (err) {
+      console.error("Error sending verification email:", err);
+      setError("We couldn't send the verification email. Check the address and try again.");
     } finally {
-      setIsVerifying(false);
+      setBusy(false);
     }
   };
 
-  const handleProfilePicChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate the file
-      const validation = validateImageFile(file);
-      if (!validation.isValid) {
-        setProfilePicError(validation.error);
-        // Clear the file input
-        e.target.value = '';
-        return;
-      }
-      
-      // Clear any previous errors
-      setProfilePicError("");
-      
-      const picUrl = URL.createObjectURL(file);
-      setFormData({ ...formData, profilePic: picUrl });
-      setProfilePicFile(file);
+  const submitCode = (event) => {
+    event.preventDefault();
+    let expected = null;
+    try { expected = atob(encryptedCode); } catch { expected = null; }
+    if (expected && code.trim() === expected) {
+      setError("");
+      setInfo("");
+      setStep(3);
     } else {
-      // Clear error when no file is selected
-      setProfilePicError("");
+      setError("That code doesn't match. Check the email and try again.");
     }
   };
 
-  const handleBannerChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate the file
-      const validation = validateImageFile(file);
-      if (!validation.isValid) {
-        setBannerError(validation.error);
-        // Clear the file input
-        e.target.value = '';
-        return;
-      }
-      
-      // Clear any previous errors
-      setBannerError("");
-      
-      const bannerUrl = URL.createObjectURL(file);
-      setFormData({ ...formData, banner: bannerUrl });
-      setBannerFile(file);
-    } else {
-      // Clear error when no file is selected
-      setBannerError("");
+  const resend = async () => {
+    if (resendIn > 0 || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await sendCode();
+      setInfo(`New code sent to ${form.email}. Earlier codes no longer work.`);
+    } catch (err) {
+      console.error("Error resending code:", err);
+      setError("Couldn't resend the code. Try again in a moment.");
+    } finally {
+      setBusy(false);
     }
   };
 
-
-
-  const handleNext = async () => {
-    if (step === 1) {
-      // Early return if form is invalid (button should be disabled, but just in case)
-      if (!isStep1Valid()) {
-        return;
-      }
-      
-      // Validate required fields
-      if (!formData.email || !formData.password || !formData.confirmPassword) {
-        alert("Please fill in all required fields");
-        return;
-      }
-      
-      // Validate email availability
-      if (emailValidation.available === false) {
-        alert("Please choose a different email address");
-        return;
-      }
-      
-      // Wait for email validation to complete
-      if (emailValidation.isValidating) {
-        alert("Please wait while we check email availability");
-        return;
-      }
-      
-      // Validate password match
-      if (formData.password !== formData.confirmPassword) {
-        setPasswordError("Passwords do not match");
-        return;
-      }
-      
-      // Validate password strength (optional)
-      if (formData.password.length < 6) {
-        setPasswordError("Password must be at least 6 characters long");
-        return;
-      }
-      
-      // Send verification email and move to verification step
-      try {
-        const response = await axios.get(`${baseURL}/user/auth/email/${formData.email}`);
-        setEncryptedCode(response.data);
-        setStep(2); // Go to verification step
-      } catch (error) {
-        console.error("Error sending verification email:", error);
-        alert("Failed to send verification email. Please try again.");
-      }
-      return;
-    }
-    
-    if (step === 3) {
-      // Validate username
-      if (!formData.userName) {
-        alert("Please enter a username");
-        return;
-      }
-      
-      // Validate username availability
-      if (usernameValidation.available === false) {
-        alert("Please choose a different username");
-        return;
-      }
-      
-      // Wait for username validation to complete
-      if (usernameValidation.isValidating) {
-        alert("Please wait while we check username availability");
-        return;
-      }
-    }
-    
-    // For other steps, just move to next step
-    if (step !== 1) {
-      setStep(step + 1);
-    }
+  const submitUsername = (event) => {
+    event.preventDefault();
+    if (step3Ready) setStep(4);
   };
 
-  const handleBack = () => {
-    if (step === 6) {
-      setStep(5); // Go back to last form step
-    } else {
-      setStep(step - 1);
-    }
+  const pickImage = (setter) => (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const problem = checkImage(file);
+    if (problem) { setError(problem); return; }
+    setError("");
+    setter(file);
   };
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Prevent multiple submissions
-    if (isSubmitting) {
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    // Create user data without confirmPassword
-    const { confirmPassword, ...userData } = formData;
-    
-    const submitData = new FormData();
-    submitData.append("user", new Blob([JSON.stringify(userData)], { type: "application/json" }));
-    
-    if (profilePicFile) {
-      submitData.append("pp", profilePicFile);
-    }
-    if (bannerFile) {
-      submitData.append("banner", bannerFile);
-    }
-
-    axios.post(`${baseURL}/user/auth/create`, submitData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      timeout: 30000 // 30 second timeout for file uploads
-    })
-    .then(res => {
-      alert("Account created successfully! Redirecting to login...");
-      // Redirect to login page after successful account creation
-      navigate('/login');
-    })
-    .catch(err => {
+  const createAccount = async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    const userData = {
+      userName: form.userName.trim(),
+      password: form.password,
+      email: form.email.trim(),
+      role: "USER",
+      bio: form.bio.trim(),
+      about: form.about.trim(),
+      profilePic: "/dpp.jpg",
+      banner: "/pb.jpg",
+      location: form.location.trim(),
+      socialMedia: [],
+      badges: [],
+      demo: [],
+      featuredOn: [],
+      posts: [],
+    };
+    const data = new FormData();
+    data.append("user", new Blob([JSON.stringify(userData)], { type: "application/json" }));
+    if (profilePicFile) data.append("pp", profilePicFile);
+    if (bannerFile) data.append("banner", bannerFile);
+    try {
+      await axios.post(`${baseURL}/user/auth/create`, data, { headers: { "Content-Type": "multipart/form-data" }, timeout: 30000 });
+      navigate("/login", { state: { notice: "Your account is ready. Log in to get started." } });
+    } catch (err) {
       console.error("Signup error:", err);
-      if (err.response?.status === 409) {
-        alert("Email or username already exists. Please try different credentials.");
-      } else if (err.response?.data) {
-        alert(`Signup failed: ${err.response.data}`);
-      } else if (err.code === 'ECONNABORTED') {
-        alert("Request timed out. Please check your connection and try again.");
-      } else {
-        alert("Network error. Please check your connection and try again.");
-      }
-    })
-    .finally(() => {
-      setIsSubmitting(false);
-    });
+      if (err.response?.status === 409) setError("That email or username was just taken. Go back and pick another.");
+      else if (typeof err.response?.data === "string" && err.response.data.length < 200) setError(err.response.data);
+      else if (err.code === "ECONNABORTED") setError("That took too long. Check your connection and try again.");
+      else setError("Couldn't create your account. Try again.");
+      setBusy(false);
+    }
   };
 
-  // Step 1: Email and Password
+  const back = () => { setError(""); setInfo(""); setStep((s) => Math.max(1, s - 1)); };
+
+  const progress = (
+    <div className="fm-auth__steps">
+      <span className="fm-auth__steps-label">Step {step} of 4 · {STEP_NAMES[step - 1]}</span>
+      <div className="fm-auth__steps-bar" aria-hidden="true">
+        {STEP_NAMES.map((name, i) => <span key={name} className={i < step ? "is-done" : ""} />)}
+      </div>
+    </div>
+  );
+
+  const footer = <>Already have an account? <a href="/login">Log in</a></>;
+
   if (step === 1) {
     return (
-      <div className="signup-page">
-        <Header2 />
-        <div className="signup-container">
-          <div className="signup-form-card">
-            <div className="step-indicator">
-              <span className="step-number">1</span>
-              <span className="step-title">Account Details</span>
-            </div>
-            <h2>Create Your Account</h2>
-            <p>Let's start with your basic account information</p>
-            
-            <form className="signup-form">
-              <div className="form-group">
-                <label htmlFor="email">Email Address *</label>
-                <div className="input-with-validation">
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInput}
-                    placeholder="Enter your email"
-                    maxLength="100"
-                    required
-                    className={emailValidation.available === false ? 'error-input' : emailValidation.available === true ? 'success-input' : ''}
-                  />
-                  {emailValidation.isValidating && (
-                    <div className="validation-indicator">
-                      <span className="spinner">⏳</span> Checking...
-                    </div>
-                  )}
-                  {emailValidation.available === true && !emailValidation.isValidating && (
-                    <div className="validation-indicator success">
-                      <span>✅</span> Available
-                    </div>
-                  )}
-                  {emailValidation.available === false && !emailValidation.isValidating && (
-                    <div className="validation-indicator error">
-                      <span>❌</span> {emailValidation.error || 'Email is already taken'}
-                    </div>
-                  )}
-                </div>
-                <div className="char-counter">
-                  {formData.email.length}/100 characters
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="password">Password *</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInput}
-                  placeholder="Create a strong password"
-                  maxLength="50"
-                  className={passwordError ? "error-input" : ""}
-                  required
-                />
-                <div className={`char-counter password-counter ${passwordCounterClass}`}>
-                  {formData.password.length}/50 characters
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password *</label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInput}
-                  placeholder="Confirm your password"
-                  maxLength="50"
-                  className={passwordError ? "error-input" : ""}
-                  required
-                />
-                {passwordError && (
-                  <div className="error-message">{passwordError}</div>
-                )}
-              </div>
-
-              <button 
-                type="button" 
-                className={`next-btn ${!isStep1Valid() ? 'disabled' : ''}`}
-                onClick={handleNext}
-                disabled={!isStep1Valid()}
-              >
-                Next: Choose Username
-              </button>
-            </form>
+      <AuthLayout title="Create your account" subtitle="Join the artists sharing and featuring on each other's music." footer={footer}>
+        {progress}
+        {error && <AuthAlert>{error}</AuthAlert>}
+        <form className="fm-auth__form" onSubmit={submitAccount} noValidate>
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-signup-email">Email</label>
+            <input
+              id="fm-signup-email"
+              type="email"
+              className={`fm-input${emailCheck.available === false ? " has-error" : ""}`}
+              value={form.email}
+              onChange={update("email")}
+              autoComplete="email"
+              maxLength={100}
+              autoFocus
+              required
+            />
+            <Availability state={emailCheck} okText="Looks good" />
           </div>
-        </div>
-      </div>
+
+          <PasswordField
+            id="fm-signup-password"
+            label="Password"
+            value={form.password}
+            onChange={update("password")}
+            show={showPassword}
+            onToggle={() => setShowPassword((s) => !s)}
+            autoComplete="new-password"
+            invalid={passwordShort}
+            describedBy="fm-signup-password-hint"
+          />
+          <p id="fm-signup-password-hint" className={`fm-auth__check${passwordShort ? " is-bad" : form.password.length >= PASSWORD_MIN ? " is-ok" : ""}`}>
+            {form.password.length >= PASSWORD_MIN && <Icon name="check" size={14} strokeWidth={2.4} />}
+            At least {PASSWORD_MIN} characters
+          </p>
+
+          <PasswordField
+            id="fm-signup-confirm"
+            label="Confirm password"
+            value={form.confirmPassword}
+            onChange={update("confirmPassword")}
+            show={showPassword}
+            onToggle={() => setShowPassword((s) => !s)}
+            autoComplete="new-password"
+            invalid={passwordMismatch}
+            describedBy={passwordMismatch ? "fm-signup-confirm-error" : undefined}
+          />
+          {passwordMismatch && <p id="fm-signup-confirm-error" className="fm-auth__check is-bad">Passwords don&apos;t match</p>}
+
+          <button type="submit" className="fm-btn fm-btn--primary fm-auth__submit" disabled={!step1Ready || busy}>
+            {busy ? "Sending code…" : "Continue"}
+          </button>
+        </form>
+      </AuthLayout>
     );
   }
 
-  // Step 2: Email Verification
   if (step === 2) {
     return (
-      <div className="signup-page">
-        <Header2 />
-        <div className="signup-container">
-          <div className="signup-form-card">
-            <div className="step-indicator">
-              <span className="step-number">2</span>
-              <span className="step-title">Verify Email</span>
-            </div>
-            <h2>Check Your Email</h2>
-            <p>We've sent a verification code to <strong>{formData.email}</strong></p>
-            
-            <div className="verification-info">
-              <div className="info-icon">📧</div>
-              <div className="info-text">
-                <strong>Didn't receive the email?</strong> Check your spam folder or click "Resend Code" below.
-              </div>
-            </div>
-            
-            <form className="signup-form">
-              <div className="form-group">
-                <label htmlFor="verificationCode">Verification Code *</label>
-                <input
-                  type="text"
-                  id="verificationCode"
-                  name="verificationCode"
-                  value={verificationCode}
-                  onChange={handleVerificationCodeChange}
-                  placeholder="Enter the 8-digit code"
-                  maxLength="8"
-                  className={verificationError ? "error-input" : ""}
-                  required
-                />
-                {verificationError && (
-                  <div className="error-message">{verificationError}</div>
-                )}
-              </div>
-
-              <div className="verification-actions">
-                <button 
-                  type="button" 
-                  className="resend-btn" 
-                  onClick={handleResendCode}
-                  disabled={isVerifying}
-                >
-                  {isVerifying ? "Sending..." : "Resend Code"}
-                </button>
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="back-btn" onClick={handleBack}>
-                  Back
-                </button>
-                <button 
-                  type="button" 
-                  className="next-btn" 
-                  onClick={handleVerifyCode}
-                  disabled={isVerifying || !verificationCode.trim()}
-                >
-                  {isVerifying ? "Verifying..." : "Verify & Continue"}
-                </button>
-              </div>
-            </form>
+      <AuthLayout title="Check your email" subtitle={<>We sent an 8-character code to <strong>{form.email}</strong>.</>} footer={footer}>
+        {progress}
+        {error && <AuthAlert>{error}</AuthAlert>}
+        {info && !error && <AuthAlert tone="success">{info}</AuthAlert>}
+        <form className="fm-auth__form" onSubmit={submitCode}>
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-signup-code">Verification code</label>
+            <input
+              id="fm-signup-code"
+              className={`fm-input fm-auth__code${error ? " has-error" : ""}`}
+              value={code}
+              onChange={(e) => { setCode(e.target.value.trim()); setError(""); }}
+              maxLength={8}
+              autoComplete="one-time-code"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
+              required
+            />
+            <span className="fm-field__hint">Can&apos;t find it? Check your spam folder.</span>
           </div>
-        </div>
-      </div>
+          <div className="fm-auth__row">
+            <button type="button" className="fm-auth__link" onClick={back}>Change email</button>
+            <button type="button" className="fm-auth__link" onClick={resend} disabled={resendIn > 0 || busy}>
+              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+            </button>
+          </div>
+          <button type="submit" className="fm-btn fm-btn--primary fm-auth__submit" disabled={!code.trim()}>Verify</button>
+        </form>
+      </AuthLayout>
     );
   }
 
-  // Step 3: Username
   if (step === 3) {
     return (
-      <div className="signup-page">
-        <Header2 />
-        <div className="signup-container">
-          <div className="signup-form-card">
-            <div className="step-indicator">
-              <span className="step-number">3</span>
-              <span className="step-title">Choose Username</span>
-            </div>
-            <h2>Pick Your Username</h2>
-            <p>This is how others will see you on the platform</p>
-            
-            <div className="username-warning">
-              <div className="warning-icon">⚠️</div>
-              <div className="warning-text">
-                <strong>Important:</strong> Your username cannot be changed after account creation until further notice. Choose carefully!
-              </div>
-            </div>
-            
-            <form className="signup-form">
-              <div className="form-group">
-                <label htmlFor="userName">Username *</label>
-                <div className="input-with-validation">
-                  <input
-                    type="text"
-                    id="userName"
-                    name="userName"
-                    value={formData.userName}
-                    onChange={handleInput}
-                    placeholder="Enter your username"
-                    maxLength="30"
-                    required
-                    className={usernameValidation.available === false ? 'error-input' : usernameValidation.available === true ? 'success-input' : ''}
-                  />
-                  {usernameValidation.isValidating && (
-                    <div className="validation-indicator">
-                      <span className="spinner">⏳</span> Checking...
-                    </div>
-                  )}
-                  {usernameValidation.available === true && !usernameValidation.isValidating && (
-                    <div className="validation-indicator success">
-                      <span>✅</span> Available
-                    </div>
-                  )}
-                  {usernameValidation.available === false && !usernameValidation.isValidating && (
-                    <div className="validation-indicator error">
-                      <span>❌</span> {usernameValidation.error || 'Username is already taken'}
-                    </div>
-                  )}
-                </div>
-                <div className="char-counter">
-                  {formData.userName.length}/30 characters
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="back-btn" onClick={handleBack}>
-                  Back
-                </button>
-                <button type="button" className="next-btn" onClick={handleNext}>
-                  Next: Tell Us About You
-                </button>
-              </div>
-            </form>
+      <AuthLayout title="Pick a username" subtitle="It's how other artists will find and tag you." footer={footer}>
+        {progress}
+        <form className="fm-auth__form" onSubmit={submitUsername}>
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-signup-username">Username</label>
+            <input
+              id="fm-signup-username"
+              className={`fm-input${nameCheck.available === false ? " has-error" : ""}`}
+              value={form.userName}
+              onChange={update("userName")}
+              maxLength={30}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
+              required
+            />
+            <span className="fm-auth__field-foot">
+              <Availability state={nameCheck} okText="Available" />
+              <span className="fm-field__hint">{form.userName.length}/30</span>
+            </span>
           </div>
-        </div>
-      </div>
+          <p className="fm-auth__note">
+            <Icon name="info" size={18} />
+            <span>You can&apos;t change your username later, so pick one you&apos;ll want to keep.</span>
+          </p>
+          <div className="fm-auth__actions">
+            <button type="button" className="fm-btn fm-btn--secondary" onClick={back}>Back</button>
+            <button type="submit" className="fm-btn fm-btn--primary" disabled={!step3Ready}>Continue</button>
+          </div>
+        </form>
+      </AuthLayout>
     );
   }
 
-  // Step 4: Bio and About
-  if (step === 4) {
-    return (
-      <div className="signup-page">
-        <Header2 />
-        <div className="signup-container">
-          <div className="signup-form-card">
-            <div className="step-indicator">
-              <span className="step-number">4</span>
-              <span className="step-title">About You</span>
-            </div>
-            <h2>Tell Us About Yourself</h2>
-            <p>Help others get to know you better (optional)</p>
-            
-            <form className="signup-form">
-              <div className="form-group">
-                <label htmlFor="bio">Bio</label>
-                <input
-                  type="text"
-                  id="bio"
-                  name="bio"
-                  value={formData.bio}
-                  onChange={handleInput}
-                  placeholder="Short description about yourself..."
-                  maxLength="50"
-                />
-                <div className="char-counter">
-                  {formData.bio.length}/50 characters
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="location">Location</label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInput}
-                  placeholder="City, State?"
-                  maxLength="20"
-                />
-                <div className="char-counter">
-                  {formData.location.length}/50 characters
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="about">About</label>
-                <textarea
-                  id="about"
-                  name="about"
-                  value={formData.about}
-                  onChange={handleInput}
-                  placeholder="Tell me about yourself..."
-                  rows="4"
-                  maxLength="250"
-                />
-                <div className="char-counter">
-                  {formData.about.length}/250 characters
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="back-btn" onClick={handleBack}>
-                  Back
-                </button>
-                <button type="button" className="next-btn" onClick={handleNext}>
-                  Next: Profile Pictures
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 5: Profile Pictures
-  if (step === 5) {
-    return (
-      <div className="signup-page">
-        <Header2 />
-        <div className="signup-container">
-          <div className="signup-form-card">
-            <div className="step-indicator">
-              <span className="step-number">5</span>
-              <span className="step-title">Profile Pictures</span>
-            </div>
-            <h2>Add Your Photos</h2>
-            <p>Make your profile stand out (optional)</p>
-            
-            <form className="signup-form">
-              <div className="form-group">
-                <label htmlFor="profilePic">Profile Picture</label>
-                <input
-                  type="file"
-                  id="profilePic"
-                  accept="image/jpeg,image/jpg,image/png"
-                  onChange={handleProfilePicChange}
-                  className={profilePicError ? "error-input" : ""}
-                />
-                {profilePicError && (
-                  <div className="error-message">{profilePicError}</div>
-                )}
-                <div className="file-info">
-                  <small>Accepted formats: JPEG, JPG, PNG (max 5MB)</small>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="banner">Banner Image</label>
-                <input
-                  type="file"
-                  id="banner"
-                  accept="image/jpeg,image/jpg,image/png"
-                  onChange={handleBannerChange}
-                  className={bannerError ? "error-input" : ""}
-                />
-                {bannerError && (
-                  <div className="error-message">{bannerError}</div>
-                )}
-                <div className="file-info">
-                  <small>Accepted formats: JPEG, JPG, PNG (max 5MB)</small>
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="back-btn" onClick={handleBack}>
-                  Back
-                </button>
-                <button type="button" className="next-btn" onClick={handleNext}>
-                  Preview Profile
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 6: Profile Preview
   return (
-    <div className="signup-page">
-      <Header2 />
-      <div className="signup-container">
-        <div className="signup-form-card preview-card">
-          <div className="step-indicator">
-            <span className="step-number">6</span>
-            <span className="step-title">Preview Profile</span>
-          </div>
-          <h2>Your Profile Preview</h2>
-          <p>Here's how your profile will look to others</p>
-          
-          <div className="profile-preview">
-            <div className="preview-banner">
-              <img src={formData.banner} alt="Profile Banner" />
-            </div>
-            
-            <div className="preview-avatar">
-              <img src={formData.profilePic} alt="Profile Picture" />
-            </div>
-            
-            <div className="preview-info">
-              <h3 className="preview-username">{formData.userName}</h3>
-              {formData.bio && (
-                <p className="preview-bio">{formData.bio}</p>
-              )}
-              {formData.location && (
-                <p className="preview-location">📍 {formData.location}</p>
-              )}
-              
-              {formData.about && (
-                <div className="preview-about">
-                  <h4>About</h4>
-                  <p>{formData.about}</p>
-                </div>
-              )}
-              
-              <div className="preview-stats">
-                <div className="preview-stat">
-                  <span className="stat-number">0</span>
-                  <span className="stat-label">Posts</span>
-                </div>
-                <div className="preview-stat">
-                  <span className="stat-number">0</span>
-                  <span className="stat-label">Followers</span>
-                </div>
-                <div className="preview-stat">
-                  <span className="stat-number">0</span>
-                  <span className="stat-label">Following</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="signup-actions">
-            <button className="back-btn" onClick={handleBack}>
-              Back to Form
-            </button>
-            <button 
-              className="create-account-btn" 
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Creating Account..." : "Create Account"}
-            </button>
-          </div>
+    <AuthLayout title="Set up your profile" subtitle="All optional. You can change these any time." footer={footer} wide>
+      {progress}
+      <div className="fm-auth__profile-preview" aria-label="Profile preview">
+        <div
+          className="fm-auth__preview-banner"
+          style={bannerUrl ? { backgroundImage: `url("${bannerUrl}")` } : bannerStyle({ userName: form.userName })}
+        />
+        <div className="fm-auth__preview-body">
+          <img src={picUrl || "/dpp.jpg"} alt="" />
+          <span className="fm-auth__preview-text">
+            <span className="fm-auth__preview-name">{form.userName}</span>
+            <span className="fm-auth__preview-meta">{[form.bio.trim(), form.location.trim()].filter(Boolean).join(" · ") || "Your bio and location show here"}</span>
+          </span>
         </div>
       </div>
-      <Footer />
-    </div>
+
+      {error && <AuthAlert>{error}</AuthAlert>}
+
+      <form className="fm-auth__form" onSubmit={createAccount}>
+        <div className="fm-auth__uploads">
+          <input ref={picInputRef} type="file" accept="image/jpeg,image/png" hidden onChange={pickImage(setProfilePicFile)} />
+          <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png" hidden onChange={pickImage(setBannerFile)} />
+          <button type="button" className="fm-btn fm-btn--secondary" onClick={() => picInputRef.current?.click()}>
+            <Icon name="camera" size={18} />
+            {profilePicFile ? "Change photo" : "Add a photo"}
+          </button>
+          <button type="button" className="fm-btn fm-btn--secondary" onClick={() => bannerInputRef.current?.click()}>
+            <Icon name="camera" size={18} />
+            {bannerFile ? "Change banner" : "Add a banner"}
+          </button>
+        </div>
+        <span className="fm-field__hint">JPG or PNG, up to 5 MB each.</span>
+
+        <div className="fm-auth__two">
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-signup-bio">Bio</label>
+            <input id="fm-signup-bio" className="fm-input" value={form.bio} onChange={update("bio")} maxLength={50} placeholder="Producer, singer, …" />
+          </div>
+          <div className="fm-field">
+            <label className="fm-field__label" htmlFor="fm-signup-location">Location</label>
+            <input id="fm-signup-location" className="fm-input" value={form.location} onChange={update("location")} maxLength={20} placeholder="City" />
+          </div>
+        </div>
+
+        <div className="fm-field">
+          <label className="fm-field__label" htmlFor="fm-signup-about">About</label>
+          <textarea id="fm-signup-about" className="fm-input" rows={3} value={form.about} onChange={update("about")} maxLength={250} placeholder="What kind of music do you make? Who do you want to work with?" />
+          <span className="fm-auth__field-foot"><span /><span className="fm-field__hint">{form.about.length}/250</span></span>
+        </div>
+
+        <div className="fm-auth__actions">
+          <button type="button" className="fm-btn fm-btn--secondary" onClick={back} disabled={busy}>Back</button>
+          <button type="submit" className="fm-btn fm-btn--primary" disabled={busy}>
+            {busy ? "Creating account…" : "Create account"}
+          </button>
+        </div>
+      </form>
+    </AuthLayout>
   );
 }
 
