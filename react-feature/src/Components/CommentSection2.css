@@ -296,3 +296,15 @@
     animation-duration: 2.4s;
   }
 }
+
+.cs2-login-prompt {
+  margin: 0;
+  padding: var(--fm-space-3) 0 0;
+  color: var(--fm-muted);
+  font-size: var(--fm-text-md);
+}
+
+.cs2-login-prompt a {
+  color: var(--fm-accent-text);
+  font-weight: 600;
+}

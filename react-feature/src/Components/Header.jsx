@@ -25,6 +25,7 @@ function Header() {
   const [openMenu, setOpenMenu] = useState(null);
   const [noti, setNoti] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [userChecked, setUserChecked] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const headerRef = useRef(null);
 
@@ -55,6 +56,7 @@ function Header() {
     const fetchUser = async () => {
       const user = await getCurrentUserSafe();
       setCurrentUser(user);
+      setUserChecked(true);
     };
     fetchUser();
   }, []);
@@ -97,6 +99,23 @@ function Header() {
   const notiCount = Array.isArray(noti) ? noti.length : 0;
   const userName = currentUser?.userName || "";
   const avatar = currentUser?.profilePic || "/dpp.jpg";
+
+  // Logged-out visitors (public pages like a shared post) get a minimal bar
+  if (userChecked && !currentUser) {
+    return (
+      <header className="fm-header" ref={headerRef}>
+        <div className="fm-header__bar">
+          <a href="/" className="fm-header__logo">
+            <img src="/SVGs/Logo Lockup Gradient.svg" alt="FeatureMe" />
+          </a>
+          <div className="fm-header__actions fm-header__guest">
+            <a href="/login" className="fm-btn fm-btn--secondary">Log in</a>
+            <a href="/signup" className="fm-btn fm-btn--primary">Sign up</a>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="fm-header" ref={headerRef}>

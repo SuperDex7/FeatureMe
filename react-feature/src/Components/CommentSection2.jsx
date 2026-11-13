@@ -424,6 +424,11 @@ function CommentSection2({
       </div>
       
       <div className="cs2-section-footer">
+        {!currentUser ? (
+          <p className="cs2-login-prompt">
+            <a href="/login">Log in</a> or <a href="/signup">sign up</a> to comment.
+          </p>
+        ) : (
         <form className="cs2-add-comment-form" onSubmit={handleComment}>
           <div className="cs2-input-container">
             <div className="cs2-input-wrapper">
@@ -462,6 +467,7 @@ function CommentSection2({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
